@@ -1,0 +1,31 @@
+
+-- create or replace view catalog.flows as
+-- with b as (
+-- select p.value from table(flatten(input => internal.ef_run(object_construct(), object_construct('SundeckRoleInContext', 'SUNDECK_ADMIN', 'SQLText', 'SHOW SUNDECK FLOWS')):payload)) p
+-- )
+--
+-- select
+--     hex_decode_string(b.VALUE:FLOW_NAME) as FLOW_NAME,
+--     hex_decode_string(b.VALUE:FLOW_DEFAULT_WAREHOUSE) as DEFAULT_WAREHOUSE,
+--     to_timestamp(hex_decode_string(b.VALUE:FLOW_LAST_MODIFIED_AT), 'YYYY-MM-DD HH24:MI:SS.FF6 +0000 UTC') as FLOW_LAST_MODIFIED_AT,
+--     hex_decode_string(b.VALUE:FLOW_LAST_MODIFIED_BY) as FLOW_LAST_MODIFIED_BY,
+--     hex_decode_string(b.VALUE:FLOW_DDL) as DDL,
+--     hex_decode_string(b.VALUE:FLOW_IS_DEFAULT)::boolean as FLOW_IS_DEFAULT,
+--     hex_decode_string(b.VALUE:FLOW_RESULTS_PATH) as FLOW_RESULTS_PATH
+-- from b;
+--
+-- create or replace view catalog.parameters as
+-- with b as (
+-- select p.value from table(flatten(input => internal.ef_run(object_construct(), object_construct('SundeckRoleInContext', 'SUNDECK_ADMIN', 'SQLText', 'SHOW SUNDECK PARAMETERS')):payload)) p
+-- )
+--
+-- select
+--     hex_decode_string(b.VALUE:key) as KEY,
+--     hex_decode_string(b.VALUE:value) as VALUE,
+--     hex_decode_string(b.VALUE:default) as DEFAULT,
+--     hex_decode_string(b.VALUE:level) as LEVEL,
+--     hex_decode_string(b.VALUE:description) as DESCRIPTION
+-- from b
+-- ;
+
+SELECT 1;

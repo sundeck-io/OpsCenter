@@ -1,0 +1,8 @@
+name: sf_env
+channels:
+- snowflake
+dependencies:
+- cachetools
+- plotly
+- altair
+- snowflake-native-apps-permission

@@ -1,0 +1,26 @@
+manifest_version: 1
+
+artifacts:
+  setup_script: setup.sql
+  extension_code: true
+  default_streamlit: admin.opscenter
+
+privileges:
+  - IMPORTED PRIVILEGES ON SNOWFLAKE DB:
+      description: "For accessing Snowflake consumption for reporting."
+  - EXECUTE MANAGED TASK:
+      description: "For running probes and materializing consumption tasks."
+  - EXECUTE TASK:
+      description: "For enabling/disabling probes and materializing consumption tasks."
+  - MANAGE WAREHOUSES:
+      description: "For monitoring usage and queries. For cancelling queries based on probe policies."
+
+references:
+  - opscenter_api_integration:
+      label: "API Integration"
+      description: "Enable email and slack notifications for OpsCenter."
+      privileges:
+        - USAGE
+      object_type: API Integration
+      multi_valued: false
+      register_callback: admin.update_reference

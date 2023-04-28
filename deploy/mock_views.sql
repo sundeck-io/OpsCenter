@@ -1,0 +1,9 @@
+select LISTAGG(' null::' || DATA_TYPE || ' as "' || COLUMN_NAME || '" ', ', \n') WITHIN GROUP (ORDER BY ORDINAL_POSITION) from snowflake.information_schema.columns where table_schema in ('ACCOUNT_USAGE') AND table_name in ('WAREHOUSE_LOAD_HISTORY');
+select LISTAGG(' null::' || DATA_TYPE || ' as "' || COLUMN_NAME || '" ', ', \n') WITHIN GROUP (ORDER BY ORDINAL_POSITION) from snowflake.information_schema.columns where table_schema in ('ACCOUNT_USAGE') AND table_name in ('WAREHOUSE_EVENTS_HISTORY');
+select LISTAGG(' null::' || DATA_TYPE || ' as "' || COLUMN_NAME || '" ', ', \n') WITHIN GROUP (ORDER BY ORDINAL_POSITION) from snowflake.information_schema.columns where table_schema in ('ACCOUNT_USAGE') AND table_catalog = 'SNOWFLAKE' AND table_name in ('QUERY_HISTORY');
+select LISTAGG(' null::' || DATA_TYPE || ' as "' || COLUMN_NAME || '" ', ', \n') WITHIN GROUP (ORDER BY ORDINAL_POSITION) from snowflake.information_schema.columns where table_schema in ('ACCOUNT_USAGE') AND table_name in ('WAREHOUSE_METERING_HISTORY');
+select LISTAGG(' null::' || DATA_TYPE || ' as "' || COLUMN_NAME || '" ', ', \n') WITHIN GROUP (ORDER BY ORDINAL_POSITION) from snowflake.information_schema.columns where table_schema in ('ACCOUNT_USAGE') AND table_name in ('SERVERLESS_TASK_HISTORY');
+select LISTAGG(' null::' || DATA_TYPE || ' as "' || COLUMN_NAME || '" ', ', \n') WITHIN GROUP (ORDER BY ORDINAL_POSITION) from snowflake.information_schema.columns where table_schema in ('ACCOUNT_USAGE') AND table_name in ('USERS');
+
+create or replace table qhlive as select * from table(information_schema.query_history(current_timestamp())) limit 0;
+select LISTAGG(' null::' || DATA_TYPE || ' as "' || COLUMN_NAME || '" ', ', \n') WITHIN GROUP (ORDER BY ORDINAL_POSITION) from information_schema.columns where table_name in ('QHLIVE');
