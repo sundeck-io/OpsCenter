@@ -114,7 +114,6 @@ where
                     y=dfc["RunId"],
                     name="Run Count",
                     yaxis="y2",
-                    offsetgroup=2,
                     marker_color="#856CF3",
                 ),
             ],
