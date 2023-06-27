@@ -150,10 +150,12 @@ END;
 
 
 def sndk_url(account: str, user: str, region: str) -> str:
+    if not user:
+        user = ""
     d = {
-        "account": account,
-        "user": user,
-        "region": region,
+        "sf_account": account,
+        "sf_username": user,
+        "sf_region": region,
     }
     state = base64.urlsafe_b64encode(json.dumps(d).encode()).decode().replace("=", "")
     params = {
