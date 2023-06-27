@@ -150,6 +150,8 @@ END;
 
 
 def sndk_url(account: str, user: str, region: str) -> str:
+    if not user:
+        user = ""
     d = {
         "sf_account": account,
         "sf_username": user,
