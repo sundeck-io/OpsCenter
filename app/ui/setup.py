@@ -59,7 +59,11 @@ def setup_block():
         ).values[0]
     )
 
-    region = region_map[sf_region]
+    # depending on the type of account the region may be prefixed with "public"
+    # see https://docs.snowflake.com/en/sql-reference/functions/current_region
+    sf_region_without_public = sf_region.split(".")[-1]
+
+    region = region_map[sf_region_without_public]
 
     def expander(num: int, title: str, finished: bool) -> st.expander:
         c = "[Pending]"
