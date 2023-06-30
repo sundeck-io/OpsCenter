@@ -6,6 +6,7 @@ import sys
 
 
 def _setup_database(cur, database: str, schema: str, stage: str):
+    print(f"Setting up database '{database}' for local development.")
     cur.execute(
         f"""
     BEGIN
@@ -20,12 +21,25 @@ def _setup_database(cur, database: str, schema: str, stage: str):
     )
 
 
-def _copy_files(cur, stage: str):
+def _copy_dependencies(cur, schema: str, stage: str):
+    print(f"Copying dependencies to @{schema}.{stage}.")
     for file in ["sqlglot.zip"]:
         local_file_path = f"app/python/{file}"
-        stage_file_path = f"@public.{stage}/python"
+        stage_file_path = f"@{schema}.{stage}/python"
         put_cmd = f"PUT 'file://{local_file_path}' '{stage_file_path}' overwrite=true auto_compress=false"
         cur.execute(put_cmd)
+
+
+def _copy_opscenter_files(cur, schema: str, stage: str):
+    print(f"Copying OpsCenter files to @{schema}.{stage}.")
+    scripts = helpers.generate_body(False, stage_name=f"@{schema}.{stage}")
+    scripts += helpers.generate_qtag()
+    body = helpers.generate_setup_script(scripts)
+    regex = re.compile("APPLICATION\\s+ROLE", re.IGNORECASE)
+    body = regex.sub("DATABASE ROLE", body)
+    regex = re.compile("OR\\s+ALTER\\s+VERSIONED\\s+SCHEMA", re.IGNORECASE)
+    body = regex.sub("SCHEMA IF NOT EXISTS", body)
+    cur.execute(body)
 
 
 def devdeploy(profile: str, database: str, schema: str, stage: str):
@@ -41,22 +55,18 @@ def devdeploy(profile: str, database: str, schema: str, stage: str):
     _setup_database(cur, database, schema, stage)
 
     # Copy dependencies into the stage
-    _copy_files(cur, stage)
+    _copy_dependencies(cur, schema, stage)
 
     # Deploy the OpsCenter code into the stage.
-    scripts = helpers.generate_body(False, stage_name=f"@public.{stage}")
-    scripts += helpers.generate_qtag()
-    body = helpers.generate_setup_script(scripts)
-    regex = re.compile("APPLICATION\\s+ROLE", re.IGNORECASE)
-    body = regex.sub("DATABASE ROLE", body)
-    regex = re.compile("OR\\s+ALTER\\s+VERSIONED\\s+SCHEMA", re.IGNORECASE)
-    body = regex.sub("SCHEMA IF NOT EXISTS", body)
-    cur.execute(body)
+    _copy_opscenter_files(cur, schema, stage)
+
     conn.close()
 
 
 def usage():
-    print('devdeploy.py -p <snowsql_profile_name>')
+    print(
+        "devdeploy.py -p <snowsql_profile_name> [(-d | --database=) <database_name>] [(-s | --stage=) <stage_name>]"
+    )
 
 
 def main(argv):
@@ -66,15 +76,17 @@ def main(argv):
     user = os.getenv("USER", None)
     profile = "local_opscenter"
     db = f"{user.upper()}_OC_DB" if user else None
-    schema = 'CODE'
-    stage = f"OC_STAGE" if user else None
-    opts, args = getopt.getopt(argv, "hp:s:", ["profile=", "stage="])
+    schema = "PUBLIC"
+    stage = "OC_STAGE"
+    opts, args = getopt.getopt(argv, "hp:d:s:", ["profile=", "database=", "stage="])
     for opt, arg in opts:
-        if opt == '-h':
+        if opt == "-h":
             usage()
             sys.exit()
         elif opt in ("-p", "--profile"):
             profile = arg
+        elif opt in ("-d", "--database"):
+            db = arg
         elif opt in ("-s", "--stage"):
             stage = arg
 
@@ -85,5 +97,5 @@ def main(argv):
     devdeploy(profile, db, schema, stage)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(sys.argv[1:])

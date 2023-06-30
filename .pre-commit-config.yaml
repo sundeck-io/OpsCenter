@@ -8,7 +8,9 @@ repos:
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
+        exclude: LICENSE.*
       - id: trailing-whitespace
+        exclude: LICENSE.*
       - id: check-added-large-files
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
