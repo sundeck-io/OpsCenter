@@ -28,7 +28,7 @@ jobs:
           python-version: '3.8'
           cache: 'pip'
       - name: install dependencies
-        run: "pip install plotly streamlit snowflake-snowpark-python[pandas]"
+        run: "pip install -r requirements.txt"
       - name: set config
         env:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
