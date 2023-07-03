@@ -67,15 +67,9 @@ class Connection:
                     accountname = Connection.remove_quotes(
                         config.get(section, "accountname")
                     )
-                    username = Connection.remove_quotes(
-                        config.get(section, "username")
-                    )
-                    password = Connection.remove_quotes(
-                        config.get(section, "password")
-                    )
-                    database = Connection.remove_quotes(
-                        config.get(section, "dbname")
-                    )
+                    username = Connection.remove_quotes(config.get(section, "username"))
+                    password = Connection.remove_quotes(config.get(section, "password"))
+                    database = Connection.remove_quotes(config.get(section, "dbname"))
                     # Matches the default in deploy/devdeploy.py
                     schema = Connection.remove_quotes(
                         config.get(section, "schemaname", fallback="PUBLIC")
