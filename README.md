@@ -26,10 +26,9 @@ To set up OpsCenter for local development the first time, run the following comm
 poetry install
 ```
 
-Every time you begin development on OpsCenter, run the command to activate the virtual environment:
-```
-poetry env use python3.8
-```
+This command will create a Poetry environment which is used by Poetry for all future calls. Please refer
+to the [Poetry documentation on environments](https://python-poetry.org/docs/managing-environments/)
+for managing multiple environments.
 
 ### Local Development as App
 To start using, add the following items to your ~/.snowsql/config file:

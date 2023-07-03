@@ -28,7 +28,9 @@ jobs:
           python-version: '3.8'
           cache: 'pip'
       - name: install dependencies
-        run: "pip install -r requirements.txt"
+        run: |
+          pip install poetry
+          poetry install
       - name: set config
         env:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
@@ -48,4 +50,4 @@ jobs:
           OPSCENTER_DATABASE: ${{env.OPSCENTER_DATABASE}}
           OPSCENTER_APP: ${{env.OPSCENTER_APP}}
           OPSCENTER_DROP_DATABASE: true
-        run: "python deploy/deploy.py"
+        run: "poetry run python deploy/deploy.py"
