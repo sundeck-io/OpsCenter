@@ -56,6 +56,8 @@ class Connection:
 
                     # Define the path to the SnowSQL config file
                     config_path = os.path.expanduser("~/.snowsql/config")
+                    profile_name = os.getenv("OPSCENTER_PROFILE", "opscenter")
+                    section = f"connections.{profile_name}"
 
                     # Create a ConfigParser object and read the config file
                     config = ConfigParser()
@@ -63,19 +65,20 @@ class Connection:
 
                     # Get the accountname, username, and password properties from the [connections] section
                     accountname = Connection.remove_quotes(
-                        config.get("connections.opscenter", "accountname")
+                        config.get(section, "accountname")
                     )
                     username = Connection.remove_quotes(
-                        config.get("connections.opscenter", "username")
+                        config.get(section, "username")
                     )
                     password = Connection.remove_quotes(
-                        config.get("connections.opscenter", "password")
+                        config.get(section, "password")
                     )
                     database = Connection.remove_quotes(
-                        config.get("connections.opscenter", "dbname")
+                        config.get(section, "dbname")
                     )
+                    # Matches the default in deploy/devdeploy.py
                     schema = Connection.remove_quotes(
-                        config.get("connections.opscenter", "schemaname")
+                        config.get(section, "schemaname", fallback="PUBLIC")
                     )
 
                     connection_parameters = {

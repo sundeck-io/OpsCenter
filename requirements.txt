@@ -1,4 +1,0 @@
-# It appears that this is the version of Plotly that Snowflake provides when with their version of Streamlit
-plotly==5.11.0
-streamlit
-snowflake-snowpark-python[pandas]
