@@ -2,7 +2,7 @@
 
 ## What is BSL and an additional use grant?
 
-BSL is a license that gives you access to source code, and gives you the right to make non-production use of software. Our BSL has an additional use grant, which allows you to make production use for internal business purposes, but not to distribute the software or offer it as a service. 
+BSL is a license that gives you access to source code, and gives you the right to make non-production use of software. Our BSL has an additional use grant, which allows you to make production use for internal business purposes, but not to distribute the software or offer it as a service.
 
 ## What does the additional use grant allow?
 
@@ -30,4 +30,3 @@ Contact support@sundeck.io and we’ll gladly discuss your scenario with you.
 
 ## I’d like to modify this application and sell it. The modifications will make it substantially different from what you’ve created. What could be done?
 Contact support@sundeck.io and we can work together to find a path forward.
-
