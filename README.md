@@ -15,6 +15,21 @@ This repo includes the following components:
 * /bootstrap: A set of scripts that are concatenated and uploaded as a single "setup" script for the native app. These scripts are executed in alphabetic order and must all start with an empty new line (to aid future debugging)
 * /ui: A set of files that are uploaded to the web server and served as the UI for the native app
 
+## Project Setup
+
+This project uses [Poetry](https://python-poetry.org/). Please refer to [Poetry's documentation](https://python-poetry.org/docs/#installation)
+on how to install this tool.
+
+To set up OpsCenter for local development the first time, run the following command to create a virtual environment and install dependencies:
+
+```
+poetry install
+```
+
+This command will create a Poetry environment which is used by Poetry for all future calls. Please refer
+to the [Poetry documentation on environments](https://python-poetry.org/docs/managing-environments/)
+for managing multiple environments.
+
 ### Local Development as App
 To start using, add the following items to your ~/.snowsql/config file:
 
@@ -36,12 +51,24 @@ python deploy/deploy.py -p myprofile
 If you want iterate on the UI/objects quickly, run the following command. This will setup a development database with most objects and then let you run Streamlit
 from your desktop or laptop. Most funtionality works in this mode.
 
+Like above, add the following items to your ~/.snowsql/config file
+
+```
+[connections.local_dev]
+accountname=...
+username="..."
+password="..."
+warehousename ="..."
+dbname = "..."
+```
+
+Then run the following commands:
 ```
 # Create dev database
-python deploy/devdeploy.py
+poetry run python deploy/devdeploy.py -p local_dev
 
 # Run streamlit locally
-streamlit run app/ui/Home.py
+OPSCENTER_PROFILE=local_dev poetry run streamlit run app/ui/Home.py
 ```
 
 ### Versioned App Development
