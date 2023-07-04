@@ -1,6 +1,5 @@
 import getopt
 import helpers
-import os
 import re
 import sys
 
@@ -42,7 +41,7 @@ def _copy_opscenter_files(cur, schema: str, stage: str):
     cur.execute(body)
 
 
-def devdeploy(profile: str, database: str, schema: str, stage: str):
+def devdeploy(profile: str, schema: str, stage: str):
     """
     Create the app package to enable local development
     :param profile: the Snowsql configuration profile to use.
@@ -52,7 +51,7 @@ def devdeploy(profile: str, database: str, schema: str, stage: str):
     cur.execute("SET DEPLOYENV='DEV';")
 
     # Create the database (and stage) if not already present
-    _setup_database(cur, database, schema, stage)
+    _setup_database(cur, conn.database, schema, stage)
 
     # Copy dependencies into the stage
     _copy_dependencies(cur, schema, stage)
@@ -64,29 +63,23 @@ def devdeploy(profile: str, database: str, schema: str, stage: str):
 
 
 def usage():
-    print(
-        "devdeploy.py -p <snowsql_profile_name> [(-d | --database=) <database_name>] [(-s | --stage=) <stage_name>]"
-    )
+    print("devdeploy.py -p <snowsql_profile_name> [(-s | --stage=) <stage_name>]")
 
 
 def main(argv):
     """
     Parse command line arguments and call devdeploy.
     """
-    user = os.getenv("USER", None)
     profile = "local_opscenter"
-    db = f"{user.upper()}_OC_DB" if user else None
     schema = "PUBLIC"
     stage = "OC_STAGE"
-    opts, args = getopt.getopt(argv, "hp:d:s:", ["profile=", "database=", "stage="])
+    opts, args = getopt.getopt(argv, "hp:s:", ["profile=", "stage="])
     for opt, arg in opts:
         if opt == "-h":
             usage()
             sys.exit()
         elif opt in ("-p", "--profile"):
             profile = arg
-        elif opt in ("-d", "--database"):
-            db = arg
         elif opt in ("-s", "--stage"):
             stage = arg
 
@@ -94,7 +87,7 @@ def main(argv):
         usage()
         sys.exit()
 
-    devdeploy(profile, db, schema, stage)
+    devdeploy(profile, schema, stage)
 
 
 if __name__ == "__main__":

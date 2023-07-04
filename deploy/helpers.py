@@ -35,6 +35,8 @@ def connect_to_snowflake(profile: str = "opscenter"):
     warehousename = remove_quotes(config.get(f"connections.{profile}", "warehousename"))
     dbname = remove_quotes(config.get(f"connections.{profile}", "dbname"))
 
+    if len(dbname) == 0:
+        raise ValueError("Database must be specified in the config string.")
     # Initialize the Snowflake connection
     conn = snowflake.connector.connect(
         user=username,
