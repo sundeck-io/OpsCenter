@@ -46,24 +46,24 @@ def devdeploy(profile: str, schema: str, stage: str):
     Create the app package to enable local development
     :param profile: the Snowsql configuration profile to use.
     """
-    conn = helpers.connect_to_snowflake(profile=profile)
+    conn = helpers.connect_to_snowflake(profile=profile, schema=schema)
     cur = conn.cursor()
     cur.execute("SET DEPLOYENV='DEV';")
 
     # Create the database (and stage) if not already present
-    _setup_database(cur, conn.database, schema, stage)
+    _setup_database(cur, conn.database, conn.schema, stage)
 
     # Copy dependencies into the stage
-    _copy_dependencies(cur, schema, stage)
+    _copy_dependencies(cur, conn.schema, stage)
 
     # Deploy the OpsCenter code into the stage.
-    _copy_opscenter_files(cur, schema, stage)
+    _copy_opscenter_files(cur, conn.schema, stage)
 
     conn.close()
 
 
 def usage():
-    print("devdeploy.py -p <snowsql_profile_name> [(-s | --stage=) <stage_name>]")
+    print("devdeploy.py -p <snowsql_profile_name>")
 
 
 def main(argv):
@@ -73,15 +73,13 @@ def main(argv):
     profile = "local_opscenter"
     schema = "PUBLIC"
     stage = "OC_STAGE"
-    opts, args = getopt.getopt(argv, "hp:s:", ["profile=", "stage="])
+    opts, args = getopt.getopt(argv, "hp:", ["profile="])
     for opt, arg in opts:
         if opt == "-h":
             usage()
             sys.exit()
         elif opt in ("-p", "--profile"):
             profile = arg
-        elif opt in ("-s", "--stage"):
-            stage = arg
 
     if profile is None or stage is None:
         usage()
