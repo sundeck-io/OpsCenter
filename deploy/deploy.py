@@ -184,14 +184,16 @@ def execute(
     # Do Actual Work
     conn = helpers.connect_to_snowflake(profile)
     cur = conn.cursor()
-    _setup_working_database(cur)
-    _clear_stage(cur)
-    _upload_combined_setup_script(cur)
-    _sync_local_to_stage(cur)
-    if not skip_package:
-        _install_or_update_package(cur, version, install)
-    if os.environ.get("OPSCENTER_DROP_DATABASE", "false").lower() == "true":
-        _drop_working_database(cur)
+    try:
+        _setup_working_database(cur)
+        _clear_stage(cur)
+        _upload_combined_setup_script(cur)
+        _sync_local_to_stage(cur)
+        if not skip_package:
+            _install_or_update_package(cur, version, install)
+    finally:
+        if os.environ.get("OPSCENTER_DROP_DATABASE", "false").lower() == "true":
+            _drop_working_database(cur)
     conn.close()
 
 
