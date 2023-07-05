@@ -41,7 +41,7 @@ jobs:
           envsubst < deploy/opscenter.config > $HOME/.snowsql/config
       - name: set env
         run: |
-          suffix=`echo ${GITHUB_HEAD_REF} | sed 's/\./_/g' | sed 's/-/_/g' | sed 's\/\_\g'`_${GITHUB_RUN_ID}
+          suffix=$(echo ${GITHUB_HEAD_REF} | sed "s/\./_/g" | sed "s/-/_/g" | sed "s\/\_\g")_${GITHUB_RUN_ID}
           echo "OPSCENTER_PACKAGE=PACKAGE_${suffix}" >> "$GITHUB_ENV"
           echo "OPSCENTER_DATABASE=\"DATABASE_${suffix}\"" >> "$GITHUB_ENV"
           echo "OPSCENTER_APP=APP_${suffix}" >> "$GITHUB_ENV"
