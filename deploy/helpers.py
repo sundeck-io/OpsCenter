@@ -12,7 +12,7 @@ FULL_STAGE = f"@{DATABASE}.{SCHEMA}.{STAGE}"
 FULL_STAGE_SLASH = FULL_STAGE + "/"
 
 
-def connect_to_snowflake(profile: str = "opscenter"):
+def connect_to_snowflake(profile: str = "opscenter", schema: str = ""):
     # Define a function to remove quotes from a string
     def remove_quotes(string):
         if string.startswith('"'):
@@ -28,12 +28,20 @@ def connect_to_snowflake(profile: str = "opscenter"):
     config = RawConfigParser()
     config.read(config_path)
 
+    if not config.has_section(f"connections.{profile}"):
+        raise ValueError(
+            f"Profile {profile} not found in SnowSQL config file at {config_path}"
+        )
+
     # Get the accountname, username, and password properties from the [connections] section
     accountname = remove_quotes(config.get(f"connections.{profile}", "accountname"))
     username = remove_quotes(config.get(f"connections.{profile}", "username"))
     password = remove_quotes(config.get(f"connections.{profile}", "password"))
     warehousename = remove_quotes(config.get(f"connections.{profile}", "warehousename"))
     dbname = remove_quotes(config.get(f"connections.{profile}", "dbname"))
+
+    if len(dbname) == 0:
+        raise ValueError(f"Database must be specified in config connections.{profile}")
 
     # Initialize the Snowflake connection
     conn = snowflake.connector.connect(
@@ -42,6 +50,7 @@ def connect_to_snowflake(profile: str = "opscenter"):
         account=accountname,
         warehousename=warehousename,
         database=dbname,
+        schema=schema,
     )
     return conn
 

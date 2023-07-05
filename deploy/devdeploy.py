@@ -1,6 +1,5 @@
 import getopt
 import helpers
-import os
 import re
 import sys
 
@@ -42,59 +41,51 @@ def _copy_opscenter_files(cur, schema: str, stage: str):
     cur.execute(body)
 
 
-def devdeploy(profile: str, database: str, schema: str, stage: str):
+def devdeploy(profile: str, schema: str, stage: str):
     """
     Create the app package to enable local development
     :param profile: the Snowsql configuration profile to use.
     """
-    conn = helpers.connect_to_snowflake(profile=profile)
+    conn = helpers.connect_to_snowflake(profile=profile, schema=schema)
     cur = conn.cursor()
     cur.execute("SET DEPLOYENV='DEV';")
 
     # Create the database (and stage) if not already present
-    _setup_database(cur, database, schema, stage)
+    _setup_database(cur, conn.database, conn.schema, stage)
 
     # Copy dependencies into the stage
-    _copy_dependencies(cur, schema, stage)
+    _copy_dependencies(cur, conn.schema, stage)
 
     # Deploy the OpsCenter code into the stage.
-    _copy_opscenter_files(cur, schema, stage)
+    _copy_opscenter_files(cur, conn.schema, stage)
 
     conn.close()
 
 
 def usage():
-    print(
-        "devdeploy.py -p <snowsql_profile_name> [(-d | --database=) <database_name>] [(-s | --stage=) <stage_name>]"
-    )
+    print("devdeploy.py -p <snowsql_profile_name>")
 
 
 def main(argv):
     """
     Parse command line arguments and call devdeploy.
     """
-    user = os.getenv("USER", None)
     profile = "local_opscenter"
-    db = f"{user.upper()}_OC_DB" if user else None
     schema = "PUBLIC"
     stage = "OC_STAGE"
-    opts, args = getopt.getopt(argv, "hp:d:s:", ["profile=", "database=", "stage="])
+    opts, args = getopt.getopt(argv, "hp:", ["profile="])
     for opt, arg in opts:
         if opt == "-h":
             usage()
             sys.exit()
         elif opt in ("-p", "--profile"):
             profile = arg
-        elif opt in ("-d", "--database"):
-            db = arg
-        elif opt in ("-s", "--stage"):
-            stage = arg
 
     if profile is None or stage is None:
         usage()
         sys.exit()
 
-    devdeploy(profile, db, schema, stage)
+    devdeploy(profile, schema, stage)
 
 
 if __name__ == "__main__":
