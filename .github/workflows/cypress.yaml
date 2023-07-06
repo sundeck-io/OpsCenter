@@ -22,7 +22,7 @@ jobs:
         run: |
           pip install poetry
           poetry install
-      - name: set opscenter config
+      - name: set config
         env:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
@@ -43,7 +43,7 @@ jobs:
           OPSCENTER_APP: ${{env.OPSCENTER_APP}}
           OPSCENTER_DROP_DATABASE: "true"
         run: "poetry run python deploy/devdeploy.py"
-      - name: run opscenter streamlit
+      - name: run streamlit
         env:
           OPSCENTER_PACKAGE: ${{env.OPSCENTER_PACKAGE}}
           OPSCENTER_DATABASE: ${{env.OPSCENTER_DATABASE}}
