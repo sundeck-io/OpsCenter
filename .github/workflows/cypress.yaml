@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  dev-deploy:
+  cypress-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -15,11 +15,11 @@ jobs:
         with:
           python-version: '3.8'
           cache: 'pip'
-      - name: install dependencies
+      - name: install opscenter dependencies
         run: |
           pip install poetry
           poetry install
-      - name: set config
+      - name: set opscenter config
         env:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
@@ -27,22 +27,17 @@ jobs:
         run: |
           mkdir $HOME/.snowsql
           envsubst < deploy/opscenter.config > $HOME/.snowsql/config
-      - name: set env
+      - name: set opscenter env
         run: |
           echo "OPSCENTER_PACKAGE=PACKAGE_DEV" >> "$GITHUB_ENV"
           echo "OPSCENTER_DATABASE=\"DATABASE_OPSCENTER_DEV\"" >> "$GITHUB_ENV"
           echo "OPSCENTER_APP=APP_OPSCENTER_DEV" >> "$GITHUB_ENV"
-      - name: run streamlit
+      - name: run opscenter streamlit
         env:
           OPSCENTER_PACKAGE: ${{env.OPSCENTER_PACKAGE}}
           OPSCENTER_DATABASE: ${{env.OPSCENTER_DATABASE}}
           OPSCENTER_APP: ${{env.OPSCENTER_APP}}
         run: "poetry run streamlit run app/ui/Home.py &"
-  cypress-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
       - name: Cypress run
         uses: cypress-io/github-action@v4
         with:
