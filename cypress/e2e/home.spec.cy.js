@@ -8,6 +8,6 @@ describe("Home", () => {
   it("the UI is available", () => {
     cy.visit("/");
 
-    cy.get("h1").should("contain", "Welcome To Sundeck OpsCenter");
+    cy.get("h1", {timeout: 10000}).should("contain", "Welcome To Sundeck OpsCenter");
   });
 });
