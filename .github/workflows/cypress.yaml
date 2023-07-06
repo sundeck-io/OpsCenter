@@ -30,11 +30,19 @@ jobs:
         run: |
           mkdir $HOME/.snowsql
           envsubst < deploy/opscenter.config > $HOME/.snowsql/config
-      - name: set opscenter env
+      - name: set env
         run: |
-          echo "OPSCENTER_PACKAGE=PACKAGE_DEV" >> "$GITHUB_ENV"
-          echo "OPSCENTER_DATABASE=\"DATABASE_OPSCENTER_DEV\"" >> "$GITHUB_ENV"
-          echo "OPSCENTER_APP=APP_OPSCENTER_DEV" >> "$GITHUB_ENV"
+          suffix=$(echo ${GITHUB_HEAD_REF} | sed "s/\./_/g" | sed "s/-/_/g" | sed "s\/\_\g")_${GITHUB_RUN_ID}
+          echo "OPSCENTER_PACKAGE=PACKAGE_${suffix}" >> "$GITHUB_ENV"
+          echo "OPSCENTER_DATABASE=\"DATABASE_${suffix}\"" >> "$GITHUB_ENV"
+          echo "OPSCENTER_APP=APP_${suffix}" >> "$GITHUB_ENV"
+      - name: run deploy
+        env:
+          OPSCENTER_PACKAGE: ${{env.OPSCENTER_PACKAGE}}
+          OPSCENTER_DATABASE: ${{env.OPSCENTER_DATABASE}}
+          OPSCENTER_APP: ${{env.OPSCENTER_APP}}
+          OPSCENTER_DROP_DATABASE: "true"
+        run: "poetry run python deploy/devdeploy.py"
       - name: run opscenter streamlit
         env:
           OPSCENTER_PACKAGE: ${{env.OPSCENTER_PACKAGE}}
