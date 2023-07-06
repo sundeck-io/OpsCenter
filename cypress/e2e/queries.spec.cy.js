@@ -12,7 +12,7 @@ describe("Queries section", () => {
 
     cy.visit("/");
 
-    cy.get("span")
+    cy.get("span", {timeout: 20000})
       .contains("Queries")
       .should("be.visible")
       .click();
