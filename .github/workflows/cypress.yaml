@@ -6,7 +6,7 @@ on:
 
 jobs:
   dev-deploy:
-    uses: ./.github/workflows/_dev_deploy.yml
+    uses: ./.github/workflows/_dev_deploy.yaml
     secrets: inherit
   cypress-tests:
     runs-on: ubuntu-latest
