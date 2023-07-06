@@ -1,0 +1,7 @@
+{
+  "devDependencies": {
+    "cypress": "^12.16.0"
+  },
+  "name": "opscenter",
+  "version": "1.0.0"
+}

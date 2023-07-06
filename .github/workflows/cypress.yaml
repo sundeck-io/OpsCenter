@@ -1,0 +1,57 @@
+name: Cypress Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  cypress-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          submodules: recursive
+      - uses: actions/setup-python@v3
+        with:
+          python-version: '3.8'
+          cache: 'pip'
+      - name: install opscenter dependencies
+        run: |
+          pip install poetry
+          poetry install
+      - name: set opscenter config
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+        run: |
+          mkdir $HOME/.snowsql
+          envsubst < deploy/opscenter.config > $HOME/.snowsql/config
+      - name: set opscenter env
+        run: |
+          echo "OPSCENTER_PACKAGE=PACKAGE_DEV" >> "$GITHUB_ENV"
+          echo "OPSCENTER_DATABASE=\"DATABASE_OPSCENTER_DEV\"" >> "$GITHUB_ENV"
+          echo "OPSCENTER_APP=APP_OPSCENTER_DEV" >> "$GITHUB_ENV"
+      - name: run opscenter streamlit
+        env:
+          OPSCENTER_PACKAGE: ${{env.OPSCENTER_PACKAGE}}
+          OPSCENTER_DATABASE: ${{env.OPSCENTER_DATABASE}}
+          OPSCENTER_APP: ${{env.OPSCENTER_APP}}
+        run: "poetry run streamlit run app/ui/Home.py &"
+      - name: Cypress run
+        uses: cypress-io/github-action@v4
+        with:
+          start: yarn run cypress
+          browser: chrome
+          headless: true
+          record: false
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: cypress-artifacts
+          path: |
+            cypress/videos/
+            cypress/screenshots/
