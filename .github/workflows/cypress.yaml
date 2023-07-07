@@ -2,7 +2,8 @@ name: Cypress Tests
 
 on:
   push:
-    branches: [main]
+    branches:
+      - '*'
   pull_request_target:
     types: [opened, synchronize, reopened]
 
