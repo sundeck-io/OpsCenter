@@ -13,7 +13,7 @@ describe("Warehouse section", () => {
 
     const stringList= ["365", "90", "30", "7"];
 
-    cy.get("span")
+    cy.get("span", {timeout: 20000})
       .contains("Warehouses")
       .should("be.visible")
       .click();

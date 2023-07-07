@@ -35,6 +35,7 @@ jobs:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
           SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          OPSCENTER_DATABASE: "DATABASE_OPSCENTER_DEV"
         run: |
           mkdir $HOME/.snowsql
           envsubst < deploy/opscenter.config > $HOME/.snowsql/config
