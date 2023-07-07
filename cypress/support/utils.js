@@ -72,3 +72,21 @@ export function generateUniqueName(prefix){
   const uniqueName = `${prefix}_${uuid}`;
   return uniqueName;
 }
+
+export const probeDelete = (probeName) => {
+  cy.log("Deleting probe: ",  probeName);
+
+  cy.get('div[data-testid="stHorizontalBlock"]')
+    .should("exist")
+    .contains(probeName)
+    .should("exist")
+    .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with probeName
+    .should("exist")
+    .within(() => {  // Only searches within specific stHorizontalBlock that has probeName
+      cy.get('div[data-testid="column"]')
+        //.contains("&#x1F5D1;") // Does not work. This is unicode HTML representation of the wastebasket icon.
+        .eq(-2) // Brute force solution: chose second before last column (wastebasket)
+        .should("exist")
+        .click()
+    })
+};

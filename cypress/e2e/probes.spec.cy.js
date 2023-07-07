@@ -1,4 +1,4 @@
-import { checkNoErrorOnThePage, setup, fillInProbeForm, buttonClick, buttonCheckExists, generateUniqueName } from "../support/utils";
+import { checkNoErrorOnThePage, setup, fillInProbeForm, buttonClick, buttonCheckExists, generateUniqueName, probeDelete } from "../support/utils";
 
 describe("Probes section", () => {
   before(() => {
@@ -41,6 +41,7 @@ describe("Probes section", () => {
     );
     buttonClick("Create");
     checkNoErrorOnThePage();
+    probeDelete(probe_1);
 
     // Test #4: Fill the form with valid values and save (checkboxes are unchecked)
     buttonClick("New");
@@ -55,6 +56,7 @@ describe("Probes section", () => {
     );
     buttonClick("Create");
     checkNoErrorOnThePage();
+    probeDelete(probe_2);
 
     // Among other things, "New" button should exist
     buttonCheckExists("New");
