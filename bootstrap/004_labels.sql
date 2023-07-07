@@ -5,7 +5,7 @@ CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_LABEL_CONDITION(name string, condi
 RETURNS STRING
 AS
 BEGIN
-    let statement string := 'select case when \n' || condition || '\n then 1 else 0 end as "' || name || '" from reporting.enriched_query_history';
+    let statement string := 'select case when \n' || condition || '\n then 1 else 0 end as "' || name || '" from reporting.enriched_query_history where false';
     execute immediate statement;
     return null;
 EXCEPTION
