@@ -34,8 +34,7 @@ jobs:
           SUFFIX: ${{ env.SUFFIX }}
         run: |
           mkdir $HOME/.snowsql
-          OPSCENTER_DATABASE="DATABASE_CYPRESS_${SUFFIX}"
-          envsubst < deploy/opscenter.config > $HOME/.snowsql/config
+          OPSCENTER_DATABASE="DATABASE_CYPRESS_${SUFFIX}" envsubst < deploy/opscenter.config > $HOME/.snowsql/config
       - name: run deploy
         run: "poetry run python deploy/devdeploy.py -p opscenter"
       - name: run streamlit
