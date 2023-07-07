@@ -44,6 +44,9 @@ jobs:
           echo "OPSCENTER_PACKAGE=PACKAGE_DEV" >> "$GITHUB_ENV"
           echo "OPSCENTER_DATABASE=\"DATABASE_OPSCENTER_DEV\"" >> "$GITHUB_ENV"
           echo "OPSCENTER_APP=APP_OPSCENTER_DEV" >> "$GITHUB_ENV"
+      - name: echo env variables
+        run: |
+          echo "OPSCENTER_DATABASE: $OPSCENTER_DATABASE"
       - name: run deploy
         env:
           OPSCENTER_PACKAGE: ${{env.OPSCENTER_PACKAGE}}
