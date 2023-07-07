@@ -38,7 +38,7 @@ jobs:
       - name: run deploy
         run: "poetry run python deploy/devdeploy.py -p opscenter"
       - name: run cypress setup
-        run: "poetry run python deploy/cypress.py -p opscenter"
+        run: "poetry run python deploy/cypress_setup.py -p opscenter"
       - name: run streamlit
         run: "poetry run streamlit run app/ui/Home.py &"
       - name: Cypress run
