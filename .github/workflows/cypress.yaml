@@ -2,8 +2,7 @@ name: Cypress Tests
 
 on:
   push:
-    branches:
-      - '*'
+    branches: [main]
   pull_request_target:
     types: [opened, synchronize, reopened]
 
@@ -23,25 +22,22 @@ jobs:
         run: |
           pip install poetry
           poetry install
-      - name: set opscenter env
-        run: |
-          echo "OPSCENTER_PACKAGE=PACKAGE_DEV" >> "$GITHUB_ENV"
-          echo "OPSCENTER_DATABASE=\"CYPRESS_DATABASE_OPSCENTER_DEV\"" >> "$GITHUB_ENV"
-          echo "OPSCENTER_APP=APP_OPSCENTER_DEV" >> "$GITHUB_ENV"
-      - name: set opscenter config
+      - name: Get suffix
+        id: shell-command
+        run:
+          echo SUFFIX=$(echo ${GITHUB_HEAD_REF} | sed "s/\./_/g" | sed "s/-/_/g" | sed "s\/\_\g")_${GITHUB_RUN_ID} >> $GITHUB_ENV
+      - name: set config
         env:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
           SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-          SNOWFLAKE_DATABASE: ${{env.OPSCENTER_DATABASE}}
+          OPSCENTER_DATABASE: "DATABASE_CYPRESS_{{ env.SUFFIX }}"
         run: |
           mkdir $HOME/.snowsql
           envsubst < deploy/opscenter.config > $HOME/.snowsql/config
-      - name: run opscenter streamlit
-        env:
-          OPSCENTER_PACKAGE: ${{env.OPSCENTER_PACKAGE}}
-          OPSCENTER_DATABASE: ${{env.OPSCENTER_DATABASE}}
-          OPSCENTER_APP: ${{env.OPSCENTER_APP}}
+      - name: run deploy
+        run: "poetry run python deploy/devdeploy.py"
+      - name: run streamlit
         run: "poetry run streamlit run app/ui/Home.py &"
       - name: Cypress run
         uses: cypress-io/github-action@v4
