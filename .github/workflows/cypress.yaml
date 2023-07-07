@@ -22,16 +22,16 @@ jobs:
         run: |
           pip install poetry
           poetry install
-      - name: Get run id
+      - name: Get suffix
         id: shell-command
         run:
-          echo DB_ID=$(echo ${GITHUB_HEAD_REF} | sed "s/\./_/g" | sed "s/-/_/g" | sed "s\/\_\g")_${GITHUB_RUN_ID} >> $GITHUB_ENV
+          echo SUFFIX=$(echo ${GITHUB_HEAD_REF} | sed "s/\./_/g" | sed "s/-/_/g" | sed "s\/\_\g")_${GITHUB_RUN_ID} >> $GITHUB_ENV
       - name: set config
         env:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
           SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-          OPSCENTER_DATABASE: "DATABASE_CYPRESS_{{ env.DB_ID }}"
+          OPSCENTER_DATABASE: "DATABASE_CYPRESS_{{ env.SUFFIX }}"
         run: |
           mkdir $HOME/.snowsql
           envsubst < deploy/opscenter.config > $HOME/.snowsql/config
