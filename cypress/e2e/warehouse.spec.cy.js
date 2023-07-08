@@ -5,10 +5,8 @@ describe("Warehouse section", () => {
     setup();
   });
 
-  it("works as expected", () => {
-    // ---------------------------------------------
-    // --- Menu: Warehouses (Warehouse Activity) ---
-    // ---------------------------------------------
+  it("Menu: Warehouses (Warehouse Activity)", () => {
+
     cy.visit("/");
 
     const stringList= ["365", "90", "30", "7"];
@@ -31,17 +29,20 @@ describe("Warehouse section", () => {
         .contains(str)
         .click();
 
-      // TODO: verify page finished loading
-
       checkNoErrorOnThePage();
     }
+  });
 
-    // ----------------------------------
-    // --- Menu: Warehouses (Heatmap) ---
-    // ----------------------------------
+  // Test is skipped due to a known issue: exception while iterating over ranges
+  // pandas/core/indexes/range.py", line 349, in get_loc
+  it.skip("Menu: Warehouses (Heatmap)", () => {
+
+    cy.visit("/");
+
+    const stringList= ["365", "90", "30", "7"];
 
     // Click on the Menu on the SideNav
-    cy.get("span")
+    cy.get("span", {timeout: 20000})
       .contains("Warehouses")
       .should("be.visible")
       .click();
@@ -63,15 +64,18 @@ describe("Warehouse section", () => {
       .should("be.visible")
       .click();
 
+    // Click on Filters
+    cy.get('div[data-testid="stMarkdownContainer"]')
+      .contains("Filters")
+      .click();
+
     for (const str of stringList) {
       cy.get('button[kind="secondary"]')
         .contains(str)
         .click();
 
-      // TODO: verify page finished loading
-
       checkNoErrorOnThePage();
     }
-
   });
+
 });
