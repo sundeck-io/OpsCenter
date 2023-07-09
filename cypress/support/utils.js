@@ -53,7 +53,7 @@ export const fillInProbeForm = (
 export const buttonClick = (buttonName) => {
   cy.get('button[kind="secondary"]')
     .contains(buttonName)
-    .click();
+    .click({force: true});
 };
 
 export const buttonCheckExists = (buttonName) => {
@@ -89,4 +89,132 @@ export const probeDelete = (probeName) => {
         .should("exist")
         .click()
     })
+};
+
+export const fillInNewUngroupedLabelForm = (
+  labelName,
+  condition
+) => {
+
+  cy.get('input[aria-label="Label Name"]')
+    .clear()
+    .type(labelName);
+
+  cy.get('textarea[aria-label="Condition"]')
+    .clear()
+    .type(condition);
+};
+
+export const fillInNewGroupedLabelForm = (
+  groupName,
+  labelName,
+  condition,
+  rank
+) => {
+
+  cy.get('input[aria-label="Group Name"]')
+    .clear()
+    .type(groupName);
+
+  cy.get('input[aria-label="Label Name"]')
+    .clear()
+    .type(labelName);
+
+  cy.get('textarea[aria-label="Condition"]')
+    .clear()
+    .type(condition);
+
+  cy.get('input[aria-label="Rank"]')
+    .clear()
+    .type(rank);
+};
+
+export const addNewLabelToGroup = (
+  groupName,
+  labelName,
+  condition,
+  rank
+) => { 
+  
+  // Find tab with the group name and click on it
+  cy.get('button[data-baseweb="tab"', {timeout: 2000})
+    .should("exist")
+    .find('div[data-testid="stMarkdownContainer"]')
+    .should("exist")
+    .contains(groupName)
+    .click();
+
+  buttonCheckExists("Add label to group");
+  buttonClick("Add label to group");
+
+  cy.get('input[aria-label="Label Name"]')
+    .clear()
+    .type(labelName);
+    
+  cy.get('textarea[aria-label="Condition"]')
+    .clear()
+    .type(condition);
+    
+  cy.get('input[aria-label="Rank"]')
+    .clear()
+    .type(rank);
+
+  buttonCheckExists("Create");
+  buttonClick("Create");
+
+  // Find tab with the group name and click on it
+  cy.get('button[data-baseweb="tab"', {timeout: 5000})
+    .should("exist")
+    .find('div[data-testid="stMarkdownContainer"]')
+    .should("exist")
+    .contains(groupName)
+    .click();
+
+  // Validate that newly created label is found on the page
+  cy.get('section[tabindex="0"]')
+    .find('div[data-testid="stMarkdownContainer"]', {timeout: 2000})
+    .should("exist")
+    .contains(labelName)
+    .should("exist");
+
+};  
+
+export const groupLabelDelete = (
+  groupName,
+  labelName
+) => {
+
+  cy.log("Deleting label: ",  groupName, labelName);
+
+  cy.get('div[data-testid="stHorizontalBlock"]')
+    .should("exist")
+    .contains(labelName)
+    .should("exist")
+    .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
+    .should("exist")
+    .within(() => {  // Only searches within specific stHorizontalBlock that has probeName
+      cy.get('div[data-testid="column"]')
+        .eq(-2) // Brute force solution: chose second before last column (wastebasket)
+        .should("exist")
+        .click()
+    })
+};
+
+export function checkGroupLabelNotExist(groupName) {
+  cy.log("Validate that group label does not exist",  groupName);
+
+    cy.visit("/");
+       
+    cy.get("span", {timeout: 20000})
+      .contains("Labels")
+      .should("be.visible")
+      .click();
+      
+    cy.get("span")
+      .contains("Query Labels")
+      .should("be.visible")
+      .find()
+      .should("not.exist");
+
+    checkNoErrorOnThePage();
 };
