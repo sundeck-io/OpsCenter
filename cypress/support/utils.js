@@ -134,8 +134,8 @@ export const addNewLabelToGroup = (
   labelName,
   condition,
   rank
-) => { 
-  
+) => {
+
   // Find tab with the group name and click on it
   cy.get('button[data-baseweb="tab"', {timeout: 2000})
     .should("exist")
@@ -150,11 +150,11 @@ export const addNewLabelToGroup = (
   cy.get('input[aria-label="Label Name"]')
     .clear()
     .type(labelName);
-    
+
   cy.get('textarea[aria-label="Condition"]')
     .clear()
     .type(condition);
-    
+
   cy.get('input[aria-label="Rank"]')
     .clear()
     .type(rank);
@@ -177,7 +177,7 @@ export const addNewLabelToGroup = (
     .contains(labelName)
     .should("exist");
 
-};  
+};
 
 export const groupLabelDelete = (
   groupName,
@@ -204,12 +204,12 @@ export function checkGroupLabelNotExist(groupName) {
   cy.log("Validate that group label does not exist",  groupName);
 
     cy.visit("/");
-       
+
     cy.get("span", {timeout: 20000})
       .contains("Labels")
       .should("be.visible")
       .click();
-      
+
     cy.get("span")
       .contains("Query Labels")
       .should("be.visible")
