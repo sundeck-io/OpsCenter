@@ -15,6 +15,13 @@ export function checkNoErrorOnThePage() {
   cy.get('div[class="stException"]').should("not.exist");
 };
 
+// Check for Success notification with particular text presence
+export function checkSuccessAlert(notificationText) {
+  cy.get('div[role="alert"][data-baseweb="notification"]')
+    .should("exist")
+    .contains(notificationText);
+};
+
 export const fillInProbeForm = (
   probeName,
   condition,
@@ -52,6 +59,12 @@ export const fillInProbeForm = (
 
 export const buttonClick = (buttonName) => {
   cy.get('button[kind="secondary"]')
+    .contains(buttonName)
+    .click({force: true});
+};
+
+export const buttonOnTabClick = (buttonName) => {
+  cy.get('button[kind="secondaryFormSubmit"]')
     .contains(buttonName)
     .click({force: true});
 };
@@ -217,4 +230,24 @@ export function checkGroupLabelNotExist(groupName) {
       .should("not.exist");
 
     checkNoErrorOnThePage();
+};
+
+export const fillInTheSettingsConfigForm = (
+  computeCreditCost,
+  serverlessCreditCost,
+  storageCost
+) => {
+
+  cy.get('input[aria-label="Compute Credit Cost"]')
+    .clear()
+    .type(computeCreditCost);
+
+  cy.get('input[aria-label="Serverless Credit Cost"]')
+    .clear()
+    .type(serverlessCreditCost);
+
+  cy.get('input[aria-label="Storage Cost (/tb)"]')
+    .clear()
+    .type(storageCost);
+
 };
