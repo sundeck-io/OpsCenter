@@ -17,11 +17,10 @@ This repo includes the following components:
 
 ## Project Setup
 
-After you've succesfully cloned OpsCenter reprository, please run:
+Clone OpsCenter repository by running:
 
 ```
-git submodule init
-git submodule update
+git clone <URL of the repository> --recurse-submodules
 ```
 
 This project uses [Poetry](https://python-poetry.org/). Please refer to [Poetry's documentation](https://python-poetry.org/docs/#installation)
