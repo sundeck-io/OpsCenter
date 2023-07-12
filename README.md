@@ -20,7 +20,7 @@ This repo includes the following components:
 Clone OpsCenter repository by running:
 
 ```
-git clone <URL of the repository> --recurse-submodules
+git clone --recurse-submodules https://github.com/sundeck-io/OpsCenter.git
 ```
 
 This project uses [Poetry](https://python-poetry.org/). Please refer to [Poetry's documentation](https://python-poetry.org/docs/#installation)
