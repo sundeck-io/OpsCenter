@@ -10,9 +10,11 @@ describe("Settings section", () => {
     setup();
   });
 
-  it("Menu: Settings. Tab: Config. Validate that we can set and save credits values.", () => {
+  beforeEach(() => {
     cy.visit("/");
+  });
 
+  it("Menu: Settings. Tab: Config. Validate that we can set and save credits values.", () => {
     // We have a bug with Tasks menu were we get exception below
     // IndexError: index 0 is out of bounds for axis 0 with size 0
     // Ignoring this for now as this is a default page we land on
@@ -36,12 +38,9 @@ describe("Settings section", () => {
     buttonOnTabClick("Save");
     checkNoErrorOnThePage();
     checkSuccessAlert("Saved");
-
   });
 
   it("Menu: Settings. Tab: Reset. Validate that we can click 'Reload' button and no exception is thrown .", () => {
-    cy.visit("/");
-
     cy.wait(2000);
 
     cy.get("span", {timeout: 20000})
@@ -61,7 +60,52 @@ describe("Settings section", () => {
     // TODO: this wait is temporary until we figure out how to wait in cypress for element to disappear
     cy.wait(30000);
     checkSuccessAlert("Reset Complete.");
-
   });
 
+  describe("Menu: Settings. Tab: Initial Setup", () => {
+    it("First step should be marked as completed", () => {
+      cy.get("span")
+        .contains("Settings")
+        .should("be.visible")
+        .click();
+
+      cy.get('button[role="tab"]')
+        .should("exist")
+        .contains("Initial Setup")
+        .should("exist")
+        .click()
+
+      cy.get("p")
+        .contains("Step 1: Grant Snowflake Privileges [Completed]")
+        .should("exist");
+    });
+
+    it("Sundeck link should be present and contain correct information", () => {
+      cy.get("span")
+        .contains("Settings")
+        .should("be.visible")
+        .click();
+
+      cy.get('button[role="tab"]')
+        .should("exist")
+        .contains("Initial Setup")
+        .should("exist")
+        .click()
+
+      cy.get("a")
+        .contains("right click here")
+        .should("exist")
+        .then(($a) => {
+          const href = $a.prop("href");
+          expect(href.startsWith("https://sundeck.io/try?source=opscenter&state=")).to.be.true;
+
+          const url = new URL(href);
+          const state = url.searchParams.get("state");
+
+          // ensure state includes our snowflake account
+          const payload = JSON.parse(atob(state));
+          expect(payload.sf_account).to.equal(Cypress.env("SNOWFLAKE_ACCOUNT"));
+        });
+    });
+  });
 });
