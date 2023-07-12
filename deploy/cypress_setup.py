@@ -27,13 +27,14 @@ def cypress_setup(profile: str, schema: str):
         try:
             # Execute a query to fetch data from the table
             cur.execute(
-                "SELECT * FROM internal.config where key in ('WAREHOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE');"
+                "SELECT count(*) FROM internal.config where key in ('WAREHOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE') and value is not null ;"
             )
 
             rows = cur.fetchall()
 
             # if we have two rows, means materialization is complete
             if len(rows) == 2:
+                print("OpsCenter materialization complete, ready to run Cypress tests")
                 break
 
         finally:
@@ -43,6 +44,7 @@ def cypress_setup(profile: str, schema: str):
         elapsed_time = time.time() - start_time
         # bail after 3 minutes
         if elapsed_time >= 150:
+            print("OpsCenter materialization did not complete in 3 minutes!")
             break
 
         # check every 20 seconds
