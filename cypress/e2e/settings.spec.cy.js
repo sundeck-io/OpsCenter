@@ -58,8 +58,6 @@ describe("Settings section", () => {
     buttonClick("Reset and reload query history and warehouse events.");
     checkNoErrorOnThePage();
 
-    // TODO: this wait is temporary until we figure out how to wait in cypress for element to disappear
-    cy.wait(30000);
     checkSuccessAlert("Reset Complete.");
 
   });
