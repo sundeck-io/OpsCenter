@@ -41,6 +41,8 @@ jobs:
         run: "poetry run python deploy/cypress_setup.py -p opscenter"
       - name: run streamlit
         run: "poetry run streamlit run app/ui/Home.py &"
+      - name: Wait one minute for materialization to happen
+        run: sleep 60
       - name: Cypress run
         uses: cypress-io/github-action@v4
         with:
