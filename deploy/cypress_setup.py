@@ -3,6 +3,7 @@ import time
 import helpers
 import sys
 
+
 def cypress_setup(profile: str, schema: str):
     """
     Run SQl to finish app setup
@@ -25,7 +26,9 @@ def cypress_setup(profile: str, schema: str):
     while True:
         try:
             # Execute a query to fetch data from the table
-            cur.execute("SELECT * FROM internal.config where key in ('WAREHOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE');")
+            cur.execute(
+                "SELECT * FROM internal.config where key in ('WAREHOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE');"
+            )
 
             rows = cur.fetchall()
 
