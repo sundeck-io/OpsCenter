@@ -45,7 +45,7 @@ def cypress_setup(profile: str, schema: str):
         # bail after 3 minutes
         if elapsed_time >= 150:
             print("OpsCenter materialization did not complete in 3 minutes!")
-            break
+            sys.exit(1)
 
         # check every 20 seconds
         time.sleep(20)
