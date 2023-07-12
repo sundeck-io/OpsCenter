@@ -1,9 +1,9 @@
 import getopt
+import time
 import helpers
 import sys
 
-
-def cypress(profile: str, schema: str):
+def cypress_setup(profile: str, schema: str):
     """
     Run SQl to finish app setup
     """
@@ -20,7 +20,30 @@ def cypress(profile: str, schema: str):
     """
     )
 
-    conn.close()
+    start_time = time.time()
+
+    while True:
+        try:
+            # Execute a query to fetch data from the table
+            cur.execute("SELECT * FROM internal.config where key in ('WAREHOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE');")
+
+            rows = cur.fetchall()
+
+            # if we have two rows, means materialization is complete
+            if len(rows) == 2:
+                break
+
+        finally:
+            cur.close()
+            conn.close()
+
+        elapsed_time = time.time() - start_time
+        # bail after 3 minutes
+        if elapsed_time >= 150:
+            break
+
+        # check every 20 seconds
+        time.sleep(20)
 
 
 def usage():
@@ -45,7 +68,7 @@ def main(argv):
         usage()
         sys.exit()
 
-    cypress(profile, schema)
+    cypress_setup(profile, schema)
 
 
 if __name__ == "__main__":
