@@ -13,7 +13,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "~3.8"
 plotly = "~5.11"
-streamlit = "^1.24.0"
+streamlit = "^1.16.0"
 snowflake-snowpark-python = { version = "^1.5.1", extras = ["pandas"] }
 
 [tool.poetry.group.dev.dependencies]
