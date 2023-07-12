@@ -176,11 +176,10 @@ export const addNewLabelToGroup = (
   buttonClick("Create");
 
   // Find tab with the group name and click on it
-  cy.get('button[data-baseweb="tab"', {timeout: 5000})
-    .should("exist")
-    .find('div[data-testid="stMarkdownContainer"]')
+  cy.get('div[data-baseweb="tab-list"]', {timeout: 5000})
     .should("exist")
     .contains(groupName)
+    .should("exist")
     .click();
 
   // Validate that newly created label is found on the page
