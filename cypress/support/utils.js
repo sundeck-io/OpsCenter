@@ -147,7 +147,7 @@ export const addNewLabelToGroup = (
 ) => {
 
   // Find tab with the group name and click on it
-  cy.get('button[data-baseweb="tab"', {timeout: 2000})
+  cy.get('button[data-baseweb="tab"')
     .should("exist")
     .find('div[data-testid="stMarkdownContainer"]')
     .should("exist")
@@ -173,7 +173,7 @@ export const addNewLabelToGroup = (
   buttonClick("Create");
 
   // Find tab with the group name and click on it
-  cy.get('div[data-baseweb="tab-list"]', {timeout: 5000})
+  cy.get('div[data-baseweb="tab-list"]')
     .should("exist")
     .contains(groupName)
     .should("exist")
@@ -181,7 +181,7 @@ export const addNewLabelToGroup = (
 
   // Validate that newly created label is found on the page
   cy.get('section[tabindex="0"]')
-    .find('div[data-testid="stMarkdownContainer"]', {timeout: 2000})
+    .find('div[data-testid="stMarkdownContainer"]')
     .should("exist")
     .contains(labelName)
     .should("exist");
@@ -214,7 +214,7 @@ export function checkGroupLabelNotExist(groupName) {
 
     cy.visit("/");
 
-    cy.get("span", {timeout: 20000})
+    cy.get("span")
       .contains("Labels")
       .should("be.visible")
       .click();

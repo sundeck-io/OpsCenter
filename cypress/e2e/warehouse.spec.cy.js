@@ -11,7 +11,7 @@ describe("Warehouse section", () => {
 
     const stringList= ["365", "90", "30", "7"];
 
-    cy.get("span", {timeout: 20000})
+    cy.get("span")
       .contains("Warehouses")
       .should("be.visible")
       .click();
@@ -42,7 +42,7 @@ describe("Warehouse section", () => {
     const stringList= ["365", "90", "30", "7"];
 
     // Click on the Menu on the SideNav
-    cy.get("span", {timeout: 20000})
+    cy.get("span")
       .contains("Warehouses")
       .should("be.visible")
       .click();

@@ -21,14 +21,14 @@ describe("Settings section", () => {
     // when clicking on Settings
     cy.wait(5000);
 
-    cy.get("span", {timeout: 20000})
+    cy.get("span")
       .contains("Settings")
       .should("be.visible")
       .click();
 
     cy.wait(5000);
 
-    cy.get('button[role="tab"]', {timeout: 20000})
+    cy.get('button[role="tab"]')
       .should("exist")
       .contains("Config")
       .should("exist")
@@ -43,12 +43,12 @@ describe("Settings section", () => {
   it("Menu: Settings. Tab: Reset. Validate that we can click 'Reload' button and no exception is thrown .", () => {
     cy.wait(2000);
 
-    cy.get("span", {timeout: 20000})
+    cy.get("span")
       .contains("Settings")
       .should("be.visible")
       .click();
 
-    cy.get('button[role="tab"]', {timeout: 20000})
+    cy.get('button[role="tab"]')
       .should("exist")
       .contains("Reset")
       .should("exist")

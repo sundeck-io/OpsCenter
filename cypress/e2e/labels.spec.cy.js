@@ -14,10 +14,10 @@ describe("Labels section", () => {
     setup();
   });
 
-  it.skip("Menu: Labels. Validate that New/Create/Cancel buttons don't result in failure to load the page", () => {
+  it("Menu: Labels. Validate that New/Create/Cancel buttons don't result in failure to load the page", () => {
     cy.visit("/");
 
-    cy.get("span", {timeout: 20000})
+    cy.get("span")
       .contains("Labels")
       .should("be.visible")
       .click();
@@ -58,7 +58,7 @@ describe("Labels section", () => {
 
     cy.visit("/");
 
-    cy.get("span", {timeout: 20000})
+    cy.get("span")
       .contains("Labels")
       .should("be.visible")
       .click();
