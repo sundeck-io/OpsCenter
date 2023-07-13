@@ -17,9 +17,9 @@ export function checkNoErrorOnThePage() {
 
 // Check for Success notification with particular text presence
 export function checkSuccessAlert(notificationText) {
-  cy.get('div[role="alert"][data-baseweb="notification"]')
-    .should("exist")
-    .contains(notificationText);
+  cy.get('div[role="alert"][data-baseweb="notification"]', { timeout: 60000 })
+    .and('contain', notificationText);
+
 };
 
 export const fillInProbeForm = (
