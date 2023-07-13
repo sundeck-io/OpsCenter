@@ -21,13 +21,16 @@ def cypress_setup(profile: str, schema: str):
     """
     )
 
+
     start_time = time.time()
 
-    while True:
-        try:
+    try:
+        while True:
+            cur = conn.cursor()
+
             # Execute a query to fetch data from the table
             cur.execute(
-                "SELECT count(*) FROM internal.config where key in ('WAREHOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE') and value is not null ;"
+                "SELECT * FROM internal.config where key in ('WARE2HOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE') and value is not null;"
             )
 
             rows = cur.fetchall()
@@ -37,18 +40,20 @@ def cypress_setup(profile: str, schema: str):
                 print("OpsCenter materialization complete, ready to run Cypress tests")
                 break
 
-        finally:
-            cur.close()
-            conn.close()
 
-        elapsed_time = time.time() - start_time
-        # bail after 3 minutes
-        if elapsed_time >= 150:
-            print("OpsCenter materialization did not complete in 3 minutes!")
-            sys.exit(1)
+            elapsed_time = time.time() - start_time
+            print(f"elapsed time: {elapsed_time}")
+            # bail after 3 minutes
+            if elapsed_time >= 300:
+                print("OpsCenter materialization did not complete in 3 minutes!")
+                sys.exit(1)
 
-        # check every 20 seconds
-        time.sleep(20)
+            # check every 20 seconds
+            time.sleep(20)
+
+    finally:
+        cur.close()
+        conn.close()
 
 
 def usage():
@@ -71,7 +76,7 @@ def main(argv):
 
     if profile is None:
         usage()
-        sys.exit()
+        sys.exit(1)
 
     cypress_setup(profile, schema)
 
