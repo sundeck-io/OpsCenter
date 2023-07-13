@@ -2,9 +2,6 @@ import { v4 as uuidv4 } from "uuid";
 
 export function setup() {
   Cypress.config("baseUrl", Cypress.env("OPSCENTER_URL"));
-
-  // wait a minute to allow materialization to complete
-  cy.wait(60000);
 }
 
 export function checkNoErrorOnThePage() {
