@@ -172,3 +172,56 @@ def sndk_url(account: str, user: str, region: str) -> str:
     #     f"&redirect_uri=https://api.sundeck.io/us-west-2/v1/signup/finish&response_type=CODE"
     #     f"&client_id=6lda9fn5faecfm816s5ihgrbsh&scope=email%20openid%20profile&state={urlencode(params)}"
     # )
+
+
+def generate_code_to_setup_external_functions(region: str, app_name: str) -> str:
+    gateway_prefixes = get_api_gateway_prefixes(region)
+    return f"""
+BEGIN
+    CREATE OR REPLACE API INTEGRATION OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS api_provider = aws_api_gateway
+     api_aws_role_arn = 'arn:aws:iam::323365108137:role/SnowflakeOpsCenterRole'
+     api_allowed_prefixes = ({gateway_prefixes}) enabled = true;
+    GRANT USAGE ON INTEGRATION OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS TO APPLICATION "{app_name}";
+    CALL ADMIN.SETUP_EXTERNAL_FUNCTIONS();
+END;
+"""
+
+
+def get_api_gateway_prefixes(sf_region: str) -> str:
+    api_prefix_map = {
+        "us-east-1": "'https://1lf9af4dk7.execute-api.us-east-1.amazonaws.com', "
+        + "'https://rkb9hwsqw0.execute-api.us-east-1.amazonaws.com'",
+        "us-east-2": "'https://mr2gl3hcuk.execute-api.us-east-2.amazonaws.com'",
+        "us-west-2": "'https://1fb567sika.execute-api.us-west-2.amazonaws.com', "
+        + "'https://hh538sr9qg.execute-api.us-west-2.amazonaws.com', "
+        + "'https://w4cu711jd2.execute-api.us-west-2.amazonaws.com'",
+    }
+
+    return api_prefix_map[get_sndk_region(sf_region)]
+
+
+def get_sndk_region(sf_region: str) -> str:
+    # Supported Sundeck Regions ["us-east-1", "us-east-2.aws", "us-west-2"]
+    region_map = {
+        "AWS_US_WEST_2": "us-west-2",
+        "AWS_US_EAST_1": "us-east-1",
+        "AWS_AP_SOUTHEAST_2": "us-west-2",
+        "AWS_EU_WEST_1": "us-west-2",
+        "AWS_AP_SOUTHEAST_1": "us-west-2",
+        "AWS_CA_CENTRAL_1": "us-west-2",
+        "AWS_EU_CENTRAL_1": "us-west-2",
+        "AWS_US_EAST_2": "us-east-2",
+        "AWS_AP_NORTHEAST_1": "us-west-2",
+        "AWS_AP_SOUTH_1": "us-west-2",
+        "AWS_EU_WEST_2": "us-west-2",
+        "AWS_AP_NORTHEAST_2": "us-west-2",
+        "AWS_EU_NORTH_1": "us-west-2",
+        "AWS_AP_NORTHEAST_3": "us-west-2",
+        "AWS_SA_EAST_1": "us-west-2",
+        "AWS_EU_WEST_3": "us-west-2",
+        "AWS_AP_SOUTHEAST_3": "us-west-2",
+        "AWS_US_GOV_WEST_1": "us-west-2",
+        "AWS_US_EAST_1_GOV": "us-east-1",
+    }
+
+    return region_map[sf_region]
