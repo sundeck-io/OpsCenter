@@ -41,6 +41,9 @@ jobs:
         run: "poetry run python deploy/cypress_setup.py -p opscenter"
       - name: run streamlit
         run: "poetry run streamlit run app/ui/Home.py &"
+      - name: Set cypress env variables
+        run: |
+          echo "CYPRESS_SNOWFLAKE_ACCOUNT=${{ secrets.SNOWFLAKE_ACCOUNT }}" >> $GITHUB_ENV
       - name: Cypress run
         uses: cypress-io/github-action@v4
         with:

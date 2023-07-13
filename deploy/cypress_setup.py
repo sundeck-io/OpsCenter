@@ -17,6 +17,7 @@ def cypress_setup(profile: str, schema: str):
         call {conn.database}.internal.refresh_users();
         call {conn.database}.internal.refresh_warehouse_events(true);
         call {conn.database}.internal.refresh_queries(true);
+        call {conn.database}.ADMIN.FINALIZE_SETUP();
     END;
     """
     )
