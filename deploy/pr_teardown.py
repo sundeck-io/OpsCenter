@@ -3,7 +3,7 @@ import helpers
 import sys
 
 
-def teardown(profile: str, application str):
+def teardown(profile: str, application: str):
     conn = helpers.connect_to_snowflake(profile=profile)
     conn.cursor().execute(f"DROP APPLICATION IF EXISTS {application};")
 
