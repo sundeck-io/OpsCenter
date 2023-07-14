@@ -24,13 +24,13 @@ def send_telemetry(event: str, data: str):
         return
 
     # TODO can we make this asynchronous?
-    print(f"Sending telemetry: {event} {data}")
+    success = True
     try:
         _ = connection.execute_select(
             "select internal.telemetry(%(event)s, %(data)s)",
             {"event": event, "data": data},
         )
-        print("telemetry success")
-    except:
-        print("telemetry failed")
+    except Exception as e:
+        success = False
         pass
+    print(f"Telemetry: {event} {data}, {'success' if success else 'failed'}")
