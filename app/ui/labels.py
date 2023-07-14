@@ -14,7 +14,7 @@ class Label:
         self.snowflake = Connection.get()
 
     def list_labels(self):
-        page_view('Labels')
+        page_view("Labels")
         st.title("Query Labels")
         st.write(
             """

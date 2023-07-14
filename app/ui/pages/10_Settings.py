@@ -76,7 +76,9 @@ with config_tab:
             key="serverless_credit_cost",
         )
         storage = st.text_input("Storage Cost (/tb)", value=tbcost, key="storage_cost")
-        telemetry = st.checkbox("Usage Telemetry", value=config.is_telemetry_enabled(), key="telemetry")
+        telemetry = st.checkbox(
+            "Usage Telemetry", value=config.is_telemetry_enabled(), key="telemetry"
+        )
 
         if st.form_submit_button("Save"):
             action("Update Configuration")

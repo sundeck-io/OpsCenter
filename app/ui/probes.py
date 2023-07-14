@@ -28,7 +28,7 @@ class Probe:
         self.snowflake = Connection.get()
 
     def list_probes(self):
-        page_view('Probes')
+        page_view("Probes")
         st.title("Query Probes")
         st.markdown(
             """

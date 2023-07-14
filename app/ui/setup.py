@@ -151,7 +151,11 @@ BEGIN
 END;
                 """
                 )
-                st.button("Refresh Status", on_click=config.refresh, key="manual_sundeck_setup_refresh")
+                st.button(
+                    "Refresh Status",
+                    on_click=config.refresh,
+                    key="manual_sundeck_setup_refresh",
+                )
 
 
 def sndk_url(account: str, user: str, region: str) -> str:

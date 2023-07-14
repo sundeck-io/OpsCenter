@@ -32,7 +32,5 @@ def send_telemetry(event: str, data: str):
         )
         print("telemetry success")
     except:
-        print(f"telemetry failed")
+        print("telemetry failed")
         pass
-
-
