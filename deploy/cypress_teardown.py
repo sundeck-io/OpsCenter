@@ -5,7 +5,7 @@ import sys
 
 def teardown(profile: str):
     conn = helpers.connect_to_snowflake(profile=profile)
-    conn.cursor().execute(f"DROP DATABASE {conn.database};")
+    conn.cursor().execute(f"DROP DATABASE IF EXISTS {conn.database};")
 
 
 def usage():
