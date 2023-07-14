@@ -1,5 +1,4 @@
 import getopt
-import time
 import helpers
 import sys
 
