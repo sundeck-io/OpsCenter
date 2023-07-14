@@ -117,7 +117,8 @@ BEGIN
     execute immediate 'create or replace function internal.get_ef_token() returns string as \'\\\'' || token || '\\\'\';';
 END;
 
-CREATE OR REPLACE PROCEDURE admin.setup_external_functions() RETURNS STRING LANGUAGE SQL AS
+
+CREATE OR REPLACE PROCEDURE admin.setup_external_functions(api_integration_ref string) RETURNS STRING LANGUAGE SQL AS
 BEGIN
     let url string := (select internal.get_ef_url());
     let token string := (select internal.get_ef_token());
@@ -126,21 +127,21 @@ BEGIN
             create or replace external function internal.ef_qlike(request object)
             returns object
             context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
-            api_integration = reference(\'opscenter_api_integration\')
+            api_integration = ' || api_integration_ref || '
             headers = (\'sndk-token\' = \'sndk_' || token || '\')
             as \'' || url || '/extfunc/qlike\';
 
             create or replace external function internal.ef_notifications(request object)
             returns object
             context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
-            api_integration = reference(\'opscenter_api_integration\')
+            api_integration = ' || api_integration_ref || '
             headers = (\'sndk-token\' = \'sndk_' || token || '\')
             as \'' || url || '/extfunc/notifications\';
 
             create or replace external function internal.ef_run(unused object, request object)
             returns object
             context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
-            api_integration = reference(\'opscenter_api_integration\')
+            api_integration = ' || api_integration_ref || '
             headers = (\'sndk-token\' = \'sndk_' || token || '\')
             as \'' || url || '/extfunc/run\';
         END;
@@ -155,4 +156,9 @@ BEGIN
     WHEN NOT MATCHED THEN
       INSERT (key, value)
       VALUES (source.key, source.value);
+END;
+
+CREATE OR REPLACE PROCEDURE admin.setup_external_functions() RETURNS STRING LANGUAGE SQL AS
+BEGIN
+    call admin.setup_external_functions('reference(\'opscenter_api_integration\')');
 END;
