@@ -30,7 +30,7 @@ def send_telemetry(event: str, data: str):
             "select internal.telemetry(%(event)s, %(data)s)",
             {"event": event, "data": data},
         )
-    except Exception as e:
+    except Exception:
         success = False
         pass
     print(f"Telemetry: {event} {data}, {'success' if success else 'failed'}")
