@@ -58,3 +58,5 @@ jobs:
           path: |
             cypress/videos/
             cypress/screenshots/
+      - name: remove SQL objects
+        run: "poetry run python deploy/cypress_teardown.py -p opscenter"
