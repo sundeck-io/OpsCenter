@@ -5,7 +5,7 @@ describe("Probes section", () => {
     setup();
   });
 
-  it.skip("Menu: Probes", () => {
+  it("Menu: Probes", () => {
     cy.visit("/");
 
     cy.get("span")
