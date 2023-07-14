@@ -147,10 +147,11 @@ BEGIN
                     + """'https://1fb567sika.execute-api.us-west-2.amazonaws.com', 'https://rkb9hwsqw0.execute-api.us-east-1.amazonaws.com', """
                     + f"""'https://hh538sr9qg.execute-api.us-west-2.amazonaws.com', 'https://w4cu711jd2.execute-api.us-west-2.amazonaws.com') enabled = true;
   GRANT USAGE ON INTEGRATION OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS TO APPLICATION "{db}";
-  CALL ADMIN.SETUP_EXTERNAL_FUNCTIONS();
+  CALL ADMIN.SETUP_EXTERNAL_FUNCTIONS('OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS');
 END;
                 """
                 )
+                st.button("Refresh Status", on_click=config.refresh, key="manual_sundeck_setup_refresh")
 
 
 def sndk_url(account: str, user: str, region: str) -> str:

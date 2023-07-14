@@ -3,6 +3,7 @@ import streamlit as st
 import filters
 import connection
 import plotly.express as px
+from telemetry import page_view
 
 
 def report(
@@ -74,6 +75,8 @@ def report(
         grp = "EXECUTION_STATUS"
     else:
         grp = f""" "{grouping}" """
+
+    page_view("Query Activity by " + grouping)
 
     def overview():
         sql = f"""

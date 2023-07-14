@@ -5,12 +5,14 @@ import plotly.figure_factory as ff
 import calendar
 import numpy as np
 import filters
+from telemetry import page_view
 
 
 def heatmap(
     bf: filters.BaseFilter,
     cost_per_credit,
 ):
+    page_view("Warehouse Heatmap")
 
     sql = f"""
     with util as (

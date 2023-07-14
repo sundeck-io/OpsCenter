@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 import streamlit as st
 import plotly.express as px
 from reports_query_activity import topn
+from telemetry import page_view
 
 import connection
 import filters
@@ -12,6 +13,8 @@ def report(
     bf: filters.BaseFilter,
     cost_per_credit,
 ):
+    page_view("Query Report dbt Summary")
+
     labels = connection.execute_with_cache(
         "select name from internal.labels where group_name is null"
     )

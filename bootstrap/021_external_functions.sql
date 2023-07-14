@@ -111,6 +111,43 @@ create function if not exists internal.get_ef_token()
     'throw "You must configure a Sundeck token to use this.";';
 
 
+BEGIN
+    CREATE FUNCTION IF NOT EXISTS internal.ef_telemetry(request object)
+        RETURNS VARIANT
+        LANGUAGE JAVASCRIPT
+    AS 'throw "You must configure a Sundeck token to send usage telemetry.";';
+EXCEPTION
+    WHEN statement_error THEN
+        let isalreadyef boolean := (select CONTAINS(:SQLERRM, 'API_INTEGRATION') AND CONTAINS(:SQLERRM, 'must be specified'));
+    if (not isalreadyef) then
+                RAISE;
+    end if;
+    WHEN OTHER THEN
+            RAISE;
+END;
+
+-- TODO record the error (e.g. internal.ef_telemetry(request):error) somewhere
+create or replace function internal.wrapper_telemetry(request object)
+returns boolean
+immutable
+as
+$$
+iff(length(internal.ef_telemetry(request):error) != 0,
+    true,
+    internal.ef_telemetry(request):result::boolean)
+$$;
+
+
+
+create or replace function internal.telemetry(event varchar, data varchar)
+    returns boolean
+as
+$$
+    internal.wrapper_telemetry(object_construct('event', event, 'data', data))
+$$;
+
+
+
 create or replace procedure internal.setup_sundeck_token(url string, token string) RETURNS STRING LANGUAGE SQL AS
 BEGIN
     execute immediate 'create or replace function internal.get_ef_url() returns string as \'\\\'' || url || '\\\'\';';
@@ -144,6 +181,13 @@ BEGIN
             api_integration = ' || api_integration_ref || '
             headers = (\'sndk-token\' = \'sndk_' || token || '\')
             as \'' || url || '/extfunc/run\';
+
+            create or replace external function internal.ef_telemetry(request object)
+            returns object
+            context_headers = (CURRENT_ACCOUNT)
+            api_integration = ' || api_integration_ref || '
+            headers = (\'sndk-token\' = \'sndk_' || token || '\')
+            as \'' || url || '/extfunc/telemetry\';
         END;
     ';
 

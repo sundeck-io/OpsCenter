@@ -1,6 +1,7 @@
 import plotly.graph_objects as go
 import streamlit as st
 import filters
+from telemetry import page_view
 
 import connection
 
@@ -178,6 +179,7 @@ def report(
 
         st.plotly_chart(fig, use_container_width=True)
 
+    page_view("Warehouse Activity")
     warehouse_stats(st.empty())
     cols = st.columns(2)
     with cols[0]:

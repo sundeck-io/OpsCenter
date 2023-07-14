@@ -1,6 +1,7 @@
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from telemetry import page_view
 
 import connection
 import filters
@@ -10,6 +11,7 @@ def report(
     bf: filters.BaseFilter,
     cost_per_credit,
 ):
+    page_view("Query Report Top Spenders")
     labels = connection.execute_with_cache(
         "select name from internal.labels where group_name is null"
     )

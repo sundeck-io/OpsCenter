@@ -2,6 +2,7 @@ import streamlit as st
 from connection import Connection
 import session as general_session
 from session import Mode
+from telemetry import page_view, action
 
 
 def display():
@@ -27,6 +28,7 @@ class Probe:
         self.snowflake = Connection.get()
 
     def list_probes(self):
+        page_view('Probes')
         st.title("Query Probes")
         st.markdown(
             """
@@ -112,6 +114,7 @@ class Probe:
         st.button("New", key="create", on_click=self.session.do_create, args=[None])
 
     def on_create_click(self, name, condition, email_writer, email_other, cancel):
+        action("Create Probe")
         with st.spinner("Creating new probe..."):
             outcome = self.snowflake.call(
                 "ADMIN.CREATE_PROBE",
@@ -132,6 +135,7 @@ class Probe:
     def on_update_click(
         self, oldname, name, condition, email_writer, email_other, cancel
     ):
+        action("Update Probe")
         outcome = None
         with st.spinner("Updating probe..."):
             outcome = self.snowflake.call(
@@ -152,6 +156,7 @@ class Probe:
         self.status.error(outcome)
 
     def on_delete_click(self, name):
+        action("Delete Probe")
         with st.spinner("Deleting probe..."):
             self.snowflake.call("ADMIN.DELETE_PROBE", name)
             self.session.set_toast("Probe deleted.")
@@ -176,6 +181,7 @@ class Probe:
         st.button("Cancel", on_click=self.session.do_list)
 
     def edit_probe(self, update: dict):
+        page_view("Edit Probe")
         st.title("Edit Probe")
         name = st.text_input(key="NAME", label="Probe Name", value=update["name"])
         condition = st.text_area(

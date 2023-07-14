@@ -2,6 +2,7 @@ import streamlit as st
 from connection import Connection
 import session as general_session
 from session import Mode
+from telemetry import page_view, action
 
 
 class Label:
@@ -13,6 +14,7 @@ class Label:
         self.snowflake = Connection.get()
 
     def list_labels(self):
+        page_view('Labels')
         st.title("Query Labels")
         st.write(
             """
@@ -135,6 +137,7 @@ class Label:
                     )
 
     def on_create_click(self, name, group, rank, condition):
+        action("Create Label")
         with st.spinner("Creating new label..."):
             outcome = self.snowflake.call(
                 "ADMIN.CREATE_LABEL", name, group, rank, condition
@@ -148,6 +151,7 @@ class Label:
         self.status.error(outcome)
 
     def on_update_click(self, oldname, name, group, rank, condition):
+        action("Update Label")
         outcome = None
         with st.spinner("Updating label..."):
             outcome = self.snowflake.call(
@@ -161,6 +165,7 @@ class Label:
                 self.status.error(outcome)
 
     def on_delete_click(self, name):
+        action("Delete Label")
         with st.spinner("Deleting label..."):
             self.snowflake.call("ADMIN.DELETE_LABEL", name)
             self.session.set_toast("Label deleted.")
@@ -192,6 +197,7 @@ class Label:
         st.button("Cancel", on_click=self.session.do_list)
 
     def edit_label(self, update: dict):
+        page_view("Edit Label")
         st.title("Edit Label")
         name = st.text_input(key="NAME", label="Label Name", value=update["name"])
         group = update["group_name"]

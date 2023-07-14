@@ -3,6 +3,7 @@ import connection
 import config
 import sthelp
 import setup
+from telemetry import action
 
 
 sthelp.chrome("Settings")
@@ -75,7 +76,10 @@ with config_tab:
             key="serverless_credit_cost",
         )
         storage = st.text_input("Storage Cost (/tb)", value=tbcost, key="storage_cost")
+        telemetry = st.checkbox("Usage Telemetry", value=config.is_telemetry_enabled(), key="telemetry")
+
         if st.form_submit_button("Save"):
+            action("Update Configuration")
 
             if (
                 invalid_number(compute)
@@ -102,6 +106,7 @@ with config_tab:
             END;
             """
             )
+            config.set_telemetry(telemetry)
             st.success("Saved")
 
 
@@ -110,6 +115,7 @@ with setup_tab:
 
 
 def save_tasks(container, wem, qhm, pm):
+    action("Save Tasks")
     with container:
         with st.spinner("Saving changes to task settings."):
             sql = f"""
@@ -163,6 +169,7 @@ with reset:
     st.title("Reset/Reload")
     do_reset = st.button("Reset and reload query history and warehouse events.")
     if do_reset:
+        action("Reset")
         bar = st.progress(0, text="Cleaning and refreshing query and warehouse events.")
         msg = st.empty()
         msg.warning("Resetting. Please do not navigate away from this page.")

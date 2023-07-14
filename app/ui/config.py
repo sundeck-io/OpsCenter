@@ -58,6 +58,23 @@ def get_compute_credit_cost():
     return Config.get("compute_credit_cost") or 2
 
 
+def is_telemetry_enabled() -> bool:
+    """
+    Returns if telemetry is enabled. If no explicit configuration for telemetry exists, this returns True.
+    """
+    enabled = Config.get("telemetry")
+    if enabled is None:
+        return True
+    return enabled
+
+
+def set_telemetry(enabled: bool):
+    """
+    Persists if telemetry should be enabled.
+    """
+    Config.set("telemetry", enabled)
+
+
 class Config:
     _props = None
 
