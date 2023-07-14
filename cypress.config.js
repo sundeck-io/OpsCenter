@@ -6,6 +6,7 @@ module.exports = defineConfig({
     SNOWFLAKE_ACCOUNT: "",
   },
   e2e: {
-    supportFile: false
+    supportFile: false,
+    defaultCommandTimeout: 20000
   },
 });
