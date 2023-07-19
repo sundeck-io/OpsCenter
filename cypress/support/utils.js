@@ -245,5 +245,25 @@ export const fillInTheSettingsConfigForm = (
   cy.get('input[aria-label="Storage Cost (/tb)"]')
     .clear()
     .type(storageCost);
+};
 
+export const dropDownOpen = (dropDownName) => {
+  cy.get('.row-widget.stSelectbox')
+    .contains(dropDownName)
+    .should("exist")
+    .parents('.row-widget.stSelectbox')
+    .should("exist")
+    .within(() => {
+      cy.get('svg[title="open"]')
+        .should("exist")
+        .click({force: true});
+    })
+};
+
+export const dropDownElementClick = (dropDownElementName) => {
+  cy.get('li[role="option"]')
+    .should("be.visible")
+    .contains(dropDownElementName)
+    .should("be.visible")
+    .click();
 };
