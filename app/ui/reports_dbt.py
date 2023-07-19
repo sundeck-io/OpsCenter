@@ -85,12 +85,12 @@ select
     coalesce(k1, 'Unknown') as "RunId", run_time as "RunTimeGrade", size as "SizeGrade", efficiency as "EfficiencyGrade"
 from agg
 where
-    not (k2 ilike '________-____-____-____-____________' and regexp_like(k2, '^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}$', 'i'));
+    not (k2 ilike '________-____-____-____-____________' and regexp_like(k2, '^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}$', 'i'))
         """
 
     def overview():
         df = connection.execute_select(
-            sql,
+            sql + " ;",
             {"start": bf.start, "end": bf.end, "warehouse_names": bf.warehouse_names},
         )
         df["ModelId"] = df["ModelId"].map(lambda x: x.replace('"', ""))
@@ -172,7 +172,7 @@ where
         overview()
     else:
         df = connection.execute_select(
-            sql + " limit 1000",
+            sql + " limit 1000;",
             {"start": bf.start, "end": bf.end, "warehouse_names": bf.warehouse_names},
         )
         st.dataframe(df, use_container_width=True)
