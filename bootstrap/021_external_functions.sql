@@ -104,12 +104,27 @@ create function if not exists internal.get_ef_url()
     as
     'throw "You must configure a Sundeck token to use this.";';
 
+create function if not exists internal.get_tenant_url()
+    returns string
+    language javascript
+    as
+    'throw "You must configure a Sundeck token to use this.";';
+
 create function if not exists internal.get_ef_token()
     returns string
     language javascript
     as
     'throw "You must configure a Sundeck token to use this.";';
 
+create or replace procedure internal.setup_ef_url(url string) RETURNS STRING LANGUAGE SQL AS
+BEGIN
+    execute immediate 'create or replace function internal.get_ef_url() returns string as \'\\\'' || url || '\\\'\';';
+END;
+
+create or replace procedure internal.setup_sundeck_tenant_url(url string) RETURNS STRING LANGUAGE SQL AS
+BEGIN
+    execute immediate 'create or replace function internal.get_tenant_url() returns string as \'\\\'' || url || '\\\'\';';
+END;
 
 create or replace procedure internal.setup_sundeck_token(url string, token string) RETURNS STRING LANGUAGE SQL AS
 BEGIN

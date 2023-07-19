@@ -145,3 +145,15 @@ def generate_qtag() -> str:
             lines.append(line)
     script = "\n".join(lines)
     return script
+
+
+def generate_get_sundeck_deployment_function(deployment: str) -> str:
+    return f"""
+    CREATE OR REPLACE FUNCTION internal.get_sundeck_deployment()
+        RETURNS VARCHAR(10)
+        LANGUAGE JAVASCRIPT
+        AS
+    $$
+        return '{deployment}';
+    $$ ;
+"""

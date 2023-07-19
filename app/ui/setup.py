@@ -10,6 +10,15 @@ try:
 except ImportError:
     import fakeperms as perms
 
+API_GATEWAY_DEV_US_WEST_2 = "https://w4cu711jd2.execute-api.us-west-2.amazonaws.com"
+API_GATEWAY_STAGE_US_EAST_1 = "https://rkb9hwsqw0.execute-api.us-east-1.amazonaws.com"
+API_GATEWAY_STAGE_US_WEST_2 = "https://hh538sr9qg.execute-api.us-west-2.amazonaws.com"
+API_GATEWAY_PROD_US_EAST_1 = "https://1lf9af4dk7.execute-api.us-east-1.amazonaws.com"
+API_GATEWAY_PROD_US_EAST_2 = "https://mr2gl3hcuk.execute-api.us-east-2.amazonaws.com"
+API_GATEWAY_PROD_US_WEST_2 = "https://1fb567sika.execute-api.us-west-2.amazonaws.com"
+
+OPSCENTER_ROLE_ARN = "arn:aws:iam::323365108137:role/SnowflakeOpsCenterRole"
+
 
 def decode_token(token: str):
     if token[:4] != "sndk":
@@ -50,12 +59,13 @@ def setup_block():
         "AWS_US_EAST_1_GOV": "us-east-1",
     }
 
-    db, account, user, sf_region = list(
+    db, account, user, sf_region, sd_deployment = list(
         connection.execute(
             """select current_database() as db,
         current_account() as account,
         current_user() as username,
-        current_region() as region"""
+        current_region() as region,
+        internal.get_sundeck_deployment() as deployment"""
         ).values[0]
     )
 
@@ -64,6 +74,8 @@ def setup_block():
     sf_region_without_public = sf_region.split(".")[-1]
 
     region = region_map[sf_region_without_public]
+    external_func_url = get_api_gateway_url(sf_region_without_public, sd_deployment)
+    connection.Connection.get().call("INTERNAL.SETUP_EF_URL", external_func_url)
 
     def expander(num: int, title: str, finished: bool) -> st.expander:
         c = "[Pending]"
@@ -121,15 +133,15 @@ END;
             req = perms.request_aws_api_integration(
                 "opscenter_api_integration",
                 (
-                    "https://1lf9af4dk7.execute-api.us-east-1.amazonaws.com",
-                    "https://mr2gl3hcuk.execute-api.us-east-2.amazonaws.com",
-                    "https://1fb567sika.execute-api.us-west-2.amazonaws.com",
-                    "https://rkb9hwsqw0.execute-api.us-east-1.amazonaws.com",
-                    "https://hh538sr9qg.execute-api.us-west-2.amazonaws.com",
-                    "https://w4cu711jd2.execute-api.us-west-2.amazonaws.com",
+                    API_GATEWAY_PROD_US_EAST_1,
+                    API_GATEWAY_PROD_US_EAST_2,
+                    API_GATEWAY_PROD_US_WEST_2,
+                    API_GATEWAY_STAGE_US_EAST_1,
+                    API_GATEWAY_STAGE_US_WEST_2,
+                    API_GATEWAY_DEV_US_WEST_2,
                 ),
                 perms.AwsGateway.API_GATEWAY,
-                "arn:aws:iam::323365108137:role/SnowflakeOpsCenterRole",
+                OPSCENTER_ROLE_ARN,
                 None,
                 "OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS",
                 None,
@@ -139,18 +151,7 @@ END;
                 config.clear_cache()
             else:
                 msg.info("Please run the following command in your Snowflake account:")
-                st.code(
-                    """
-BEGIN
-  CREATE OR REPLACE API INTEGRATION OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS api_provider = aws_api_gateway api_aws_role_arn = 'arn:aws:iam::323365108137:role/SnowflakeOpsCenterRole' """
-                    + """ api_allowed_prefixes = ('https://1lf9af4dk7.execute-api.us-east-1.amazonaws.com', 'https://mr2gl3hcuk.execute-api.us-east-2.amazonaws.com', """
-                    + """'https://1fb567sika.execute-api.us-west-2.amazonaws.com', 'https://rkb9hwsqw0.execute-api.us-east-1.amazonaws.com', """
-                    + f"""'https://hh538sr9qg.execute-api.us-west-2.amazonaws.com', 'https://w4cu711jd2.execute-api.us-west-2.amazonaws.com') enabled = true;
-  GRANT USAGE ON INTEGRATION OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS TO APPLICATION "{db}";
-  CALL ADMIN.SETUP_EXTERNAL_FUNCTIONS();
-END;
-                """
-                )
+                st.code(generate_code_to_setup_external_functions(db))
 
 
 def sndk_url(account: str, user: str, region: str) -> str:
@@ -174,51 +175,84 @@ def sndk_url(account: str, user: str, region: str) -> str:
     # )
 
 
-def generate_code_to_setup_external_functions(region: str, app_name: str) -> str:
-    gateway_prefixes = get_api_gateway_prefixes(region)
-    return f"""
+def generate_code_to_setup_external_functions(app_name: str) -> str:
+    gateway_prefixes = (
+        f"'{API_GATEWAY_PROD_US_EAST_1}', '{API_GATEWAY_PROD_US_EAST_2}', "
+        + f"'{API_GATEWAY_PROD_US_WEST_2}', '{API_GATEWAY_STAGE_US_EAST_1}', "
+        + f"'{API_GATEWAY_STAGE_US_WEST_2}', '{API_GATEWAY_DEV_US_WEST_2}'"
+    )
+    return (
+        """
 BEGIN
-    CREATE OR REPLACE API INTEGRATION OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS api_provider = aws_api_gateway
-     api_aws_role_arn = 'arn:aws:iam::323365108137:role/SnowflakeOpsCenterRole'
-     api_allowed_prefixes = ({gateway_prefixes}) enabled = true;
+    CREATE OR REPLACE API INTEGRATION OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS api_provider = aws_api_gateway """
+        + f""" api_aws_role_arn = '{OPSCENTER_ROLE_ARN}' api_allowed_prefixes = ({gateway_prefixes}) enabled = true;
     GRANT USAGE ON INTEGRATION OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS TO APPLICATION "{app_name}";
     CALL ADMIN.SETUP_EXTERNAL_FUNCTIONS();
 END;
 """
+    )
 
 
-def get_api_gateway_prefixes(sf_region: str) -> str:
-    api_prefix_map = {
-        "us-east-1": "'https://1lf9af4dk7.execute-api.us-east-1.amazonaws.com', "
-        + "'https://rkb9hwsqw0.execute-api.us-east-1.amazonaws.com'",
-        "us-east-2": "'https://mr2gl3hcuk.execute-api.us-east-2.amazonaws.com'",
-        "us-west-2": "'https://1fb567sika.execute-api.us-west-2.amazonaws.com', "
-        + "'https://hh538sr9qg.execute-api.us-west-2.amazonaws.com', "
-        + "'https://w4cu711jd2.execute-api.us-west-2.amazonaws.com'",
+def get_redirect_url_for_security_integration(
+    sf_region: str, sd_deployment: str
+) -> str:
+
+    base_url_map = {
+        "prod": "https://api.sundeck.io",
+        "stage": "https://api.stage.sndk.io",
+        "dev": "https://api.dev.sndk.io",
+    }
+    base_url = base_url_map[sd_deployment]
+    sd_region = get_sundeck_region(sf_region)
+    return f"{base_url}/{sd_region}/v1/login/finish"
+
+
+def get_api_gateway_url(sf_region: str, sd_deployment: str) -> str:
+
+    stage_url_map = {
+        "us-east-1": API_GATEWAY_STAGE_US_EAST_1,
+        "us-west-2": API_GATEWAY_STAGE_US_WEST_2,
     }
 
-    return api_prefix_map[get_sndk_region(sf_region)]
+    prod_url_map = {
+        "us-east-1": API_GATEWAY_PROD_US_EAST_1,
+        "us-east-2": API_GATEWAY_PROD_US_EAST_2,
+        "us-west-2": API_GATEWAY_PROD_US_WEST_2,
+    }
+
+    if sd_deployment == "dev":
+        return API_GATEWAY_DEV_US_WEST_2
+    elif sd_deployment == "prod":
+        return prod_url_map[get_sundeck_region(sf_region)]
+    elif sd_deployment == "stage":
+        sundeck_region = get_sundeck_region(sf_region)
+        if sundeck_region == "us-east-1":
+            return stage_url_map[sundeck_region]
+        else:
+            return stage_url_map["us-west-2"]
+    else:
+        raise Exception("Invalid deployment")
 
 
-def get_sndk_region(sf_region: str) -> str:
+def get_sundeck_region(sf_region: str) -> str:
     # Supported Sundeck Regions ["us-east-1", "us-east-2.aws", "us-west-2"]
     region_map = {
         "AWS_US_WEST_2": "us-west-2",
         "AWS_US_EAST_1": "us-east-1",
         "AWS_AP_SOUTHEAST_2": "us-west-2",
-        "AWS_EU_WEST_1": "us-west-2",
+        "AWS_EU_WEST_1": "us-east-1",
         "AWS_AP_SOUTHEAST_1": "us-west-2",
         "AWS_CA_CENTRAL_1": "us-west-2",
-        "AWS_EU_CENTRAL_1": "us-west-2",
+        "AWS_EU_CENTRAL_1": "us-east-1",
         "AWS_US_EAST_2": "us-east-2",
         "AWS_AP_NORTHEAST_1": "us-west-2",
         "AWS_AP_SOUTH_1": "us-west-2",
-        "AWS_EU_WEST_2": "us-west-2",
+        "AWS_EU_WEST_2": "us-east-1",
         "AWS_AP_NORTHEAST_2": "us-west-2",
-        "AWS_EU_NORTH_1": "us-west-2",
+        "AWS_EU_NORTH_1": "us-east-1",
         "AWS_AP_NORTHEAST_3": "us-west-2",
         "AWS_SA_EAST_1": "us-west-2",
-        "AWS_EU_WEST_3": "us-west-2",
+        "AWS_EU_WEST_3": "us-east-1",
         "AWS_AP_SOUTHEAST_3": "us-west-2",
         "AWS_US_GOV_WEST_1": "us-west-2",
         "AWS_US_EAST_1_GOV": "us-east-1",

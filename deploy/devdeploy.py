@@ -29,10 +29,11 @@ def _copy_dependencies(cur, schema: str, stage: str):
         cur.execute(put_cmd)
 
 
-def _copy_opscenter_files(cur, schema: str, stage: str):
+def _copy_opscenter_files(cur, schema: str, stage: str, deployment: str):
     print(f"Copying OpsCenter files to @{schema}.{stage}.")
     scripts = helpers.generate_body(False, stage_name=f"@{schema}.{stage}")
     scripts += helpers.generate_qtag()
+    scripts += helpers.generate_get_sundeck_deployment_function(deployment)
     body = helpers.generate_setup_script(scripts)
     regex = re.compile("APPLICATION\\s+ROLE", re.IGNORECASE)
     body = regex.sub("DATABASE ROLE", body)
@@ -41,7 +42,7 @@ def _copy_opscenter_files(cur, schema: str, stage: str):
     cur.execute(body)
 
 
-def devdeploy(profile: str, schema: str, stage: str):
+def devdeploy(profile: str, schema: str, stage: str, deployment: str):
     """
     Create the app package to enable local development
     :param profile: the Snowsql configuration profile to use.
@@ -57,13 +58,13 @@ def devdeploy(profile: str, schema: str, stage: str):
     _copy_dependencies(cur, conn.schema, stage)
 
     # Deploy the OpsCenter code into the stage.
-    _copy_opscenter_files(cur, conn.schema, stage)
+    _copy_opscenter_files(cur, conn.schema, stage, deployment)
 
     conn.close()
 
 
 def usage():
-    print("devdeploy.py -p <snowsql_profile_name>")
+    print("devdeploy.py -p <snowsql_profile_name> -d <sundeck_deployment>")
 
 
 def main(argv):
@@ -73,19 +74,22 @@ def main(argv):
     profile = "local_opscenter"
     schema = "PUBLIC"
     stage = "OC_STAGE"
-    opts, args = getopt.getopt(argv, "hp:", ["profile="])
+    deployment = "dev"
+    opts, args = getopt.getopt(argv, "d:hp:", ["deployment=", "profile="])
     for opt, arg in opts:
         if opt == "-h":
             usage()
             sys.exit()
         elif opt in ("-p", "--profile"):
             profile = arg
+        elif opt in ("-d", "--deployment"):
+            deployment = arg
 
     if profile is None or stage is None:
         usage()
         sys.exit()
 
-    devdeploy(profile, schema, stage)
+    devdeploy(profile, schema, stage, deployment)
 
 
 if __name__ == "__main__":
