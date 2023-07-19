@@ -56,4 +56,4 @@ jobs:
           OPSCENTER_DROP_DATABASE: "true"
         run: "poetry run python deploy/deploy.py"
       - name: run teardown
-        run: "poetry run python deploy/pr_teardown.py -a ${OPSCENTER_APP}"
+        run: "poetry run python deploy/pr_teardown.py -a ${OPSCENTER_APP} -p opscenter"
