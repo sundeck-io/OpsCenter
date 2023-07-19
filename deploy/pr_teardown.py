@@ -13,7 +13,7 @@ def usage():
 
 
 def main(argv):
-    profile = "local_opscenter"
+    profile = "opscenter"
     application = None
     opts, args = getopt.getopt(argv, "hpa:", ["profile=", "application="])
     for opt, arg in opts:
