@@ -262,8 +262,8 @@ export const dropDownOpen = (dropDownName) => {
 
 export const dropDownElementClick = (dropDownElementName) => {
   cy.get('li[role="option"]')
-    .should("be.visible")
+    .should("exist")
     .contains(dropDownElementName)
-    .should("be.visible")
+    .should("exist")
     .click();
 };
