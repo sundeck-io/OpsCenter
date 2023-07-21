@@ -10,6 +10,8 @@ try:
 except ImportError:
     import fakeperms as perms
 
+OPSCENTER_ROLE_ARN = "arn:aws:iam::323365108137:role/SnowflakeOpsCenterRole"
+
 API_GATEWAY_DEV_US_WEST_2 = "https://w4cu711jd2.execute-api.us-west-2.amazonaws.com"
 API_GATEWAY_STAGE_US_EAST_1 = "https://rkb9hwsqw0.execute-api.us-east-1.amazonaws.com"
 API_GATEWAY_STAGE_US_WEST_2 = "https://hh538sr9qg.execute-api.us-west-2.amazonaws.com"
@@ -17,7 +19,14 @@ API_GATEWAY_PROD_US_EAST_1 = "https://1lf9af4dk7.execute-api.us-east-1.amazonaws
 API_GATEWAY_PROD_US_EAST_2 = "https://mr2gl3hcuk.execute-api.us-east-2.amazonaws.com"
 API_GATEWAY_PROD_US_WEST_2 = "https://1fb567sika.execute-api.us-west-2.amazonaws.com"
 
-OPSCENTER_ROLE_ARN = "arn:aws:iam::323365108137:role/SnowflakeOpsCenterRole"
+API_GATEWAY_ALL = [
+    API_GATEWAY_PROD_US_EAST_1,
+    API_GATEWAY_PROD_US_EAST_2,
+    API_GATEWAY_PROD_US_WEST_2,
+    API_GATEWAY_STAGE_US_EAST_1,
+    API_GATEWAY_STAGE_US_WEST_2,
+    API_GATEWAY_DEV_US_WEST_2,
+]
 
 
 def decode_token(token: str):
@@ -132,20 +141,14 @@ def sundeck_signup_with_email(account, user, region, db):
         msg.warning("Connecting. Please do not navigate away from this page.")
         token, url = decode_token(token_input)
         connection.Connection.get().call("INTERNAL.SETUP_SUNDECK_TOKEN", url, token)
+        api_integration_name = "OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS"
         req = perms.request_aws_api_integration(
             "opscenter_api_integration",
-            (
-                API_GATEWAY_PROD_US_EAST_1,
-                API_GATEWAY_PROD_US_EAST_2,
-                API_GATEWAY_PROD_US_WEST_2,
-                API_GATEWAY_STAGE_US_EAST_1,
-                API_GATEWAY_STAGE_US_WEST_2,
-                API_GATEWAY_DEV_US_WEST_2,
-            ),
+            API_GATEWAY_ALL,
             perms.AwsGateway.API_GATEWAY,
             OPSCENTER_ROLE_ARN,
             None,
-            "OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS",
+            api_integration_name,
             None,
         )
         if req is None:
@@ -153,12 +156,7 @@ def sundeck_signup_with_email(account, user, region, db):
             config.clear_cache()
         else:
             msg.info("Please run the following command in your Snowflake account:")
-            gateway_prefixes = (
-                f"'{API_GATEWAY_PROD_US_EAST_1}', '{API_GATEWAY_PROD_US_EAST_2}', "
-                + f"'{API_GATEWAY_PROD_US_WEST_2}', '{API_GATEWAY_STAGE_US_EAST_1}', "
-                + f"'{API_GATEWAY_STAGE_US_WEST_2}', '{API_GATEWAY_DEV_US_WEST_2}'"
-            )
-            api_integration_name = "OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS_1"
+            gateway_prefixes = " ".join([f"'{i}'," for i in API_GATEWAY_ALL])
             setup_func = "ADMIN.SETUP_EXTERNAL_FUNCTIONS()"
             st.code(
                 generate_code_to_setup_external_func(
@@ -195,7 +193,8 @@ def sundeck_signup_with_snowflake_sso(
         tenant_url = config.get_tenant_url()
         st.markdown(
             f"""
-                #### Sundeck account is created: [Go to my Sundeck account]({tenant_url})
+                #### Sundeck account is created
+                To visit Sundeck UI, [right click here]({tenant_url}) and open this link in a new tab/window.
             """
         )
 
@@ -207,6 +206,7 @@ def sundeck_signup_with_snowflake_sso(
         """
     )
 
+    api_integration_name = "OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS_SSO"
     if st.button("Enable Sundeck API Integration", key="create_api_integration"):
         req = perms.request_aws_api_integration(
             "opscenter_api_integration_sso",
@@ -214,7 +214,7 @@ def sundeck_signup_with_snowflake_sso(
             perms.AwsGateway.API_GATEWAY,
             OPSCENTER_ROLE_ARN,
             None,
-            "OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS_SSO",
+            api_integration_name,
             None,
         )
         if req is None:
@@ -226,7 +226,6 @@ def sundeck_signup_with_snowflake_sso(
             )
         else:
             print("Please run the following command in your Snowflake account:")
-            api_integration_name = "OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS_2"
             setup_func = "ADMIN.SETUP_REGISTER_TENANT_FUNC()"
             gateway_prefixes = f"'{ef_url}'"
             st.code(
@@ -338,6 +337,8 @@ def get_api_gateway_url(sf_region: str, sd_deployment: str) -> str:
 
 def get_sundeck_region(sf_region: str) -> str:
     # Supported Sundeck Regions ["us-east-1", "us-east-2.aws", "us-west-2"]
+    # This is a static map of snowflake-region to nearby supported sundeck-region.
+    # This is used during creation of Sundeck account, to pick nearest sundeck-region.
     sf2sd_region_map = {
         "AWS_US_WEST_2": "us-west-2",
         "AWS_US_EAST_1": "us-east-1",

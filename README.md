@@ -54,8 +54,8 @@ python deploy/deploy.py -p myprofile
 ```
 
 ### Local Development outside App
-If you want iterate on the UI/objects quickly, run the following command. This will setup a development database with most objects and then let you run Streamlit
-from your desktop or laptop. Most funtionality works in this mode.
+If you want to iterate on the UI/objects quickly, run the following command. This will set up a development database with most objects and then let you run Streamlit
+from your desktop or laptop. Most functionality works in this mode.
 
 Like above, add the following items to your ~/.snowsql/config file
 
@@ -85,6 +85,7 @@ identifier. For example:
 python deploy/deploy.py -p myprofile -v V1
 ```
 
+`[-d <sundeck-deployment>]` option of deploy.py can be ignored in most cases. It is needed only for testing `Enable notifications via Snowflake SSO` with different Sundeck deployments. Supported values are dev, stage and prod, default is prod.
 
 ## Deployment Details
 
