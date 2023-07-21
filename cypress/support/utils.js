@@ -112,7 +112,7 @@ export const fillInNewUngroupedLabelForm = (
 
   cy.get('textarea[aria-label="Condition"]')
     .clear()
-    .type(condition);
+    .type(condition).type('{command+enter}');
 };
 
 export const fillInNewGroupedLabelForm = (
@@ -188,12 +188,11 @@ export const addNewLabelToGroup = (
 
 };
 
-export const groupLabelDelete = (
+// For ungrouped label, specify "Ungrouped" in the groupName argument
+export const labelDelete = (
   groupName,
   labelName
 ) => {
-
-  cy.log("Deleting label: ",  groupName, labelName);
 
   cy.get('div[data-testid="stHorizontalBlock"]')
     .should("exist")
