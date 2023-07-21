@@ -32,3 +32,10 @@ else:
     An overview dashboard will arrive here soon!
     """
     )
+    if config.has_tenant_url():
+        tenant_url = config.get_tenant_url()
+        st.markdown(
+            f"""
+                [Go to my Sundeck account]({tenant_url})
+            """
+        )

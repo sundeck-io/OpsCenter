@@ -22,7 +22,15 @@ def up_to_date():
 
 
 def has_sundeck():
-    return Config.get("url") is not None
+    return has_tenant_url() or Config.get("url") is not None
+
+
+def has_tenant_url():
+    return Config.get("tenant_url") is not None
+
+
+def get_tenant_url():
+    return Config.get("tenant_url")
 
 
 def setup_complete():
