@@ -5,7 +5,7 @@ import { checkNoErrorOnThePage,
          generateUniqueName,
          fillInNewGroupedLabelForm,
          addNewLabelToGroup,
-         groupLabelDelete,
+         labelDelete,
          checkGroupLabelNotExist,
          fillInNewUngroupedLabelForm } from "../support/utils";
 
@@ -99,7 +99,7 @@ describe("Labels section", () => {
 
     // Delete all the labels that were created in this test
     for (const label of labelList) {
-      groupLabelDelete(
+      labelDelete(
         groupName,
         label
       );
@@ -113,5 +113,55 @@ describe("Labels section", () => {
 
 
   }); // end group labels test
+
+  it("Menu: Labels. Create/Delete ungrouped labels", () => {
+
+    const label_1 = generateUniqueName("label");
+    const label_2 = generateUniqueName("label");
+    const labelList= [ label_1, label_2 ];
+
+    cy.visit("/");
+
+    cy.get("span")
+      .contains("Labels")
+      .should("be.visible")
+      .click();
+
+    cy.get("span")
+      .contains("Query Labels")
+      .should("be.visible");
+    checkNoErrorOnThePage();
+
+    // Fill the form for Ungrouped label with valid values and save
+    buttonClick("New");
+    checkNoErrorOnThePage();
+    fillInNewUngroupedLabelForm(
+      label_1,
+      "compilation_time > 5000"
+     );
+
+    buttonClick("Create");
+    checkNoErrorOnThePage();
+
+    // Add one more ungrouped label
+    buttonClick("New");
+    checkNoErrorOnThePage();
+    fillInNewUngroupedLabelForm(
+      label_2,
+      "compilation_time > 5000"
+     );
+
+    buttonClick("Create");
+    checkNoErrorOnThePage();
+
+    // Delete all the labels that were created in this test
+    for (const label of labelList) {
+      labelDelete(
+        "Ungrouped",
+        label
+      );
+    }
+
+  }); // end ungrouped labels test
 
 });
