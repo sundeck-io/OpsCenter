@@ -220,7 +220,7 @@ def sundeck_signup_with_snowflake_sso(
         if req is None:
             st.code(
                 """
-                "Successfully created API integration. Please run the following command in your Snowflake account"
+                "Please click allow in the pop-up, to create API integration. Wait for confirmation, and then proceed to next step."
                 """
             )
         else:
@@ -262,14 +262,16 @@ def generate_security_integration_code(
     sf_region: str, sd_deployment: str, name: str
 ) -> str:
     redirect_url = get_redirect_url_for_security_integration(sf_region, sd_deployment)
-    return f"create security integration if not exists {name} " \
-        + "type=oauth " \
-        + "enabled=true oauth_client=CUSTOM " \
-        + "oauth_client_type='CONFIDENTIAL' " \
-        + f"oauth_redirect_uri='{redirect_url}' " \
-        + "oauth_issue_refresh_tokens=true " \
-        + "oauth_refresh_token_validity=86400 " \
+    return (
+        f"create security integration if not exists {name} "
+        + "type=oauth "
+        + "enabled=true oauth_client=CUSTOM "
+        + "oauth_client_type='CONFIDENTIAL' "
+        + f"oauth_redirect_uri='{redirect_url}' "
+        + "oauth_issue_refresh_tokens=true "
+        + "oauth_refresh_token_validity=86400 "
         + "pre_authorized_roles_list = ('PUBLIC'); "
+    )
 
 
 def generate_register_tenant_code(db: str, security_integration_name: str) -> str:
@@ -284,14 +286,16 @@ return table(rs);"""
 def generate_code_to_setup_external_func(
     app_name: str, gateway_prefixes: str, api_integration_name: str, setup_func: str
 ) -> str:
-    return f"""
+    return (
+        f"""
 BEGIN
-    CREATE OR REPLACE API INTEGRATION {api_integration_name} api_provider = aws_api_gateway """ \
+    CREATE OR REPLACE API INTEGRATION {api_integration_name} api_provider = aws_api_gateway """
         + f""" api_aws_role_arn = '{OPSCENTER_ROLE_ARN}' api_allowed_prefixes = ({gateway_prefixes}) enabled = true;
     GRANT USAGE ON INTEGRATION {api_integration_name} TO APPLICATION "{app_name}";
     CALL {setup_func};
 END;
 """
+    )
 
 
 def get_redirect_url_for_security_integration(
@@ -349,25 +353,25 @@ class RegionMap:
     # This is a static map of snowflake-region to {region, nearby supported sundeck-region}.
     # This map is used to pick nearby sundeck-region during creation of Sundeck account
     region_map = {
-        "AWS_US_WEST_2":        {"region": "us-west-2",         "sundeck_region": "us-west-2"},
-        "AWS_US_EAST_1":        {"region": "us-east-1",         "sundeck_region": "us-east-1"},
-        "AWS_AP_SOUTHEAST_2":   {"region": "ap-southeast-2",    "sundeck_region": "us-west-2"},
-        "AWS_EU_WEST_1":        {"region": "eu-west-1",         "sundeck_region": "us-east-1"},
-        "AWS_AP_SOUTHEAST_1":   {"region": "ap-southeast-1",    "sundeck_region": "us-west-2"},
-        "AWS_CA_CENTRAL_1":     {"region": "ca-central-1",      "sundeck_region": "us-west-2"},
-        "AWS_EU_CENTRAL_1":     {"region": "eu-central-1",      "sundeck_region": "us-east-1"},
-        "AWS_US_EAST_2":        {"region": "us-east-2",         "sundeck_region": "us-east-2"},
-        "AWS_AP_NORTHEAST_1":   {"region": "ap-northeast-1",    "sundeck_region": "us-west-2"},
-        "AWS_AP_SOUTH_1":       {"region": "ap-south-1",        "sundeck_region": "us-west-2"},
-        "AWS_EU_WEST_2":        {"region": "eu-west-2",         "sundeck_region": "us-east-1"},
-        "AWS_AP_NORTHEAST_2":   {"region": "ap-northeast-2",    "sundeck_region": "us-west-2"},
-        "AWS_EU_NORTH_1":       {"region": "eu-north-1",        "sundeck_region": "us-east-1"},
-        "AWS_AP_NORTHEAST_3":   {"region": "ap-northeast-3",    "sundeck_region": "us-west-2"},
-        "AWS_SA_EAST_1":        {"region": "sa-east-1",         "sundeck_region": "us-west-2"},
-        "AWS_EU_WEST_3":        {"region": "eu-west-3",         "sundeck_region": "us-east-1"},
-        "AWS_AP_SOUTHEAST_3":   {"region": "ap-southeast-3",    "sundeck_region": "us-west-2"},
-        "AWS_US_GOV_WEST_1":    {"region": "us-gov-west-2",     "sundeck_region": "us-west-2"},
-        "AWS_US_EAST_1_GOV":    {"region": "us-east-1",         "sundeck_region": "us-east-1"},
+        "AWS_US_WEST_2": {"region": "us-west-2", "sd_region": "us-west-2"},
+        "AWS_US_EAST_1": {"region": "us-east-1", "sd_region": "us-east-1"},
+        "AWS_AP_SOUTHEAST_2": {"region": "ap-southeast-2", "sd_region": "us-west-2"},
+        "AWS_EU_WEST_1": {"region": "eu-west-1", "sd_region": "us-east-1"},
+        "AWS_AP_SOUTHEAST_1": {"region": "ap-southeast-1", "sd_region": "us-west-2"},
+        "AWS_CA_CENTRAL_1": {"region": "ca-central-1", "sd_region": "us-west-2"},
+        "AWS_EU_CENTRAL_1": {"region": "eu-central-1", "sd_region": "us-east-1"},
+        "AWS_US_EAST_2": {"region": "us-east-2", "sd_region": "us-east-2"},
+        "AWS_AP_NORTHEAST_1": {"region": "ap-northeast-1", "sd_region": "us-west-2"},
+        "AWS_AP_SOUTH_1": {"region": "ap-south-1", "sd_region": "us-west-2"},
+        "AWS_EU_WEST_2": {"region": "eu-west-2", "sd_region": "us-east-1"},
+        "AWS_AP_NORTHEAST_2": {"region": "ap-northeast-2", "sd_region": "us-west-2"},
+        "AWS_EU_NORTH_1": {"region": "eu-north-1", "sd_region": "us-east-1"},
+        "AWS_AP_NORTHEAST_3": {"region": "ap-northeast-3", "sd_region": "us-west-2"},
+        "AWS_SA_EAST_1": {"region": "sa-east-1", "sd_region": "us-west-2"},
+        "AWS_EU_WEST_3": {"region": "eu-west-3", "sd_region": "us-east-1"},
+        "AWS_AP_SOUTHEAST_3": {"region": "ap-southeast-3", "sd_region": "us-west-2"},
+        "AWS_US_GOV_WEST_1": {"region": "us-gov-west-2", "sd_region": "us-west-2"},
+        "AWS_US_EAST_1_GOV": {"region": "us-east-1", "sd_region": "us-east-1"},
     }
 
     @classmethod
@@ -376,4 +380,4 @@ class RegionMap:
 
     @classmethod
     def get_sundeck_region(cls, sf_region: str) -> str:
-        return cls.region_map[sf_region]["sundeck_region"]
+        return cls.region_map[sf_region]["sd_region"]
