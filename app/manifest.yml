@@ -24,7 +24,7 @@ references:
         object_type: API Integration
         multi_valued: false
         register_callback: admin.update_reference
-  - opscenter_api_integration_sso:
+  - opscenter_sso_api_integration:
       label: "API Integration"
       description: "Enable email and slack notifications for OpsCenter via Snowflake SSO."
       privileges:

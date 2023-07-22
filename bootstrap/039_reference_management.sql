@@ -19,7 +19,7 @@ begin
             insert into internal.reference_management (ref_name, operation, ref_or_alias) values (:ref_name, 'Running external funcitons setup proc.', :ref_or_alias);
             call admin.setup_external_functions();
         end if;
-        if (ref_name = 'OPSCENTER_API_INTEGRATION_SSO') then
+        if (ref_name = 'OPSCENTER_SSO_API_INTEGRATION') then
             insert into internal.reference_management (ref_name, operation, ref_or_alias) values (:ref_name, 'Running external funcitons setup proc.', :ref_or_alias);
             call admin.setup_register_tenant_func();
         end if;

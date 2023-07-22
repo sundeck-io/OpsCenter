@@ -162,7 +162,7 @@ BEGIN
 	        create or replace external function internal.ef_register_tenant(request object)
             returns object
             context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA, CURRENT_REGION)
-            api_integration = reference(\'opscenter_api_integration_sso\')
+            api_integration = reference(\'opscenter_sso_api_integration\')
             headers = ()
             as \'' || url || '/' || deployment || '/extfunc/register_tenant\';
         END;
