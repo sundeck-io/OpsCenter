@@ -101,18 +101,23 @@ export const probeDelete = (probeName) => {
     })
 };
 
+// If "None" - don't modify the field
 export const fillInNewUngroupedLabelForm = (
   labelName,
   condition
 ) => {
 
-  cy.get('input[aria-label="Label Name"]')
-    .clear()
-    .type(labelName);
+  if ( labelName != "None" ) {
+    cy.get('input[aria-label="Label Name"]')
+      .clear()
+      .type(labelName);
+  }
 
-  cy.get('textarea[aria-label="Condition"]')
-    .clear()
-    .type(condition).type('{command+enter}');
+  if ( condition != "None" ) {
+    cy.get('textarea[aria-label="Condition"]')
+      .clear()
+      .type(condition).type('{command+enter}');
+  }
 };
 
 export const fillInNewGroupedLabelForm = (
@@ -202,7 +207,7 @@ export const labelDelete = (
     .should("exist")
     .within(() => {  // Only searches within specific stHorizontalBlock that has probeName
       cy.get('div[data-testid="column"]')
-        .eq(-2) // Brute force solution: chose second before last column (wastebasket)
+        .contains('🗑️')
         .should("exist")
         .click()
     })
@@ -221,7 +226,7 @@ export function checkGroupLabelNotExist(groupName) {
     cy.get("span")
       .contains("Query Labels")
       .should("be.visible")
-      .find()
+      .find(groupName)
       .should("not.exist");
 
     checkNoErrorOnThePage();
@@ -265,4 +270,48 @@ export const dropDownElementClick = (dropDownElementName) => {
     .contains(dropDownElementName)
     .should("exist")
     .click();
+};
+
+export const labelUpdateClick = (
+  groupName,
+  labelName
+) => {
+
+  cy.get('div[data-testid="stHorizontalBlock"]')
+    .should("exist")
+    .contains(labelName)
+    .should("exist")
+    .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
+    .should("exist")
+    .within(() => {  // Only searches within specific stHorizontalBlock that has probeName
+      cy.get('div[data-testid="column"]')
+        .contains('✏️')
+        .should("exist")
+        .click()
+    })
+};
+
+// labelName: which label to update
+// newLabelName: values for the new label name
+// newCondition: values for the new condition
+// If "None" - don't modify the field
+export const updateUngroupedLabelForm = (
+  labelName,
+  newLabelName,
+  newCondition
+) => {
+
+  cy.log('Updating label: labelName', labelName);
+
+  if ( newLabelName != "None" ) {
+    cy.get('input[aria-label="Label Name"]')
+      .clear()
+      .type(newLabelName).type('{enter}');
+  }
+
+  if ( newCondition != "None" ) {
+    cy.get('textarea[aria-label="Condition"]')
+      .clear()
+      .type(newCondition).type('{command+enter}');
+  }
 };
