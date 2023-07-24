@@ -145,7 +145,7 @@ $$
         internal.ef_register_tenant(request))::object
 $$;
 
-create or replace function tools.register_tenant(client_id varchar, client_secret varchar)
+create or replace function admin.register_tenant(client_id varchar, client_secret varchar)
     returns object
 as
 $$

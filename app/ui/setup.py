@@ -254,7 +254,7 @@ def generate_code_to_create_sundeck_account(
 BEGIN  -- Create security integration and Sundeck account
 {generate_security_integration_code(sf_region, sd_deployment, name)}
 {generate_register_tenant_code(db, name)}
-END
+END;
 """
 
 
@@ -277,7 +277,7 @@ def generate_security_integration_code(
 def generate_register_tenant_code(db: str, security_integration_name: str) -> str:
     return f"""
 let oauth_info variant := (parse_json(SYSTEM$SHOW_OAUTH_CLIENT_SECRETS('{security_integration_name}')));
-let tenantInfo object := {db}.tools.register_tenant(:oauth_info:OAUTH_CLIENT_ID, :oauth_info:OAUTH_CLIENT_SECRET);
+let tenantInfo object := {db}.admin.register_tenant(:oauth_info:OAUTH_CLIENT_ID, :oauth_info:OAUTH_CLIENT_SECRET);
 CALL {db}.admin.setup_sundeck_tenant_url(:tenantInfo:sundeckTenantUrl, :tenantInfo:sundeckUdfToken);
 let rs resultset := (select 'Go to Sundeck UI' as msg, :tenantInfo:sundeckTenantUrl::string as url);
 return table(rs);"""
