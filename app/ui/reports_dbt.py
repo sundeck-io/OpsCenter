@@ -12,6 +12,8 @@ def report(
     bf: filters.BaseFilter,
     cost_per_credit,
 ):
+    _ = connection.execute("CALL INTERNAL.REPORT_PAGE_VIEW('Query Report dbt Summary')")
+
     labels = connection.execute_with_cache(
         "select name from internal.labels where group_name is null"
     )

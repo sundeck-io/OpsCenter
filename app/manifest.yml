@@ -5,6 +5,10 @@ artifacts:
   extension_code: true
   default_streamlit: admin.opscenter
 
+configuration:
+  trace_level: ON_EVENT
+  log_level: INFO
+
 privileges:
   - IMPORTED PRIVILEGES ON SNOWFLAKE DB:
       description: "For accessing Snowflake consumption for reporting."

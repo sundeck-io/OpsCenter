@@ -6,11 +6,11 @@ CREATE OR REPLACE PROCEDURE internal.refresh_warehouse_events(migrate boolean) R
     AS
 BEGIN
     let dt timestamp := current_timestamp();
-    SYSTEM$LOG_INFO('Starting refresh queries.');
+    SYSTEM$LOG_INFO('Starting refresh warehouse events.');
     let migrate1 string := null;
     let migrate2 string := null;
     if (migrate) then
-        SYSTEM$LOG_TRACE('Migrating data.');
+        SYSTEM$LOG_TRACE('Migrating warehouse events data.');
         call internal.migrate_if_necessary('INTERNAL_REPORTING', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY');
         migrate1 := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
         call internal.migrate_if_necessary('INTERNAL_REPORTING', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE');
@@ -57,7 +57,7 @@ BEGIN
 
     EXCEPTION
       WHEN OTHER THEN
-        SYSTEM$LOG_ERROR('Exception occurred.', OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing warehouse events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         ROLLBACK;
         insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :dt, false, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
         RAISE;

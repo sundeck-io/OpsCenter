@@ -178,6 +178,8 @@ def report(
 
         st.plotly_chart(fig, use_container_width=True)
 
+    _ = connection.execute("CALL INTERNAL.REPORT_PAGE_VIEW('Warehouse Activity')")
+
     warehouse_stats(st.empty())
     cols = st.columns(2)
     with cols[0]:

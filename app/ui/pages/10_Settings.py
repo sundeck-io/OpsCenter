@@ -51,8 +51,8 @@ def task_listing(
     )
 
 
-tasks, config_tab, setup_tab, reset = st.tabs(
-    ["Tasks", "Config", "Initial Setup", "Reset"]
+tasks, config_tab, setup_tab, diagnostics_tab, reset = st.tabs(
+    ["Tasks", "Config", "Initial Setup", "Diagnostics", "Reset"]
 )
 
 
@@ -157,6 +157,71 @@ with tasks:
     if wem is None or qhm is None or pm is None:
         checkboxes_container.warning(
             "Unable to load task information. Make sure to run post-setup scripts."
+        )
+
+with diagnostics_tab:
+    st.title("Diagnostics")
+
+    st.markdown(
+        """
+        Diagnostics for OpsCenter relies on an [Snowflake Event Table](https://docs.snowflake.com/en/developer-guide/logging-tracing/event-table-setting-up)
+        to store OpsCenter logging in your Snowflake Account as well as share OpsCenter errors with Sundeck to fix.
+
+        Snowflake will automatically share logging and errors from OpsCenter with Sundeck after executing these steps.
+        """
+    )
+
+    db = connection.execute("select current_database() as db").values[0][0]
+
+    def expander(num: int, title: str) -> st.expander:
+        return st.expander(f"Step {num}: {title}", expanded=True)
+
+    # We can't inspect the account parameters to see if an event table is set because we're operating as the native
+    # app and these commands cannot be run except as a caller. A human has to run these commands.
+    with expander(1, "Create and Configure an Event Table"):
+        st.markdown(
+            """
+            ### Event Table
+
+            If you haven't already configured an event table for your account, follow these steps:
+
+            These commands will create an event table and set it as the default event
+            table for your account. Be sure to include use a database and schema that exists in your account.
+            """
+        )
+        st.code(
+            """
+            -- Double check that there is no event table already set for your account before proceeding!
+            SHOW PARAMETERS LIKE 'EVENT_TABLE' IN ACCOUNT;
+
+            -- Create a database
+            CREATE DATABASE my_database;
+
+            -- Create the event table in that database
+            CREATE EVENT TABLE my_database.public.my_events;
+
+            -- Set this event table as the default for your account
+            ALTER ACCOUNT SET EVENT_TABLE = my_database.public.my_events;
+            """
+        )
+        st.markdown(
+            """
+            You can also follow the [Snowflake instructions](https://docs.snowflake.com/en/developer-guide/logging-tracing/event-table-setting-up) to
+            set up an event table if you prefer.
+            """
+        )
+
+    with expander(2, "Enable Diagnostic Sharing with Sundeck for OpsCenter"):
+        st.markdown(
+            """
+            Sharing diagnostics with Sundeck helps us know when users are experiencing any errors in OpsCenter
+            so we can fix them as soon as possible. To enable this, please run the following:
+            """
+        )
+        st.code(
+            f"""
+            ALTER APPLICATION {db} SET SHARE_EVENTS_WITH_PROVIDER = true;
+            """
         )
 
 
