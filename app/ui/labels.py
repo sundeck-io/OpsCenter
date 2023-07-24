@@ -158,7 +158,7 @@ class Label:
                 self.session.set_toast("Label updated.")
                 self.session.do_list()
             else:
-                self.status.error(outcome)
+                st.error(outcome)
 
     def on_delete_click(self, name):
         with st.spinner("Deleting label..."):
