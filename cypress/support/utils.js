@@ -16,7 +16,12 @@ export function checkNoErrorOnThePage() {
 export function checkSuccessAlert(notificationText) {
   cy.get('div[role="alert"][data-baseweb="notification"]', { timeout: 60000 })
     .and('contain', notificationText);
+};
 
+// Check for failure notification with particular text presence
+export function checkFailureAlert(notificationText) {
+  cy.get('div[role="alert"][data-baseweb="notification"]', { timeout: 60000 })
+    .and('contain', notificationText);
 };
 
 export const fillInProbeForm = (

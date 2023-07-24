@@ -9,6 +9,7 @@ import { checkNoErrorOnThePage,
          labelUpdateClick,
          updateUngroupedLabelForm,
          checkGroupLabelNotExist,
+         checkFailureAlert,
          fillInNewUngroupedLabelForm } from "../support/utils";
 
 describe("Labels section", () => {
@@ -195,7 +196,7 @@ describe("Labels section", () => {
     checkNoErrorOnThePage();
 
     // Test #1 update label: change name from label_1 to label_2
-    // Should run successfully because there is no other label with name lable_2
+    // Should run successfully because there is no other label with name label_2
     labelUpdateClick("Ungrouped", label_1);
 
     updateUngroupedLabelForm(
@@ -218,7 +219,14 @@ describe("Labels section", () => {
       "query_type = 'call'"
      );
 
+    // save updated label name: should succeed
+    buttonClick("Update");
+    checkNoErrorOnThePage();
+
     // Test #3: change both label name and condition
+
+    labelUpdateClick("Ungrouped", label_2); // clicks on the pencil for label with the name label_2
+
     updateUngroupedLabelForm(
       label_2,
       label_1,
@@ -230,6 +238,117 @@ describe("Labels section", () => {
     checkNoErrorOnThePage();
 
     labelDelete("Ungrouped", label_1);
+
+  }); // end ungrouped labels test
+
+  it("Menu: Labels. Update ungrouped label: negative cases (error conditions)", () => {
+
+    const label_1 = generateUniqueName("label");
+    const label_2 = generateUniqueName("label");
+    const labelList= [ label_1, label_2 ];
+
+    cy.visit("/");
+
+    cy.get("span")
+      .contains("Labels")
+      .should("be.visible")
+      .click();
+
+    cy.get("span")
+      .contains("Query Labels")
+      .should("be.visible");
+    checkNoErrorOnThePage();
+
+    // Test #1: update label name with the ungrouped label name that already exists
+
+    // Create two ungrouped labels with unique names
+
+    // Fill the form for ungrouped label with valid values and save
+    buttonClick("New");
+    checkNoErrorOnThePage();
+    fillInNewUngroupedLabelForm(
+      label_1,
+      "query_type = 'delete'"
+     );
+
+    // create label_1
+    buttonClick("Create");
+    checkNoErrorOnThePage();
+
+    // Fill the form for ungrouped label with valid values and save
+    buttonClick("New");
+    checkNoErrorOnThePage();
+    fillInNewUngroupedLabelForm(
+      label_2,
+      "query_type = 'truncate'"
+     );
+
+    // create label_2
+    buttonClick("Create");
+    checkNoErrorOnThePage();
+
+    // Test #1 update label: change name of label_1 to label_2
+    // Should fail with the error that label with this name already exists
+
+    labelUpdateClick("Ungrouped", label_1);
+
+    updateUngroupedLabelForm(
+      label_1,
+      label_2,
+      "None"
+     );
+
+    // save updated label name: should fail as label already exists.
+    buttonClick("Update");
+    checkNoErrorOnThePage();
+    checkFailureAlert("A label with this name already exists. Please choose a distinct name.");
+
+    // Click on the update button again and confirm that we still got the same error.
+    buttonClick("Update");
+    checkNoErrorOnThePage();
+    checkFailureAlert("A label with this name already exists. Please choose a distinct name.");
+
+    // Should bring us back to the label list
+    buttonClick("Cancel");
+
+    // TODO: need to figure out why element can't be found without reloading
+    cy.reload();
+    cy.wait(5000);
+
+    // Test #2 update label: change label_1 condition to an invalid condition
+    labelUpdateClick("Ungrouped", label_1);
+
+    // update only label condition for label_1
+    updateUngroupedLabelForm(
+      label_1,
+      "None",
+      "compile_time > 5000"
+     );
+
+    // save updated label name: should fail
+    buttonClick("Update");
+    checkNoErrorOnThePage();
+    checkFailureAlert("Invalid condition SQL. Please check your syntax.SQL compilation error: error line 2 at position 0\ninvalid identifier 'COMPILE_TIME'");
+
+    // Click on the update button again and confirm that we still got the same error.
+    buttonClick("Update");
+    checkNoErrorOnThePage();
+    checkFailureAlert("Invalid condition SQL. Please check your syntax.SQL compilation error: error line 2 at position 0\ninvalid identifier 'COMPILE_TIME'");
+
+    // Should bring us to the label list
+    buttonClick("Cancel");
+
+    // TODO: need to figure out why element can't be found without reloading
+    cy.reload();
+    cy.wait(5000);
+
+    // Delete all the labels that were created in this test
+    for (const label of labelList) {
+      labelDelete(
+        "Ungrouped",
+        label
+      );
+    }
 
   }); // end ungrouped labels test
 
