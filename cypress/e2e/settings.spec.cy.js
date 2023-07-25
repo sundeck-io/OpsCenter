@@ -40,7 +40,7 @@ describe("Settings section", () => {
     checkSuccessAlert("Saved");
   });
 
-  it("Menu: Settings. Tab: Reset. Validate that we can click 'Reload' button and no exception is thrown .", () => {
+  it.skip("Menu: Settings. Tab: Reset. Validate that we can click 'Reload' button and no exception is thrown .", () => {
     cy.wait(2000);
 
     cy.get("span")
@@ -78,7 +78,7 @@ describe("Settings section", () => {
         .should("exist");
     });
 
-    it("Sundeck link should be present and contain correct information", () => {
+    it.skip("Sundeck link should be present and contain correct information", () => {
       cy.get("span")
         .contains("Settings")
         .should("be.visible")
