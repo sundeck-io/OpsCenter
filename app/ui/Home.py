@@ -32,3 +32,12 @@ else:
     An overview dashboard will arrive here soon!
     """
     )
+    if config.has_tenant_url():
+        tenant_url = config.get_tenant_url()
+        st.markdown(
+            f"""
+                To explore the Sundeck account, right-click on the link below and choose "Open link in new tab/window."
+
+                [Go to my Sundeck account]({tenant_url})
+            """
+        )

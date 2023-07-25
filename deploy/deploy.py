@@ -73,12 +73,13 @@ def _sync_local_to_stage(cur):
 """This script will take all the files in the setup directory"""
 
 
-def _upload_combined_setup_script(cur):
+def _upload_combined_setup_script(cur, deployment: str):
     print("Uploading setup script.")
     with tempfile.TemporaryDirectory():
 
         scripts = helpers.generate_body()
         scripts += helpers.generate_qtag()
+        scripts += helpers.generate_get_sundeck_deployment_function(deployment)
         sql_file_path = os.path.join("/tmp/", "setup.sql")
         with open(sql_file_path, "w") as sql_file:
             sql_file.write(helpers.generate_setup_script(scripts))
@@ -150,13 +151,18 @@ def _install_or_update_package(
 def main(argv):
     profile = "opscenter"
     version = None
+    deployment = "prod"
     skip_install = False
     skip_package = False
-    opts, args = getopt.getopt(argv, "xhsp:v:", ["profile=", "version="])
+    opts, args = getopt.getopt(
+        argv, "xhsd:p:v:", ["deployment=", "profile=", "version="]
+    )
     for opt, arg in opts:
         if opt == "-h":
             print(
-                "deploy.py -p <snowsql_profile_name> -s (skip install) -x (skip package creation/upload entirely) -v <version_name> --profile <snowsql_profile_name>, --version <version_name>"
+                "deploy.py -p <snowsql_profile_name> -s (skip install) -x (skip package creation/upload entirely) "
+                + "-v <version_name>  -d <sundeck_deployment> --profile <snowsql_profile_name>, "
+                + "--version <version_name> --deployment <sundeck_deployment>"
             )
             sys.exit()
         elif opt in ("-p", "--profile"):
@@ -165,6 +171,9 @@ def main(argv):
         elif opt in ("-v", "--version"):
             version = arg
             print("==Version: ", version)
+        elif opt == "-d":
+            deployment = arg
+            print("==Deployment: ", deployment)
         elif opt == "-s":
             print("==Skipping Install")
             skip_install = True
@@ -172,12 +181,13 @@ def main(argv):
             print("==Skipping Package Creation")
             skip_package = True
 
-    execute(profile, version, not skip_install, skip_package)
+    execute(profile, version, deployment, not skip_install, skip_package)
 
 
 def execute(
     profile: str,
     version: Union[str, None] = None,
+    deployment: str = "prod",
     install: bool = True,
     skip_package: bool = False,
 ):
@@ -187,7 +197,7 @@ def execute(
     try:
         _setup_working_database(cur)
         _clear_stage(cur)
-        _upload_combined_setup_script(cur)
+        _upload_combined_setup_script(cur, deployment)
         _sync_local_to_stage(cur)
         if not skip_package:
             _install_or_update_package(cur, version, install)
