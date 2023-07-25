@@ -1,4 +1,5 @@
 import getopt
+import time
 import helpers
 import re
 import sys
@@ -42,6 +43,45 @@ def _copy_opscenter_files(cur, schema: str, stage: str, deployment: str):
     cur.execute(body)
 
 
+def _finish_local_setup(cur, database: str, schema: str):
+    print("Setting up internal state to mimic a set-up app.")
+
+    cur.execute(
+        f"""
+    BEGIN
+        call {database}.internal.refresh_users();
+        call {database}.internal.refresh_warehouse_events(true);
+        call {database}.internal.refresh_queries(true);
+        call {database}.ADMIN.FINALIZE_SETUP();
+    END;
+    """
+    )
+
+    start_time = time.time()
+
+    while True:
+        # Execute a query to fetch data from the table
+        cur.execute(
+            "SELECT * FROM internal.config where key in ('WAREHOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE') and value is not null;"
+        )
+
+        rows = cur.fetchall()
+
+        # if we have two rows, means materialization is complete
+        if len(rows) == 2:
+            print("OpsCenter setup complete.")
+            break
+
+        elapsed_time = time.time() - start_time
+        # bail after 3 minutes
+        if elapsed_time >= 300:
+            print("Aborting OpsCenter setup as it did not complete in 3 minutes!")
+            sys.exit(1)
+
+        # check every 20 seconds
+        time.sleep(20)
+
+
 def devdeploy(profile: str, schema: str, stage: str, deployment: str):
     """
     Create the app package to enable local development
@@ -59,6 +99,10 @@ def devdeploy(profile: str, schema: str, stage: str, deployment: str):
 
     # Deploy the OpsCenter code into the stage.
     _copy_opscenter_files(cur, conn.schema, stage, deployment)
+
+    # Finish local setup by setting internal state to mimic a set-up app
+    # (e.g. materializes data, starts tasks)
+    _finish_local_setup(cur, conn.database, conn.schema)
 
     conn.close()
 
