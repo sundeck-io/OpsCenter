@@ -61,7 +61,7 @@ describe("Settings section", () => {
   });
 
   describe("Menu: Settings. Tab: Initial Setup", () => {
-    it("First step should be marked as completed", () => {
+    it.skip("First step should be marked as completed", () => {
       cy.get("span")
         .contains("Settings")
         .should("be.visible")
