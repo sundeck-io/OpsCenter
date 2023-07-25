@@ -68,7 +68,7 @@ BEGIN
     elseif (grp is not null and rank is null) then
       return 'Rank must provided if you are creating a grouped label.';
     end if;
-    let outcome text := 'Duplicate label name found. Please use a distinct name.';
+    let outcome text := 'Failure validating name & condition. Please check your syntax.';
 
     outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:name, :condition));
 
@@ -76,6 +76,7 @@ BEGIN
       return outcome;
     end if;
 
+    outcome := 'Duplicate label name found. Please use a distinct name.';
     BEGIN TRANSACTION;
         let cnt number := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE name = :name);
 
