@@ -239,7 +239,7 @@ describe("Labels section", () => {
 
     labelDelete("Ungrouped", label_1);
 
-  }); // end ungrouped labels test
+  });
 
   it("Menu: Labels. Update ungrouped label: negative cases (error conditions)", () => {
 
@@ -350,6 +350,83 @@ describe("Labels section", () => {
       );
     }
 
-  }); // end ungrouped labels test
+  });
 
+  it("Menu: Labels. Create label with already existing label name: negative cases (error conditions)", () => {
+
+    const label_1 = generateUniqueName("label");
+    const group_1 = generateUniqueName("group");
+
+    cy.visit("/");
+
+    cy.get("span")
+      .contains("Labels")
+      .should("be.visible")
+      .click();
+
+    cy.get("span")
+      .contains("Query Labels")
+      .should("be.visible");
+    checkNoErrorOnThePage();
+
+
+    // Setup test: create ungrouped label
+
+    // Fill the form for ungrouped label with valid values and save
+    buttonClick("New");
+    checkNoErrorOnThePage();
+    fillInNewUngroupedLabelForm(
+      label_1,
+      "query_type = 'insert'"
+     );
+
+    // create label_1
+    buttonClick("Create");
+    checkNoErrorOnThePage();
+
+    // Test #1: create ungrouped label with the same name as above.
+    // Should fail with the error that label with this name already exists
+
+    buttonClick("New");
+    checkNoErrorOnThePage();
+    fillInNewUngroupedLabelForm(
+      label_1,
+      "query_type = 'insert-should-fail'"
+     );
+
+    buttonClick("Create");
+    checkFailureAlert("Duplicate label name found. Please use a distinct name.");
+
+    // Should bring us to the label list
+    buttonClick("Cancel");
+
+    // TODO: need to figure out why element can't be found without reloading
+    cy.reload();
+    cy.wait(5000);
+
+    // Test #2: create grouped label with the same name as above.
+    // Should fail with the error that label with this name already exists
+
+    buttonClick("New (in group)");
+    checkNoErrorOnThePage();
+    fillInNewGroupedLabelForm(
+      group_1,
+      label_1,
+      "compilation_time > 5000",
+      100
+     );
+
+    buttonClick("Create");
+    checkFailureAlert("Duplicate label name found. Please use a distinct name.");
+
+    // Should bring us to the label list
+    buttonClick("Cancel");
+
+    // TODO: need to figure out why element can't be found without reloading
+    cy.reload();
+    cy.wait(5000);
+
+    // Cleanup: delete all the labels that were created in this test
+      labelDelete( "Ungrouped", label_1 );
+  });
 });
