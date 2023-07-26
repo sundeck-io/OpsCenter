@@ -82,6 +82,7 @@ BEGIN
     join probes p on a.probe_to_execute = p.name
     left join users u on a.user_name = u.name
     where probe_to_execute is not null
+    and (probe_to_execute, query_id) not in (select probe_name, query_id from internal.probe_actions)
     )
     select probe_time, probe_name, query_id, action as action_taken, user_name, warehouse_name, start_time, query_text from items
     $$;
