@@ -82,7 +82,9 @@ def _finish_local_setup(cur, database: str, schema: str):
         time.sleep(20)
 
 
-def devdeploy(profile: str, schema: str, stage: str, deployment: str, finishSetup: bool):
+def devdeploy(
+    profile: str, schema: str, stage: str, deployment: str, finishSetup: bool
+):
     """
     Create the app package to enable local development
     :param profile: the Snowsql configuration profile to use.
@@ -121,7 +123,9 @@ def main(argv):
     stage = "OC_STAGE"
     deployment = "dev"
     finishSetup = True
-    opts, args = getopt.getopt(argv, "d:hp:s", ["deployment=", "profile=", "skip-finish-setup"])
+    opts, args = getopt.getopt(
+        argv, "d:hp:s", ["deployment=", "profile=", "skip-finish-setup"]
+    )
     for opt, arg in opts:
         if opt == "-h":
             usage()
