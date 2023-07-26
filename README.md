@@ -78,12 +78,17 @@ OPSCENTER_PROFILE=local_dev poetry run streamlit run app/ui/Home.py
 ```
 
 ### Versioned App Development
-If you want to confirm functioning of all behavior, you should install the application package and application using "versioned" mode. You can do this by passing deploy a versioned
+If you want to confirm functioning of behavior such as email integration, you should install the application package and application using "versioned" mode. You can do this by passing deploy a versioned
 identifier. For example:
 
 ```
+export OPSCENTER_PACKAGE=<your unique package name>
+export OPSCENTER_APP=<your unique app name>
+
 python deploy/deploy.py -p myprofile -v V1
 ```
+
+The environment variables are necessary to prevent a conflict with existing deployments.
 
 `[-d <sundeck-deployment>]` option of deploy.py can be ignored in most cases. It is needed only for testing `Enable notifications via Snowflake SSO` with different Sundeck deployments. Supported values are dev, stage and prod, default is prod.
 
