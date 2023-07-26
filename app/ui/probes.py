@@ -64,13 +64,13 @@ class Probe:
             st.button("New", key="create", on_click=self.session.do_create, args=[None])
             return
 
-        cols = [1, 4, 0.5, 0.5, 1, 1]
+        cols = [1, 4, 1, 0.5, 1, 1]
         header = st.columns(cols)
         header[0].text("Name")
         header[1].text("Condition")
-        header[2].text("Email")
+        header[2].text("Notify Author")
         header[3].text("Cancel")
-        header[4].text("Email Others")
+        header[4].text("Notify Others")
         header[5].text("Actions")
 
         for i, row in enumerate(data):
@@ -78,12 +78,13 @@ class Probe:
             write_if(columns[0], row["NAME"])
             columns[1].code(row["CONDITION"], language="sql")
             columns[2].checkbox(
-                label="email query submitter",
-                label_visibility="hidden",
-                value=row["EMAIL_WRITER"],
+                label=f"via {row['NOTIFY_WRITER_METHOD'].capitalize()}",
+                label_visibility="visible" if row["NOTIFY_WRITER"] else "hidden",
+                value=row["NOTIFY_WRITER"],
                 disabled=True,
-                key=f"email_writer{i}",
+                key=f"notify_writer{i}",
             )
+
             columns[3].checkbox(
                 label="cancel query",
                 label_visibility="hidden",
@@ -93,7 +94,9 @@ class Probe:
             )
 
             with columns[4]:
-                st.text(row["EMAIL_OTHER"])
+                st.text(row["NOTIFY_OTHER"])
+                if len(row['NOTIFY_OTHER']) > 0:
+                    st.write(f"via {row['NOTIFY_OTHER_METHOD'].capitalize()}")
 
             with columns[5]:
                 buttons = st.columns(3)
@@ -101,8 +104,10 @@ class Probe:
                     "name": row["NAME"],
                     "condition": row["CONDITION"],
                     "cancel": row["CANCEL"],
-                    "email_writer": row["EMAIL_WRITER"],
-                    "email_other": row["EMAIL_OTHER"],
+                    "notify_writer": row["NOTIFY_WRITER"],
+                    "notify_writer_method": row["NOTIFY_WRITER_METHOD"],
+                    "notify_other": row["NOTIFY_OTHER"],
+                    "notify_other_method": row["NOTIFY_OTHER_METHOD"],
                 }
                 buttons[0].button(
                     "✏️", key=f"edit{i}", on_click=self.session.do_edit, args=[probe]
@@ -116,14 +121,16 @@ class Probe:
 
         st.button("New", key="create", on_click=self.session.do_create, args=[None])
 
-    def on_create_click(self, name, condition, email_writer, email_other, cancel):
+    def on_create_click(self, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel):
         with st.spinner("Creating new probe..."):
             outcome = self.snowflake.call(
                 "ADMIN.CREATE_PROBE",
                 name,
                 condition,
-                email_writer,
-                email_other,
+                notify_writer,
+                notify_writer_method.upper(),
+                notify_other,
+                notify_other_method.upper(),
                 cancel,
             )
 
@@ -135,7 +142,7 @@ class Probe:
         self.status.error(outcome)
 
     def on_update_click(
-        self, oldname, name, condition, email_writer, email_other, cancel
+        self, oldname, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel
     ):
         outcome = None
         with st.spinner("Updating probe..."):
@@ -144,8 +151,10 @@ class Probe:
                 oldname,
                 name,
                 condition,
-                email_writer,
-                email_other,
+                notify_writer,
+                notify_writer_method.upper(),
+                notify_other,
+                notify_other_method.upper(),
                 cancel,
             )
 
@@ -168,15 +177,27 @@ class Probe:
         name = st.text_input(key="NAME", label="Probe Name")
         condition = st.text_area(key="CONDITION", label="Condition")
         with st.expander("When Probe Matches:", expanded=True):
-            email_writer = st.checkbox(key="EMAIL_WRITER", label="Email the author")
+            notify_writer = st.checkbox(key="NOTIFY_WRITER", label="Notify the author")
+            notify_writer_method = st.radio(
+                key="NOTIFY_WRITER_METHOD",
+                label="via",
+                options=("Email", "Slack"),
+                index=0,
+            )
             cancel = st.checkbox(key="CANCEL", label="Cancel the query")
-            email_other = st.text_area(
-                key="EMAIL_OTHER", label="Email others (comma delimited)"
+            notify_other = st.text_area(
+                key="NOTIFY_OTHER", label="Notify others (comma delimited)"
+            )
+            notify_other_method = st.radio(
+                key="NOTIFY_OTHER_METHOD",
+                label="via",
+                options=("Email", "Slack"),
+                index=0,
             )
         st.button(
             "Create",
             on_click=self.on_create_click,
-            args=[name, condition, email_writer, email_other, cancel],
+            args=[name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel],
         )
         st.button("Cancel", on_click=self.session.do_list)
 
@@ -187,24 +208,38 @@ class Probe:
             key="CONDITION", label="Condition", value=update["condition"]
         )
         with st.expander("When Probe Matches:", expanded=True):
-            email_writer = st.checkbox(
-                key="EMAIL_WRITER",
-                label="Email the author",
-                value=update["email_writer"],
+            notify_writer = st.checkbox(
+                key="NOTIFY_WRITER",
+                label="Notify the author",
+                value=update["notify_writer"],
             )
+            notify_writer_method = st.radio(
+                key="NOTIFY_WRITER_METHOD",
+                label="via",
+                options=("Email", "Slack"),
+                index=1 if update["notify_writer_method"].lower() == 'slack' else 0,
+            )
+            st.divider()
             cancel = st.checkbox(
                 key="CANCEL", label="Cancel the query", value=update["cancel"]
             )
-            email_other = st.text_input(
-                key="EMAIL_OTHER",
-                label="Email others (comma delimited)",
-                value=update["email_other"],
+            st.divider()
+            notify_other = st.text_input(
+                key="NOTIFY_OTHER",
+                label="Notify others (comma delimited)",
+                value=update["notify_other"],
+            )
+            notify_other_method = st.radio(
+                key="NOTIFY_OTHER_METHOD",
+                label="via",
+                options=("Email", "Slack"),
+                index=1 if update["notify_other_method"].lower() == 'slack' else 0,
             )
 
         st.button(
             "Update",
             on_click=self.on_update_click,
-            args=[update["name"], name, condition, email_writer, email_other, cancel],
+            args=[update["name"], name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel],
         )
         st.button("Cancel", on_click=self.session.do_list)
 
