@@ -82,7 +82,9 @@ def _finish_local_setup(cur, database: str, schema: str):
         time.sleep(20)
 
 
-def devdeploy(profile: str, schema: str, stage: str, deployment: str):
+def devdeploy(
+    profile: str, schema: str, stage: str, deployment: str, finishSetup: bool
+):
     """
     Create the app package to enable local development
     :param profile: the Snowsql configuration profile to use.
@@ -102,13 +104,14 @@ def devdeploy(profile: str, schema: str, stage: str, deployment: str):
 
     # Finish local setup by setting internal state to mimic a set-up app
     # (e.g. materializes data, starts tasks)
-    _finish_local_setup(cur, conn.database, conn.schema)
+    if finishSetup:
+        _finish_local_setup(cur, conn.database, conn.schema)
 
     conn.close()
 
 
 def usage():
-    print("devdeploy.py -p <snowsql_profile_name> -d <sundeck_deployment>")
+    print("devdeploy.py -p <snowsql_profile_name> -d <sundeck_deployment> -s")
 
 
 def main(argv):
@@ -119,7 +122,10 @@ def main(argv):
     schema = "PUBLIC"
     stage = "OC_STAGE"
     deployment = "dev"
-    opts, args = getopt.getopt(argv, "d:hp:", ["deployment=", "profile="])
+    finishSetup = True
+    opts, args = getopt.getopt(
+        argv, "d:hp:s", ["deployment=", "profile=", "skip-finish-setup"]
+    )
     for opt, arg in opts:
         if opt == "-h":
             usage()
@@ -128,12 +134,14 @@ def main(argv):
             profile = arg
         elif opt in ("-d", "--deployment"):
             deployment = arg
+        elif opt in ("-s", "--skip-finish-setup"):
+            finishSetup = False
 
     if profile is None or stage is None:
         usage()
         sys.exit()
 
-    devdeploy(profile, schema, stage, deployment)
+    devdeploy(profile, schema, stage, deployment, finishSetup)
 
 
 if __name__ == "__main__":
