@@ -44,6 +44,23 @@ def decode_token(token: str):
     return parts[0], url
 
 
+def setup_permissions():
+    db = connection.execute("select current_database() as db").values[0][0]
+
+    privileges = [
+        "EXECUTE MANAGED TASK",
+        "EXECUTE TASK",
+        "MANAGE WAREHOUSES",
+        "IMPORTED PRIVILEGES ON SNOWFLAKE DB",
+    ]
+    missing_privileges = perms.get_missing_account_privileges(privileges)
+    if len(missing_privileges) > 0:
+        perms.request_account_privileges(missing_privileges)
+    else:
+        if not config.up_to_date():
+            connection.Connection.get().call(f"{db}.ADMIN.FINALIZE_SETUP")
+
+
 def setup_block():
 
     db, account, user, sf_region, sd_deployment = list(
@@ -63,19 +80,6 @@ def setup_block():
     region = get_region(sf_region_without_public)
     external_func_url = get_api_gateway_url(sf_region_without_public, sd_deployment)
     connection.Connection.get().call("INTERNAL.SETUP_EF_URL", external_func_url)
-
-    privileges = [
-        "EXECUTE MANAGED TASK",
-        "EXECUTE TASK",
-        "MANAGE WAREHOUSES",
-        "IMPORTED PRIVILEGES ON SNOWFLAKE DB",
-    ]
-    missing_privileges = perms.get_missing_account_privileges(privileges)
-    if len(missing_privileges) > 0:
-        perms.request_account_privileges(missing_privileges)
-    else:
-        if not config.up_to_date():
-            connection.Connection.get().call(f"{db}.ADMIN.FINALIZE_SETUP")
 
     def expander(num: int, title: str, finished: bool) -> st.expander:
         c = "[Pending]"

@@ -4,10 +4,10 @@ import sthelp
 import setup
 
 sthelp.chrome()
+setup.setup_permissions()
 
-if not config.setup_complete():
-    st.markdown(
-        """
+st.markdown(
+    """
 # Welcome To Sundeck OpsCenter
 
 ## Overview
@@ -15,29 +15,17 @@ OpsCenter is a community-driven, freely available Github project. It provides a 
 Snowflake account. If you want to know more about the capabilities, check them out
 [here](https://sundeck.io/community/opscenter).
 
-## Setup
+Check out the items on the sidebar.
 
-Before using OpsCenter, you need to a few steps to get things set up. You can find the setup steps below.
-
+An overview dashboard will arrive here soon!
 """
-    )
-    setup.setup_block()
-else:
+)
+if config.has_tenant_url():
+    tenant_url = config.get_tenant_url()
     st.markdown(
+        f"""
+            To explore the Sundeck account, right-click on the link below and choose "Open link in new tab/window."
+
+            [Go to my Sundeck account]({tenant_url})
         """
-    # Welcome To Sundeck OpsCenter
-
-    You've successfully configured Sundeck OpsCenter. Check out the items on the sidebar.
-
-    An overview dashboard will arrive here soon!
-    """
     )
-    if config.has_tenant_url():
-        tenant_url = config.get_tenant_url()
-        st.markdown(
-            f"""
-                To explore the Sundeck account, right-click on the link below and choose "Open link in new tab/window."
-
-                [Go to my Sundeck account]({tenant_url})
-            """
-        )
