@@ -2,6 +2,8 @@ import streamlit as st
 from connection import Connection
 import session as general_session
 from session import Mode
+import setup
+import config
 
 
 def display():
@@ -35,6 +37,9 @@ class Probe:
         This includes both queries that should be cancelled or queries that should be alerted on.
         """
         )
+
+        if not config.has_sundeck():
+            setup.setup_block()
 
         with st.sidebar.container():
             st.markdown(

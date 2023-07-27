@@ -44,6 +44,23 @@ def decode_token(token: str):
     return parts[0], url
 
 
+def setup_permissions():
+    db = connection.execute("select current_database() as db").values[0][0]
+
+    privileges = [
+        "EXECUTE MANAGED TASK",
+        "EXECUTE TASK",
+        "MANAGE WAREHOUSES",
+        "IMPORTED PRIVILEGES ON SNOWFLAKE DB",
+    ]
+    missing_privileges = perms.get_missing_account_privileges(privileges)
+    if len(missing_privileges) > 0:
+        perms.request_account_privileges(missing_privileges)
+    else:
+        if not config.up_to_date():
+            connection.Connection.get().call(f"{db}.ADMIN.FINALIZE_SETUP")
+
+
 def setup_block():
 
     db, account, user, sf_region, sd_deployment = list(
@@ -70,30 +87,8 @@ def setup_block():
             c = "[Completed]"
         return st.expander(f"Step {num}: {title} {c}", expanded=(not finished))
 
-    with expander(1, "Grant Snowflake Privileges", config.up_to_date()):
-        st.markdown(
-            """
-        ### Grant Snowflake Privileges
-        To start using OpsCenter, you need several permissions to operate.
-        This is a one-time setup. To enable this functionality, please run the following command in your Snowflake
-        account:
-        """
-        )
-        st.code(
-            f"""
-BEGIN -- Grant OpsCenter Permissions to Monitor Warehouses and Queries
-    GRANT IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE TO APPLICATION "{db}";
-    GRANT EXECUTE MANAGED TASK, EXECUTE TASK, MANAGE WAREHOUSES ON ACCOUNT TO APPLICATION "{db}";
-    BEGIN SHOW WAREHOUSES; LET c1 CURSOR FOR SELECT "name" N FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())); FOR wh in c1 DO let n string := wh.N; GRANT OPERATE, """
-            + f"""USAGE ON WAREHOUSE IDENTIFIER(:n) TO APPLICATION "{db}"; END FOR; END;
-    CALL "{db}".ADMIN.FINALIZE_SETUP(); RETURN 'SUCCESS';
-END;
-"""
-        )
-        st.button("Refresh Status", on_click=config.refresh, key="refresh")
-
     with expander(
-        2, "Enable Notifications (optional, via Sundeck)", config.has_sundeck()
+        1, "Enable Notifications (optional, via Sundeck)", config.has_sundeck()
     ):
         st.markdown(
             """

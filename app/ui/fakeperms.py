@@ -18,8 +18,8 @@ class AwsGateway(Enum):
     GOV_PRIVATE_API_GATEWAY = 4
 
 
-def request_account_privileges(privileges: [str]):
-    return False
+def request_account_privileges(privileges: [str]) -> None:
+    return None
 
 
 def request_reference(reference: str):
@@ -52,8 +52,8 @@ def get_held_account_privileges(privilege_names: [str]):
     return False
 
 
-def get_missing_account_privileges(privilege_names: [str]):
-    return False
+def get_missing_account_privileges(privilege_names: [str]) -> [str]:
+    return []
 
 
 def get_reference_associations(reference_name: str):
