@@ -95,7 +95,7 @@ class Probe:
 
             with columns[4]:
                 st.text(row["NOTIFY_OTHER"])
-                if len(row['NOTIFY_OTHER']) > 0:
+                if len(row["NOTIFY_OTHER"]) > 0:
                     st.write(f"via {row['NOTIFY_OTHER_METHOD'].capitalize()}")
 
             with columns[5]:
@@ -121,7 +121,16 @@ class Probe:
 
         st.button("New", key="create", on_click=self.session.do_create, args=[None])
 
-    def on_create_click(self, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel):
+    def on_create_click(
+        self,
+        name,
+        condition,
+        notify_writer,
+        notify_writer_method,
+        notify_other,
+        notify_other_method,
+        cancel,
+    ):
         with st.spinner("Creating new probe..."):
             outcome = self.snowflake.call(
                 "ADMIN.CREATE_PROBE",
@@ -142,7 +151,15 @@ class Probe:
         self.status.error(outcome)
 
     def on_update_click(
-        self, oldname, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel
+        self,
+        oldname,
+        name,
+        condition,
+        notify_writer,
+        notify_writer_method,
+        notify_other,
+        notify_other_method,
+        cancel,
     ):
         outcome = None
         with st.spinner("Updating probe..."):
@@ -197,7 +214,15 @@ class Probe:
         st.button(
             "Create",
             on_click=self.on_create_click,
-            args=[name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel],
+            args=[
+                name,
+                condition,
+                notify_writer,
+                notify_writer_method,
+                notify_other,
+                notify_other_method,
+                cancel,
+            ],
         )
         st.button("Cancel", on_click=self.session.do_list)
 
@@ -217,7 +242,7 @@ class Probe:
                 key="NOTIFY_WRITER_METHOD",
                 label="via",
                 options=("Email", "Slack"),
-                index=1 if update["notify_writer_method"].lower() == 'slack' else 0,
+                index=1 if update["notify_writer_method"].lower() == "slack" else 0,
             )
             st.divider()
             cancel = st.checkbox(
@@ -233,13 +258,22 @@ class Probe:
                 key="NOTIFY_OTHER_METHOD",
                 label="via",
                 options=("Email", "Slack"),
-                index=1 if update["notify_other_method"].lower() == 'slack' else 0,
+                index=1 if update["notify_other_method"].lower() == "slack" else 0,
             )
 
         st.button(
             "Update",
             on_click=self.on_update_click,
-            args=[update["name"], name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel],
+            args=[
+                update["name"],
+                name,
+                condition,
+                notify_writer,
+                notify_writer_method,
+                notify_other,
+                notify_other_method,
+                cancel,
+            ],
         )
         st.button("Cancel", on_click=self.session.do_list)
 
