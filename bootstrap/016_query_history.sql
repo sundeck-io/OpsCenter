@@ -5,7 +5,7 @@
 CREATE OR REPLACE VIEW INTERNAL_REPORTING.QUERY_HISTORY_COMPLETE_AND_DAILY AS
 SELECT
     current_timestamp() as run_id,
-    tools.qtag(query_text, true, true) as qtag,
+    tools.qtag(qh.query_text, true, true) as qtag,
     DATEDIFF('day', START_TIME, END_TIME) + 1 AS PERIOD_PLUS,
     IFF(index = PERIOD_PLUS, 'DAILY', 'COMPLETE') AS RECORD_TYPE,
     IFF(index in (0, PERIOD_PLUS), start_time, dateadd('day', index, date_trunc('day', start_time))) as ST,
@@ -17,9 +17,36 @@ SELECT
     DATEDIFF('milliseconds', ST, ET) AS DURATION,
     IFF(start_time > end_time, true, false) AS INCOMPLETE,
     START_TIME AS filterts,
-    qh.*
+    qh.*,
+    sessions.created_on,
+    sessions.authentication_method,
+    sessions.login_event_id,
+    sessions.client_application_version,
+    sessions.client_application_id,
+    sessions.client_environment,
+    sessions.client_build_id,
+    sessions.client_version,
+    sessions.closed_reason,
+    tasks.name as task_name,
+    tasks.condition_text as task_condition_text,
+    tasks.schema_name as task_schema_name,
+    tasks.task_schema_id,
+    tasks.database_name as task_database_name,
+    tasks.task_database_id,
+    tasks.scheduled_time as task_scheduled_time,
+    tasks.completed_time as task_completed_time,
+    tasks.state as task_state,
+    tasks.return_value as task_return_value,
+    tasks.error_code as task_error_code,
+    tasks.error_message as task_error_message,
+    tasks.graph_version as task_graph_version,
+    tasks.run_id as task_run_id,
+    tasks.root_task_id,
+    tasks.scheduled_from as task_scheduled_from
 FROM ACCOUNT_USAGE.QUERY_HISTORY AS qh
-    LEFT OUTER JOIN INTERNAL_REPORTING.WAREHOUSE_CREDITS_PER_SIZE size ON qh.warehouse_size = size.warehouse_size,
+    LEFT OUTER JOIN INTERNAL_REPORTING.WAREHOUSE_CREDITS_PER_SIZE size ON qh.warehouse_size = size.warehouse_size
+    LEFT OUTER JOIN ACCOUNT_USAGE.SESSIONS sessions ON qh.session_id = sessions.session_id
+    LEFT OUTER JOIN ACCOUNT_USAGE.TASK_HISTORY tasks ON qh.query_id = tasks.query_id,
     LATERAL FLATTEN(internal.period_range_plus('day', qh.start_time, qh.end_time)) emt(index)
 ;
 create table internal_reporting_mv.query_history_complete_and_daily_incomplete if not exists  as select * from internal_reporting.query_history_complete_and_daily limit 0;
