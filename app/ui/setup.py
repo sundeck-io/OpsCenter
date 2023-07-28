@@ -135,7 +135,10 @@ def sundeck_signup_with_email(account, user, region, db):
         msg = st.empty()
         msg.warning("Connecting. Please do not navigate away from this page.")
         token, url = decode_token(token_input)
-        connection.Connection.get().call("INTERNAL.SETUP_SUNDECK_TOKEN", url, token)
+        sndk_token = f"sndk_{token}"
+        connection.Connection.get().call(
+            "INTERNAL.SETUP_SUNDECK_TOKEN", url, sndk_token
+        )
         api_integration_name = "OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS"
         req = perms.request_aws_api_integration(
             "opscenter_api_integration",
@@ -320,18 +323,21 @@ def get_api_gateway_url(sf_region: str, sd_deployment: str) -> str:
         "us-west-2": API_GATEWAY_PROD_US_WEST_2,
     }
 
+    baseurl = ""
     if sd_deployment == "dev":
-        return API_GATEWAY_DEV_US_WEST_2
+        baseurl = API_GATEWAY_DEV_US_WEST_2
     elif sd_deployment == "prod":
-        return prod_url_map[get_sundeck_region(sf_region)]
+        baseurl = prod_url_map[get_sundeck_region(sf_region)]
     elif sd_deployment == "stage":
         sundeck_region = get_sundeck_region(sf_region)
         if sundeck_region == "us-east-1":
-            return stage_url_map[sundeck_region]
+            baseurl = stage_url_map[sundeck_region]
         else:
-            return stage_url_map["us-west-2"]
+            baseurl = stage_url_map["us-west-2"]
     else:
         raise Exception("Invalid deployment")
+
+    return f"{baseurl}/{sd_deployment}"
 
 
 def get_sundeck_region(sf_region: str) -> str:

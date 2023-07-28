@@ -156,7 +156,6 @@ $$;
 CREATE OR REPLACE PROCEDURE admin.setup_register_tenant_func() RETURNS STRING LANGUAGE SQL AS
 BEGIN
     let url string := (select internal.get_ef_url());
-    let deployment string := (select internal.get_sundeck_deployment());
     execute immediate '
         BEGIN
 	        create or replace external function internal.ef_register_tenant(request object)
@@ -164,12 +163,13 @@ BEGIN
             context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA, CURRENT_REGION)
             api_integration = reference(\'opscenter_sso_api_integration\')
             headers = ()
-            as \'' || url || '/' || deployment || '/extfunc/register_tenant\';
+            as \'' || url || '/' || '/extfunc/register_tenant\';
         END;
     ';
 END;
 
-CREATE OR REPLACE PROCEDURE admin.setup_external_functions() RETURNS STRING LANGUAGE SQL AS
+
+CREATE OR REPLACE PROCEDURE admin.setup_external_functions(api_integration_name string) RETURNS STRING LANGUAGE SQL AS
 BEGIN
     let url string := (select internal.get_ef_url());
     let token string := (select internal.get_ef_token());
@@ -178,22 +178,22 @@ BEGIN
             create or replace external function internal.ef_qlike(request object)
             returns object
             context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
-            api_integration = reference(\'opscenter_api_integration\')
-            headers = (\'sndk-token\' = \'sndk_' || token || '\')
+            api_integration = reference(\'' || api_integration_name || '\')
+            headers = (\'sndk-token\' = \'' || token || '\')
             as \'' || url || '/extfunc/qlike\';
 
             create or replace external function internal.ef_notifications(request object)
             returns object
             context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
-            api_integration = reference(\'opscenter_api_integration\')
-            headers = (\'sndk-token\' = \'sndk_' || token || '\')
+            api_integration = reference(\'' || api_integration_name || '\')
+            headers = (\'sndk-token\' = \'' || token || '\')
             as \'' || url || '/extfunc/notifications\';
 
             create or replace external function internal.ef_run(unused object, request object)
             returns object
             context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
-            api_integration = reference(\'opscenter_api_integration\')
-            headers = (\'sndk-token\' = \'sndk_' || token || '\')
+            api_integration = reference(\'' || api_integration_name || '\')
+            headers = (\'sndk-token\' = \'' || token || '\')
             as \'' || url || '/extfunc/run\';
         END;
     ';
@@ -223,4 +223,6 @@ BEGIN
     WHEN NOT MATCHED THEN
       INSERT (key, value)
       VALUES (source.key, source.value);
+
+    CALL admin.setup_external_functions('opscenter_sso_api_integration');
 END;
