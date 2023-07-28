@@ -26,15 +26,16 @@ create table internal_reporting_mv.query_history_complete_and_daily_incomplete i
 create table internal_reporting_mv.query_history_complete_and_daily if not exists as select * from internal_reporting.query_history_complete_and_daily limit 0;
 
 create or replace view reporting.enriched_query_history as
-    select unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE = 'COMPLETE'
+    select tools.qtag_to_map(qtag) as qtag_filter, unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE = 'COMPLETE'
+
     union all
-    select unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE = 'COMPLETE'
+    select tools.qtag_to_map(qtag) as qtag_filter, unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE = 'COMPLETE'
     ;
 
 create or replace view reporting.enriched_query_history_daily as
-    select unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE = 'DAILY'
+    select tools.qtag_to_map(qtag) as qtag_filter, unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE = 'DAILY'
     union all
-    select unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE = 'DAILY';
+    select tools.qtag_to_map(qtag) as qtag_filter, unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE = 'DAILY';
 
 -- Similar to above but subdivides queries by hour instead of day.
 -- It might be more efficient to expand from days to hours as opposed to here where we expand from complete to hours. We chose not
