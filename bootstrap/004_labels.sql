@@ -15,6 +15,21 @@ EXCEPTION
         return 'Failure validating name & condition. Please check your syntax.' || :SQLERRM;
 END;
 
+-- Verify label name as quoted identifier is not same as any column name in view reporting.enriched_query_history.
+CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_LABEL_Name(name string)
+RETURNS STRING
+AS
+BEGIN
+    let statement string := 'select  "' || name || '" from reporting.enriched_query_history where false';
+    execute immediate statement;
+    return 'Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name.';
+EXCEPTION
+    when statement_error then
+        return null;
+    WHEN OTHER THEN
+        return 'Failure validating name. Please check your syntax.' || :SQLERRM;
+END;
+
 CREATE OR REPLACE PROCEDURE INTERNAL.UPDATE_LABEL_VIEW()
 RETURNS boolean
 AS
@@ -77,6 +92,12 @@ BEGIN
       return outcome;
     end if;
 
+    outcome := (CALL INTERNAL.VALIDATE_LABEL_Name(:name));
+
+    if (outcome is not null) then
+      return outcome;
+    end if;
+
     outcome := 'Duplicate label name found. Please use a distinct name.';
     BEGIN TRANSACTION;
         let cnt number := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE name = :name);
@@ -125,6 +146,12 @@ BEGIN
     let outcome text := 'Duplicate label name found. Please use a distinct name.';
 
     outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:name, :condition));
+
+    if (outcome is not null) then
+      return outcome;
+    end if;
+
+    outcome := (CALL INTERNAL.VALIDATE_LABEL_Name(:name));
 
     if (outcome is not null) then
       return outcome;
