@@ -57,6 +57,9 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
         COMMIT;
     END;
 
+-- Migrate the schema of the probes table if it already exists
+call INTERNAL.MIGRATE_PROBES_TABLE();
+
 CREATE OR REPLACE TASK TASKS.PROBE_MONITORING
     SCHEDULE = '1 minute'
     ALLOW_OVERLAPPING_EXECUTION = FALSE
@@ -83,6 +86,7 @@ BEGIN
             END;
         end if;
 
+        -- Send emails
         let emails string := act.action_taken:EMAIL;
         if (length(emails) > 1) then
             let subject string := 'Sundeck OpsCenter probe [{probe_name}] matched query.';
@@ -105,6 +109,28 @@ BEGIN
             END;
             outcome := outcome || outcome2;
         end if;
+
+        -- Send slack messages
+        let slackDests string := act.action_taken:SLACK;
+        IF (length(slackDests) > 1) THEN
+            let slackResult string := '';
+            let dict variant := OBJECT_CONSTRUCT('bt', CHAR(UNICODE('\u0060')), 'query_id', act.query_id, 'query_text', act.query_text, 'user_name', act.user_name, 'warehouse_name', act.warehouse_name, 'start_time', act.start_time, 'probe_name', act.probe_name);
+            let message string := '
+Query Id: {bt}{query_id}{bt}\n
+Query User: {user_name}\n
+Warehouse Name: {bt}{warehouse_name}{bt}\n
+Start Time: {bt}{start_time}{bt}\n
+Query Text: {bt}{bt}{bt}{query_text}{bt}{bt}{bt}
+            ';
+           BEGIN
+               slackResult := (select to_json(INTERNAL.NOTIFICATIONS(tools.templatejs(:message, :dict), 'unused', 'slack', :slackDests)));
+           EXCEPTION
+           WHEN other THEN
+               slackResult := SQLERRM;
+           END;
+           outcome := outcome || slackResult;
+       END IF;
+
 
         let name string := act.PROBE_NAME;
         let action string := act.ACTION_TAKENS;

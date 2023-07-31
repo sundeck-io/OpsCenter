@@ -1,9 +1,39 @@
 
-CREATE TABLE INTERNAL.PROBES (name string, condition string, email_writer boolean, email_other string, cancel boolean, enabled boolean) IF NOT EXISTS;
+CREATE TABLE INTERNAL.PROBES (name string, condition string, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean, enabled boolean) IF NOT EXISTS;
 CREATE OR REPLACE VIEW CATALOG.PROBES AS SELECT * FROM INTERNAL.PROBES;
 
 CREATE TABLE INTERNAL.PROBE_ACTIONS (action_time timestamp, probe_name string, query_id string, actions_taken variant, outcome string) IF NOT EXISTS;
 CREATE OR REPLACE VIEW REPORTING.PROBE_ACTIONS AS SELECT * FROM INTERNAL.PROBE_ACTIONS;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PROBES_TABLE()
+RETURNS OBJECT
+AS
+BEGIN
+    -- Add NOTIFY_WRITER_METHOD column
+    IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PROBES' AND COLUMN_NAME = 'NOTIFY_WRITER_METHOD')) THEN
+        ALTER TABLE IF EXISTS INTERNAL.PROBES ADD COLUMN NOTIFY_WRITER_METHOD STRING DEFAULT 'EMAIL';
+    END IF;
+
+    -- Add NOTIFY_OTHER_METHOD column
+    IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PROBES' AND COLUMN_NAME = 'NOTIFY_OTHER_METHOD')) THEN
+        ALTER TABLE IF EXISTS INTERNAL.PROBES ADD COLUMN NOTIFY_OTHER_METHOD STRING DEFAULT 'EMAIL';
+    END IF;
+
+    -- Rename EMAIL_WRITER to NOTIFY_WRITER
+    IF (EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PROBES' AND COLUMN_NAME = 'EMAIL_WRITER')) THEN
+        ALTER TABLE IF EXISTS INTERNAL.PROBES RENAME COLUMN EMAIL_WRITER to NOTIFY_WRITER;
+    END IF;
+
+    -- Rename EMAIL_OTHER to NOTIFY_OTHER
+    IF (EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PROBES' AND COLUMN_NAME = 'EMAIL_OTHER')) THEN
+        ALTER TABLE IF EXISTS INTERNAL.PROBES RENAME COLUMN EMAIL_OTHER to NOTIFY_OTHER;
+    END IF;
+EXCEPTION
+    WHEN OTHER THEN
+        SYSTEM$LOG('error', 'Failed to migrate probes table. ' || :SQLCODE || ': ' || :SQLERRM);
+        raise;
+END;
+
 
 CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_PROBE_CONDITION(name string, condition string)
 RETURNS STRING
@@ -26,7 +56,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_PROBE_MONITOR_RUNNING()
     EXECUTE AS OWNER
 AS
 BEGIN
-    let enable boolean := (select count(*) > 0 from internal.probes where cancel or email_writer or length(email_other) > 3);
+    let enable boolean := (select count(*) > 0 from internal.probes where cancel or notify_writer or length(notify_other) > 3);
     let configured boolean := (select count(*) > 0 from internal.config where key = 'post_setup');
     if (enable and configured) then
         execute immediate 'alter task tasks.PROBE_MONITORING resume';
@@ -34,6 +64,12 @@ BEGIN
         execute immediate 'alter task tasks.PROBE_MONITORING suspend';
     end if;
 END;
+
+CREATE OR REPLACE FUNCTION INTERNAL.MERGE_OBJECTS(O1 VARIANT, O2 VARIANT)
+RETURNS VARIANT
+LANGUAGE JAVASCRIPT
+AS 'return Object.assign(O1, O2);'
+;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.GET_PROBE_SELECT()
 RETURNS string
@@ -48,7 +84,7 @@ BEGIN
         select name, email from internal.sfusers
     ),
     probes as (
-        select * from internal.probes where cancel or email_writer or length(email_other) > 3
+        select * from internal.probes where cancel or notify_writer or length(notify_other) > 3
     ),
     actions as (
     SELECT current_timestamp() as probe_time, query_id, user_name, query_text, warehouse_name, start_time, case $$;
@@ -71,9 +107,9 @@ BEGIN
     select
         probe_time,
         probe_to_execute as probe_name, query_id,
-        case when p.email_writer and u.email is not null then u.email else '' end as uemail,
-        case when p.email_other is not null then p.email_other else '' end as oemail,
-        OBJECT_CONSTRUCT('EMAIL', uemail || ',' || oemail, 'CANCEL', p.cancel) as action,
+        case when p.notify_writer and u.email is not null then OBJECT_CONSTRUCT(p.notify_writer_method, u.email) else OBJECT_CONSTRUCT() end as notify_writer_obj,
+        case when p.notify_other is not null then OBJECT_CONSTRUCT(p.notify_other_method, p.notify_other) else OBJECT_CONSTRUCT() end as notify_other_obj,
+        OBJECT_INSERT(INTERNAL.MERGE_OBJECTS(notify_writer_obj, notify_other_obj), 'CANCEL', p.cancel) as action_taken,
         a.user_name,
         a.warehouse_name,
         a.start_time,
@@ -84,12 +120,12 @@ BEGIN
     where probe_to_execute is not null
     and (probe_to_execute, query_id) not in (select probe_name, query_id from internal.probe_actions)
     )
-    select probe_time, probe_name, query_id, action as action_taken, user_name, warehouse_name, start_time, query_text from items
+    select probe_time, probe_name, query_id, action_taken, user_name, warehouse_name, start_time, query_text from items
     $$;
     return s;
 END;
 
-CREATE OR REPLACE PROCEDURE ADMIN.CREATE_PROBE(name text, condition text, email_writer boolean, email_other string, cancel boolean)
+CREATE OR REPLACE PROCEDURE ADMIN.CREATE_PROBE(name text, condition text, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean)
     RETURNS text
     LANGUAGE SQL
     EXECUTE AS OWNER
@@ -113,7 +149,8 @@ BEGIN
         IF (cnt > 0) THEN
             outcome := 'A probe with this name already exists. Please choose a distinct name.';
         ELSE
-          INSERT INTO internal.probes ("NAME", "CONDITION", "EMAIL_WRITER", "EMAIL_OTHER", "CANCEL") VALUES (:name, :condition, :email_writer, :email_other, :cancel);
+          INSERT INTO internal.probes ("NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL")
+            VALUES (:name, :condition, :notify_writer, :notify_writer_method, :notify_other, :notify_other_method, :cancel);
           outcome := null;
         END IF;
 
@@ -137,7 +174,7 @@ BEGIN
     return 'done';
 END;
 
-CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_PROBE(oldname text, name text, condition text, email_writer boolean, email_other string, cancel boolean)
+CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_PROBE(oldname text, name text, condition text, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean)
     RETURNS text
     LANGUAGE SQL
     EXECUTE AS OWNER
@@ -167,7 +204,12 @@ BEGIN
     ELSEIF (newcnt <> 0) THEN
       outcome := 'A probe with this name already exists. Please choose a distinct name.';
     ELSE
-      UPDATE internal.probes SET  NAME = :name, EMAIL_WRITER = :email_writer, EMAIL_OTHER = :email_other, CANCEL = :cancel, CONDITION = :condition WHERE NAME = :oldname;
+      UPDATE internal.probes SET NAME = :name,
+                                 NOTIFY_WRITER = :notify_writer, NOTIFY_WRITER_METHOD = :notify_writer_method,
+                                 NOTIFY_OTHER = :notify_other, NOTIFY_OTHER_METHOD = :notify_other_method,
+                                 CANCEL = :cancel,
+                                 CONDITION = :condition
+                             WHERE NAME = :oldname;
       outcome := null;
     END IF;
 

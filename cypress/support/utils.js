@@ -43,7 +43,7 @@ export const fillInProbeForm = (
   if (emailTheAuthor) {
     // check({force: true}) - explanation below
     // https://docs.cypress.io/guides/references/error-messages#cy-failed-because-the-element-cannot-be-interacted-with
-    cy.get('input[aria-label="Email the author"]')
+    cy.get('input[aria-label="Notify the author"]')
       .should("exist")
       .check({ force: true });
   }
@@ -54,7 +54,7 @@ export const fillInProbeForm = (
       .check({ force: true });
   }
 
-  cy.get('textarea[aria-label="Email others (comma delimited)"]')
+  cy.get('textarea[aria-label="Notify others (comma delimited)"]')
     .clear()
     .type(emailOthers);
 };
