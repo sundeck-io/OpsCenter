@@ -22,6 +22,7 @@ BEGIN
     let labels cursor for select name, condition from internal.labels where group_name is null;
     let s string := $$
 CREATE OR REPLACE VIEW REPORTING.LABELED_QUERY_HISTORY
+COPY GRANTS
 AS
 SELECT *,$$;
     for label in labels do
