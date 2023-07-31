@@ -1,0 +1,10 @@
+name: streamlit_env
+channels:
+  - https://repo.anaconda.com/pkgs/snowflake
+  - defaults
+dependencies:
+  - python=3.10
+  - streamlit=1.16
+  - plotly=5.0
+  - snowflake-snowpark-python=1.5.1
+  - pandas
