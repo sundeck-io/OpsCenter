@@ -84,25 +84,26 @@ with config_tab:
             ):
                 st.error("Please enter a valid number for all costs.")
 
-            config.set_costs(compute, serverless, storage)
-            connection.execute(
-                f"""
-            BEGIN
-                CREATE OR REPLACE FUNCTION INTERNAL.GET_CREDIT_COST()
-                    RETURNS NUMBER AS
-                    $${compute}$$;
+            else:
+                config.set_costs(compute, serverless, storage)
+                connection.execute(
+                    f"""
+                BEGIN
+                    CREATE OR REPLACE FUNCTION INTERNAL.GET_CREDIT_COST()
+                        RETURNS NUMBER AS
+                        $${compute}$$;
 
-                CREATE OR REPLACE FUNCTION INTERNAL.GET_SERVERLESS_CREDIT_COST()
-                    RETURNS NUMBER AS
-                    $${serverless}$$;
+                    CREATE OR REPLACE FUNCTION INTERNAL.GET_SERVERLESS_CREDIT_COST()
+                        RETURNS NUMBER AS
+                        $${serverless}$$;
 
-                CREATE OR REPLACE FUNCTION INTERNAL.GET_STORAGE_COST()
-                    RETURNS NUMBER AS
-                    $${storage}$$;
-            END;
-            """
-            )
-            st.success("Saved")
+                    CREATE OR REPLACE FUNCTION INTERNAL.GET_STORAGE_COST()
+                        RETURNS NUMBER AS
+                        $${storage}$$;
+                END;
+                """
+                )
+                st.success("Saved")
 
 
 with setup_tab:
