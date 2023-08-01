@@ -90,6 +90,14 @@ test_cases = [
         "Invalid condition SQL. Please check your syntax.",
     ),
     (
+        "call ADMIN.CREATE_LABEL('QUERY_TEXT', 'group_1', 100, 'compilation_time > 5000');",
+        "Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name.",
+    ),
+    (
+        "call ADMIN.CREATE_LABEL('QUERY_TEXT', NULL, NULL, 'compilation_time > 5000');",
+        "Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name.",
+    ),
+    (
         "call ADMIN.UPDATE_LABEL('{label}', NULL, NULL, NULL, 'compile_time > 5000');",
         "Name must not be null.",
     ),
@@ -138,8 +146,8 @@ def test_create_label_with_existing_name(conn_cnx, timestamp_string):
     ), "Stored procedure output does not match expected result!"
 
 
-# Test that validates that we get correct error on attempt to update label with existing name
-def test_update_label_with_existing_name(conn_cnx, timestamp_string):
+# Test that validates that we get correct errors on attempt to update existing label
+def test_update_label_errors(conn_cnx, timestamp_string):
 
     # First label
     label = generate_unique_name("label", timestamp_string)
@@ -161,4 +169,18 @@ def test_update_label_with_existing_name(conn_cnx, timestamp_string):
     assert (
         run_proc(conn_cnx, sql)[0]
         == "A label with this name already exists. Please choose a distinct name."
+    ), "Stored procedure output does not match expected result!"
+
+    # Update label with the column name from reporting.enriched_query_history
+
+    sql = f"call ADMIN.UPDATE_LABEL('{label}_2', 'QUERY_TEXT', NULL, NULL, 'rows_produced > 100');"
+    assert (
+        run_proc(conn_cnx, sql)[0]
+        == "Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name."
+    ), "Stored procedure output does not match expected result!"
+
+    sql = f"call ADMIN.UPDATE_LABEL('{label}_2', 'QUERY_TEXT', 'group_1', 100, 'rows_produced > 100');"
+    assert (
+        run_proc(conn_cnx, sql)[0]
+        == "Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name."
     ), "Stored procedure output does not match expected result!"
