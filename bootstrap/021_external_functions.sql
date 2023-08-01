@@ -145,11 +145,11 @@ $$
         internal.ef_register_tenant(request))::object
 $$;
 
-create or replace function admin.register_tenant(client_id varchar, client_secret varchar)
+create or replace function admin.register_tenant(sfAppName varchar, client_id varchar, client_secret varchar)
     returns object
 as
 $$
-    internal.wrapper_register_tenant(object_construct('sfAppName', 'sundeck_opscenter', 'clientKey', client_id, 'clientSecret', client_secret))
+    internal.wrapper_register_tenant(object_construct('sfAppName', sfAppName, 'clientKey', client_id, 'clientSecret', client_secret))
 $$;
 
 

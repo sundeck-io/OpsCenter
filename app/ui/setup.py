@@ -246,12 +246,13 @@ def sundeck_signup_with_snowflake_sso(
 
 
 def generate_code_to_create_sundeck_account(
-    db: str, sf_region: str, sd_deployment: str, name: str = "SUNDECK_OAUTH2"
+    db: str, sf_region: str, sd_deployment: str
 ) -> str:
+    security_integration_name = f"""SUNDECK_OAUTH_{db.upper()}"""
     return f"""
 BEGIN  -- Create security integration and Sundeck account
-{generate_security_integration_code(sf_region, sd_deployment, name)}
-{generate_register_tenant_code(db, name)}
+{generate_security_integration_code(sf_region, sd_deployment, security_integration_name)}
+{generate_register_tenant_code(db, security_integration_name)}
 END;
 """
 
@@ -273,9 +274,10 @@ def generate_security_integration_code(
 
 
 def generate_register_tenant_code(db: str, security_integration_name: str) -> str:
+    sfAppName = "SUNDECK_OPSCENTER_" + db.upper()
     return f"""
 let oauth_info variant := (parse_json(SYSTEM$SHOW_OAUTH_CLIENT_SECRETS('{security_integration_name}')));
-let tenantInfo object := {db}.admin.register_tenant(:oauth_info:OAUTH_CLIENT_ID, :oauth_info:OAUTH_CLIENT_SECRET);
+let tenantInfo object := {db}.admin.register_tenant('{sfAppName}', :oauth_info:OAUTH_CLIENT_ID, :oauth_info:OAUTH_CLIENT_SECRET);
 CALL {db}.admin.setup_sundeck_tenant_url(:tenantInfo:sundeckTenantUrl, :tenantInfo:sundeckUdfToken);
 let rs resultset := (select 'Go to Sundeck UI' as msg, :tenantInfo:sundeckTenantUrl::string as url);
 return table(rs);"""
