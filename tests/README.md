@@ -20,7 +20,7 @@ CONNECTION_PARAMETERS = {
 
 ### Running a single test function in the test
 
-`python -m pytest sql/test_proc_create_label.py::test_smoke_create_drop_label -s`
+`python -m pytest sql/test_label_procs.py::test_smoke_create_drop_label -s`
 
 ### Running all the tests
 
