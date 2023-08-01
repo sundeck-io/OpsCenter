@@ -15,3 +15,9 @@ BEGIN
     WHEN NOT MATCHED THEN
       INSERT (key, value) VALUES (source.key, source.value);
 END;
+
+create or replace function internal.get_version() returns string language sql
+as
+$$
+'{{ git_hash }}'
+$$;
