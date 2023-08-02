@@ -218,7 +218,7 @@ def sundeck_signup_with_snowflake_sso(
         if req is None:
             st.code(
                 """
-                "Please click allow in the pop-up, to create API integration. Wait for confirmation, and then proceed to next step."
+                "Please click allow in the pop-up, to create API integration. Wait for confirmation and revisit this page to proceed to next step."
                 """
             )
         else:
