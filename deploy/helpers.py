@@ -39,6 +39,7 @@ def connect_to_snowflake(profile: str = "opscenter", schema: str = ""):
     password = remove_quotes(config.get(f"connections.{profile}", "password"))
     warehousename = remove_quotes(config.get(f"connections.{profile}", "warehousename"))
     dbname = remove_quotes(config.get(f"connections.{profile}", "dbname"))
+    region = remove_quotes(config.get(f"connections.{profile}", "region", fallback=""))
 
     if len(dbname) == 0:
         raise ValueError(f"Database must be specified in config connections.{profile}")
@@ -51,6 +52,7 @@ def connect_to_snowflake(profile: str = "opscenter", schema: str = ""):
         warehousename=warehousename,
         database=dbname,
         schema=schema,
+        region=region,
     )
     return conn
 
