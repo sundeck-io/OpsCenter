@@ -1,5 +1,21 @@
 
-CREATE TABLE INTERNAL.LABELS if not exists (name string, group_name string null, group_rank number, label_created_at timestamp, condition string, enabled boolean);
+CREATE TABLE INTERNAL.LABELS if not exists (name string, group_name string null, group_rank number, label_created_at timestamp, condition string, enabled boolean, label_modified_at timestamp);
+
+CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_LABELS_TABLE()
+RETURNS OBJECT
+AS
+BEGIN
+    -- Add modified at column
+    IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'LABELS' AND COLUMN_NAME = 'LABEL_MODIFIED_AT')) THEN
+        ALTER TABLE INTERNAL.LABELS ADD COLUMN LABEL_MODIFIED_AT TIMESTAMP;
+        UPDATE INTERNAL.LABELS SET LABEL_MODIFIED_AT = CURRENT_TIMESTAMP WHERE LABEL_MODIFIED_AT IS NULL;
+    END IF;
+
+EXCEPTION
+    WHEN OTHER THEN
+        SYSTEM$LOG('error', 'Failed to migrate labels table. ' || :SQLCODE || ': ' || :SQLERRM);
+        raise;
+END;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_LABEL_CONDITION(name string, condition string)
 RETURNS STRING
@@ -103,7 +119,7 @@ BEGIN
         let cnt number := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE name = :name);
 
         IF (cnt = 0) THEN
-          INSERT INTO internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION") VALUES (:name, :grp, :rank, current_timestamp(), :condition);
+          INSERT INTO internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT") VALUES (:name, :grp, :rank, current_timestamp(), :condition, current_timestamp());
           outcome := null;
         END IF;
 
@@ -168,7 +184,7 @@ BEGIN
     ELSEIF (newcnt <> 0) THEN
       outcome := 'A label with this name already exists. Please choose a distinct name.';
     ELSE
-      UPDATE internal.labels SET  NAME = :name, GROUP_NAME = :grp, GROUP_RANK = :rank, CONDITION = :condition WHERE NAME = :oldname;
+      UPDATE internal.labels SET  NAME = :name, GROUP_NAME = :grp, GROUP_RANK = :rank, CONDITION = :condition, LABEL_MODIFIED_AT = current_timestamp() WHERE NAME = :oldname;
       outcome := null;
     END IF;
 

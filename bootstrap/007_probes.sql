@@ -1,5 +1,5 @@
 
-CREATE TABLE INTERNAL.PROBES (name string, condition string, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean, enabled boolean) IF NOT EXISTS;
+CREATE TABLE INTERNAL.PROBES (name string, condition string, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean, enabled boolean, probe_modified_at timestamp) IF NOT EXISTS;
 CREATE OR REPLACE VIEW CATALOG.PROBES AS SELECT * FROM INTERNAL.PROBES;
 
 CREATE TABLE INTERNAL.PROBE_ACTIONS (action_time timestamp, probe_name string, query_id string, actions_taken variant, outcome string) IF NOT EXISTS;
@@ -27,6 +27,11 @@ BEGIN
     -- Rename EMAIL_OTHER to NOTIFY_OTHER
     IF (EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PROBES' AND COLUMN_NAME = 'EMAIL_OTHER')) THEN
         ALTER TABLE IF EXISTS INTERNAL.PROBES RENAME COLUMN EMAIL_OTHER to NOTIFY_OTHER;
+    END IF;
+    -- Add modified at column
+    IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PROBES' AND COLUMN_NAME = 'PROBE_MODIFIED_AT')) THEN
+        ALTER TABLE INTERNAL.PROBES ADD COLUMN PROBE_MODIFIED_AT TIMESTAMP;
+        UPDATE INTERNAL.PROBES SET PROBE_MODIFIED_AT = CURRENT_TIMESTAMP() WHERE PROBE_MODIFIED_AT IS NULL;
     END IF;
 EXCEPTION
     WHEN OTHER THEN
@@ -149,8 +154,8 @@ BEGIN
         IF (cnt > 0) THEN
             outcome := 'A probe with this name already exists. Please choose a distinct name.';
         ELSE
-          INSERT INTO internal.probes ("NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL")
-            VALUES (:name, :condition, :notify_writer, :notify_writer_method, :notify_other, :notify_other_method, :cancel);
+          INSERT INTO internal.probes ("NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL", "PROBE_MODIFIED_AT")
+            VALUES (:name, :condition, :notify_writer, :notify_writer_method, :notify_other, :notify_other_method, :cancel, current_timestamp());
           outcome := null;
         END IF;
 
@@ -208,7 +213,8 @@ BEGIN
                                  NOTIFY_WRITER = :notify_writer, NOTIFY_WRITER_METHOD = :notify_writer_method,
                                  NOTIFY_OTHER = :notify_other, NOTIFY_OTHER_METHOD = :notify_other_method,
                                  CANCEL = :cancel,
-                                 CONDITION = :condition
+                                 CONDITION = :condition,
+                                 PROBE_MODIFIED_AT = current_timestamp()
                              WHERE NAME = :oldname;
       outcome := null;
     END IF;
