@@ -18,7 +18,7 @@ def clear_cache():
 
 
 def up_to_date():
-    return str(Config.get("post_setup")) == "v1"
+    return str(Config.get("post_setup")) == CurrentVersion.get()
 
 
 def has_sundeck():
@@ -64,6 +64,28 @@ def get_materialization_complete():
 
 def get_compute_credit_cost():
     return Config.get("compute_credit_cost") or 2
+
+
+class CurrentVersion:
+    _props = None
+
+    @classmethod
+    def refresh(cls):
+        config = connection.execute_select(
+            """select internal.get_version() as version"""
+        )
+        if not config.empty:
+            props = {"version": config.values[0][0]}
+            cls._props = props
+        else:
+            props = {}
+        return props
+
+    @classmethod
+    def get(cls) -> str:
+        if cls._props is None:
+            cls.refresh()
+        return cls._props.get("version", "v1")
 
 
 class Config:

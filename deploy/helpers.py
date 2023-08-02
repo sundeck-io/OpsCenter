@@ -12,6 +12,14 @@ FULL_STAGE = f"@{DATABASE}.{SCHEMA}.{STAGE}"
 FULL_STAGE_SLASH = FULL_STAGE + "/"
 
 
+def get_git_revision_short_hash() -> str:
+    return (
+        subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+        .decode("ascii")
+        .strip()
+    )
+
+
 def connect_to_snowflake(profile: str = "opscenter", schema: str = ""):
     # Define a function to remove quotes from a string
     def remove_quotes(string):
@@ -83,6 +91,7 @@ def generate_body(include_streamlit=True, stage_name=""):
         script_quoted = (
             str(script)
             .replace("{{stage}}", stage_name)
+            .replace("{{ git_hash }}", get_git_revision_short_hash())
             .replace("\\", "\\\\")
             .replace("""'""", """\\'""")
         )

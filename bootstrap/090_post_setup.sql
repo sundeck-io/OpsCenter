@@ -140,7 +140,8 @@ Query Text: {bt}{bt}{bt}{query_text}{bt}{bt}{bt}
 END;
 
 -- This clarifies that the post setup script has been executed to match the current installed version.
-call internal.set_config('post_setup', 'v1');
+let version string := (select internal.get_version());
+call internal.set_config('post_setup', :version);
 
 -- Reapply perms since the tasks were overwritten.
 grant MONITOR, OPERATE on all tasks in schema TASKS to APPLICATION ROLE ADMIN;
