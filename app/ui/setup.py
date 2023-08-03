@@ -134,7 +134,11 @@ def sundeck_signup_with_email(account, user, region, db):
 
         msg = st.empty()
         msg.warning("Connecting. Please do not navigate away from this page.")
-        token, url = decode_token(token_input)
+        try:
+            token, url = decode_token(token_input)
+        except Exception:
+            msg.error("Invalid token format")
+            return
         sndk_token = f"sndk_{token}"
         connection.Connection.get().call(
             "INTERNAL.SETUP_SUNDECK_TOKEN", url, sndk_token
