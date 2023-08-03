@@ -70,6 +70,26 @@ BEGIN
     end if;
 END;
 
+CREATE OR REPLACE FUNCTION INTERNAL.MERGE_CONCAT_OBJECTS(O1 VARIANT, O2 VARIANT)
+RETURNS VARIANT
+LANGUAGE JAVASCRIPT
+AS
+$$
+    let result = {};
+    for (let key in O1) {
+        result[key] = O1[key];
+    }
+    for (let key in O2) {
+        if (result[key]) {
+            result[key] += ',' + O2[key];
+        } else {
+            result[key] = O2[key];
+        }
+    }
+    return result;
+$$
+;
+
 CREATE OR REPLACE FUNCTION INTERNAL.MERGE_OBJECTS(O1 VARIANT, O2 VARIANT)
 RETURNS VARIANT
 LANGUAGE JAVASCRIPT
@@ -114,7 +134,7 @@ BEGIN
         probe_to_execute as probe_name, query_id,
         case when p.notify_writer and u.email is not null then OBJECT_CONSTRUCT(p.notify_writer_method, u.email) else OBJECT_CONSTRUCT() end as notify_writer_obj,
         case when p.notify_other is not null then OBJECT_CONSTRUCT(p.notify_other_method, p.notify_other) else OBJECT_CONSTRUCT() end as notify_other_obj,
-        OBJECT_INSERT(INTERNAL.MERGE_OBJECTS(notify_writer_obj, notify_other_obj), 'CANCEL', p.cancel) as action_taken,
+        OBJECT_INSERT(INTERNAL.MERGE_CONCAT_OBJECTS(notify_writer_obj, notify_other_obj), 'CANCEL', p.cancel) as action_taken,
         a.user_name,
         a.warehouse_name,
         a.start_time,
