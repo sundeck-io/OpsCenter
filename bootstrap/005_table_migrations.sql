@@ -25,33 +25,56 @@ BEGIN
       RAISE TABLE_NOT_EXISTS;
   END IF;
 
-  let missing_view_columns boolean := (
-      select count(*) > 0 FROM (
-      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
-      MINUS
-      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
-      )
-      );
-  IF (missing_view_columns) THEN
-      SYSTEM$ADD_EVENT('table out of sync - columns exist in table distinct from those in view', {'count_missing': (:missing_view_columns)});
-      RAISE OUT_OF_SYNC;
-  END IF;
+--  let missing_view_columns boolean := (
+--      select count(*) > 0 FROM (
+--      SELECT COLUMN_NAME, DATA_TYPE  FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
+--      MINUS
+--      SELECT COLUMN_NAME, DATA_TYPE  FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
+--      )
+--      );
+--  IF (missing_view_columns) THEN
+--      SYSTEM$ADD_EVENT('table out of sync - columns exist in table distinct from those in view', {'count_missing': (:missing_view_columns)});
+--      RAISE OUT_OF_SYNC;
+--  END IF;
 
-  let columns string := (
-      SELECT LISTAGG('"' || COLUMN_NAME || '" ' || DATA_TYPE, ', ') WITHIN GROUP (ORDER BY ORDINAL_POSITION)
+
+  let columns_to_add string := (
+      SELECT LISTAGG('"' || COLUMN_NAME || '" ' || DATA_TYPE, ', ')
       FROM (
-      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
+      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
       MINUS
-      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
+      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
       )
 
       );
-  let alter_statement string := 'ALTER TABLE "' || :table_schema || '"."' || :table_name || '" ADD ' || columns;
-  if (columns <> '') then
+
+  let columns_to_drop string := (
+      SELECT LISTAGG('"' || COLUMN_NAME || '" ' , ', ')
+      FROM (
+      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
+      MINUS
+      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
+      )
+
+      );
+
+  let alter_statement string := 'ALTER TABLE "' || :table_schema || '"."' || :table_name || '"';
+
+  let alter_statement_detail string := '';
+
+  if (columns_to_add <> '') then
+    alter_statement_detail := alter_statement_detail || ' ADD ' || columns_to_add;
+  end if;
+  if (columns_to_drop <> '') then
+    alter_statement_detail := alter_statement_detail || ' DROP ' || columns_to_drop;
+  end if;
+
+  if (columns_to_add <> '' OR columns_to_drop <> '') then
+      alter_statement := alter_statement || alter_statement_detail;
       execute immediate alter_statement;
       SYSTEM$LOG_INFO('Migration executed for ' || :view_schema || '.' || :view_name || ' and ' || :table_schema || '.' || :table_name);
       SYSTEM$ADD_EVENT('table altered', {'alter_statement': alter_statement });
-      RETURN columns;
+      RETURN alter_statement_detail;
   else
     SYSTEM$LOG_INFO('No migration need for ' || :view_schema || '.' || :view_name || ' and ' || :table_schema || '.' || :table_name);
     RETURN null;
