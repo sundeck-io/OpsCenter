@@ -25,19 +25,6 @@ BEGIN
       RAISE TABLE_NOT_EXISTS;
   END IF;
 
---  let missing_view_columns boolean := (
---      select count(*) > 0 FROM (
---      SELECT COLUMN_NAME, DATA_TYPE  FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
---      MINUS
---      SELECT COLUMN_NAME, DATA_TYPE  FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
---      )
---      );
---  IF (missing_view_columns) THEN
---      SYSTEM$ADD_EVENT('table out of sync - columns exist in table distinct from those in view', {'count_missing': (:missing_view_columns)});
---      RAISE OUT_OF_SYNC;
---  END IF;
-
-
   let columns_to_add string := (
       SELECT LISTAGG('"' || COLUMN_NAME || '" ' || DATA_TYPE, ', ')
       FROM (
