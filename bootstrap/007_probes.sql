@@ -33,6 +33,10 @@ BEGIN
         ALTER TABLE INTERNAL.PROBES ADD COLUMN PROBE_MODIFIED_AT TIMESTAMP;
         UPDATE INTERNAL.PROBES SET PROBE_MODIFIED_AT = CURRENT_TIMESTAMP() WHERE PROBE_MODIFIED_AT IS NULL;
     END IF;
+
+    -- Recreate the view to avoid number of column mis-match. Should be cheap and only run on install/upgrade, so it's OK
+    -- if we run this unnecessarily.
+    CREATE OR REPLACE VIEW CATALOG.PROBES AS SELECT * FROM INTERNAL.PROBES;
 EXCEPTION
     WHEN OTHER THEN
         SYSTEM$LOG('error', 'Failed to migrate probes table. ' || :SQLCODE || ': ' || :SQLERRM);
