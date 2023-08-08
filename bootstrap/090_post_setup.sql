@@ -117,6 +117,7 @@ BEGIN
             let slackResult string := '';
             let dict variant := OBJECT_CONSTRUCT('bt', CHAR(UNICODE('\u0060')), 'query_id', act.query_id, 'query_text', act.query_text, 'user_name', act.user_name, 'warehouse_name', act.warehouse_name, 'start_time', act.start_time, 'probe_name', act.probe_name);
             let message string := '
+Sundeck OpsCenter probe [{probe_name}] matched query.\n
 Query Id: {bt}{query_id}{bt}\n
 Query User: {user_name}\n
 Warehouse Name: {bt}{warehouse_name}{bt}\n
