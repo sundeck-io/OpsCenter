@@ -127,17 +127,4 @@ END;
 
 call INTERNAL.create_view_enriched_query_history_hourly();
 
--- sp to create view reporting.LABELED_QUERY_HISTORY
-CREATE OR REPLACE PROCEDURE INTERNAL.create_view_LABELED_QUERY_HISTORY()
-    RETURNS STRING
-    LANGUAGE SQL
-AS
-BEGIN
-    execute immediate
-    $$
-        CREATE OR REPLACE VIEW REPORTING.LABELED_QUERY_HISTORY AS SELECT * FROM REPORTING.enriched_query_history;
-    $$;
-    RETURN 'Success';
-END;
-
-call INTERNAL.create_view_LABELED_QUERY_HISTORY();
+CREATE OR REPLACE VIEW REPORTING.LABELED_QUERY_HISTORY AS SELECT * FROM REPORTING.enriched_query_history;

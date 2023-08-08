@@ -81,6 +81,6 @@ BEGIN
     call INTERNAL.create_view_enriched_query_history();
     call INTERNAL.create_view_enriched_query_history_daily();
     call INTERNAL.create_view_enriched_query_history_hourly();
-    call INTERNAL.create_view_LABELED_QUERY_HISTORY();
+    call INTERNAL.UPDATE_LABEL_VIEW();
     return 'Success';
 END;
