@@ -47,23 +47,40 @@ BEGIN
 
   let alter_statement string := 'ALTER TABLE "' || :table_schema || '"."' || :table_name || '"';
 
-  let alter_statement_detail string := '';
+  let alter_table_add_column string := '';
+  let alter_table_drop_column string := '';
 
   if (columns_to_add <> '') then
-    alter_statement_detail := alter_statement_detail || ' ADD ' || columns_to_add;
+    alter_table_add_column := ' ADD ' || columns_to_add;
+    execute immediate alter_statement || alter_table_add_column;
   end if;
+
   if (columns_to_drop <> '') then
-    alter_statement_detail := alter_statement_detail || ' DROP ' || columns_to_drop;
+    alter_table_drop_column := ' DROP ' || columns_to_drop;
+    execute immediate alter_statement || alter_table_drop_column;
   end if;
 
   if (columns_to_add <> '' OR columns_to_drop <> '') then
-      alter_statement := alter_statement || alter_statement_detail;
-      execute immediate alter_statement;
       SYSTEM$LOG_INFO('Migration executed for ' || :view_schema || '.' || :view_name || ' and ' || :table_schema || '.' || :table_name);
-      SYSTEM$ADD_EVENT('table altered', {'alter_statement': alter_statement });
-      RETURN alter_statement_detail;
+      SYSTEM$ADD_EVENT('table altered', {'alter_statement': alter_statement || alter_table_add_column || alter_table_drop_column });
+      RETURN alter_table_add_column || alter_table_drop_column;
   else
     SYSTEM$LOG_INFO('No migration need for ' || :view_schema || '.' || :view_name || ' and ' || :table_schema || '.' || :table_name);
     RETURN null;
   end if;
+END;
+
+
+CREATE OR REPLACE PROCEDURE internal.migrate_view()
+    RETURNS STRING
+    LANGUAGE SQL
+    COMMENT = 'Re-create view used in the App. This is required when Snowflake adds a new column to query_history, or removes an existing column from query_history'
+    AS
+BEGIN
+    call INTERNAL.create_view_QUERY_HISTORY_COMPLETE_AND_DAILY();
+    call INTERNAL.create_view_enriched_query_history();
+    call INTERNAL.create_view_enriched_query_history_daily();
+    call INTERNAL.create_view_enriched_query_history_hourly();
+    call INTERNAL.create_view_LABELED_QUERY_HISTORY();
+    return 'Success';
 END;

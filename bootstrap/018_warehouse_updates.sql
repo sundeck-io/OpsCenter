@@ -11,6 +11,7 @@ BEGIN
     let migrate2 string := null;
     if (migrate) then
         SYSTEM$LOG_TRACE('Migrating data.');
+        call internal.migrate_view();
         call internal.migrate_if_necessary('INTERNAL_REPORTING', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY');
         migrate1 := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
         call internal.migrate_if_necessary('INTERNAL_REPORTING', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE');
