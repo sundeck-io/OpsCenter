@@ -66,6 +66,8 @@ BEGIN
     RETURN 'Success';
 END;
 
+call INTERNAL.create_view_enriched_query_history();
+
 -- sp to create view reporting.enriched_query_history_daily
 CREATE OR REPLACE PROCEDURE INTERNAL.create_view_enriched_query_history_daily()
     RETURNS STRING
@@ -77,7 +79,7 @@ BEGIN
     create or replace view reporting.enriched_query_history_daily
     COPY GRANTS
     as
-        select 
+        select
                 tools.qtag_to_map(qtag) as qtag_filter,
         unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE = 'DAILY'
         union all
@@ -121,7 +123,6 @@ BEGIN
             -- peak load as opposed to average load. Ideally load percent would be area under the curve.
             DATEDIFF('milliseconds', ST, ET) * (0.01 * query_load_percent)* COALESCE(size.credits_per_milli, 0) AS unloaded_direct_compute_credits,
             DATEDIFF('milliseconds', ST, ET) AS DURATION,
-                tools.qtag_to_map(qtag) as qtag_filter,
             unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
             qh.*
         FROM QH
