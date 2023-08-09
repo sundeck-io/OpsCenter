@@ -254,7 +254,7 @@ def generate_code_to_create_sundeck_account(
 ) -> str:
     security_integration_name = '"Sundeck"'
     if sd_deployment != "prod":
-        security_integration_name = f"""SUNDECK_OAUTH_{db.upper()}"""
+        security_integration_name = f'"SUNDECK_OAUTH_{db.upper()}"'
 
     return f"""
 BEGIN  -- Create security integration and Sundeck account
