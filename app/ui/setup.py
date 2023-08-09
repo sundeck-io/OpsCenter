@@ -252,7 +252,7 @@ def sundeck_signup_with_snowflake_sso(
 def generate_code_to_create_sundeck_account(
     db: str, sf_region: str, sd_deployment: str
 ) -> str:
-    security_integration_name = "Sundeck"
+    security_integration_name = '"Sundeck"'
     if sd_deployment != "prod":
         security_integration_name = f"""SUNDECK_OAUTH_{db.upper()}"""
 
