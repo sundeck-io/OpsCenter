@@ -128,11 +128,21 @@ BEGIN
     execute immediate 'create or replace function internal.get_ef_token() returns string as \'\\\'' || token || '\\\'\';';
 END;
 
-create function if not exists internal.ef_register_tenant(request object)
-    returns object
-    language javascript
-    as
-    'throw "tenant register requires api gateway to be configured";';
+BEGIN
+    create function if not exists internal.ef_register_tenant(request object)
+        returns object
+        language javascript
+        as
+        'throw "tenant register requires api gateway to be configured";';
+EXCEPTION
+    WHEN statement_error THEN
+        let isalreadyef boolean := (select CONTAINS(:SQLERRM, 'API_INTEGRATION') AND CONTAINS(:SQLERRM, 'must be specified'));
+        if (not isalreadyef) then
+            RAISE;
+        end if;
+    WHEN OTHER THEN
+        RAISE;
+END;
 
 
 create or replace function internal.wrapper_register_tenant(request object)
