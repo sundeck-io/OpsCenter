@@ -1,6 +1,8 @@
 
 CREATE TABLE INTERNAL.LABELS if not exists (name string, group_name string null, group_rank number, label_created_at timestamp, condition string, enabled boolean, label_modified_at timestamp);
 
+CREATE TABLE INTERNAL.PREDEFINED_LABELS if not exists LIKE INTERNAL.LABELS;
+
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_LABELS_TABLE()
 RETURNS OBJECT
 AS

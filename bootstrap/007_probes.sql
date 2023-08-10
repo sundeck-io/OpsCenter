@@ -2,6 +2,8 @@
 CREATE TABLE INTERNAL.PROBES (name string, condition string, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean, enabled boolean, probe_modified_at timestamp) IF NOT EXISTS;
 CREATE OR REPLACE VIEW CATALOG.PROBES AS SELECT * FROM INTERNAL.PROBES;
 
+CREATE TABLE INTERNAL.PREDEFINED_PROBES if not exists LIKE INTERNAL.PROBES;
+
 CREATE TABLE INTERNAL.PROBE_ACTIONS (action_time timestamp, probe_name string, query_id string, actions_taken variant, outcome string) IF NOT EXISTS;
 CREATE OR REPLACE VIEW REPORTING.PROBE_ACTIONS AS SELECT * FROM INTERNAL.PROBE_ACTIONS;
 
