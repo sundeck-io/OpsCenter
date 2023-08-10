@@ -15,7 +15,7 @@ BEGIN
 
     -- Recreate the view to avoid number of column mis-match. Should be cheap and only run on install/upgrade, so it's OK
     -- if we run this unnecessarily.
-    CREATE OR REPLACE VIEW CATALOG.LABELS AS SELECT * FROM INTERNAL.LABELS;
+    CREATE OR REPLACE VIEW CATALOG.LABELS COPY GRANTS AS SELECT * FROM INTERNAL.LABELS;
 EXCEPTION
     WHEN OTHER THEN
         SYSTEM$LOG('error', 'Failed to migrate labels table. ' || :SQLCODE || ': ' || :SQLERRM);
