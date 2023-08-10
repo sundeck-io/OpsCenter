@@ -252,13 +252,19 @@ def sundeck_signup_with_snowflake_sso(
 def generate_code_to_create_sundeck_account(
     db: str, sf_region: str, sd_deployment: str
 ) -> str:
-    security_integration_name = '"Sundeck"'
+    # The case-sensitive security integration name
+    security_integration_name = "Sundeck"
     if sd_deployment != "prod":
-        security_integration_name = f'"SUNDECK_OAUTH_{db.upper()}"'
+        security_integration_name = f"SUNDECK_OAUTH_{db.upper()}"
+
+    # A quoted version of the name to ensure the security integration has verbatim casing
+    # We cannot pass the quoted name to `generate_register_tenant_code` because the
+    # SHOW_OAUTH_CLIENT_SECRETS function cannot handle the extra quotes.
+    quoted_name = f'"{security_integration_name}"'
 
     return f"""
 BEGIN  -- Create security integration and Sundeck account
-{generate_security_integration_code(sf_region, sd_deployment, security_integration_name)}
+{generate_security_integration_code(sf_region, sd_deployment, quoted_name)}
 {generate_register_tenant_code(db, security_integration_name)}
 END;
 """
