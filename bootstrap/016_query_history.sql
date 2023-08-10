@@ -48,7 +48,9 @@ AS
 BEGIN
     execute immediate
     $$
-        create or replace view reporting.enriched_query_history as
+        create or replace view reporting.enriched_query_history
+        COPY GRANTS
+        AS
             select
                 unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 * exclude (period_plus, record_type)
@@ -74,7 +76,9 @@ AS
 BEGIN
     execute immediate
     $$
-    create or replace view reporting.enriched_query_history_daily as
+    create or replace view reporting.enriched_query_history_daily
+    COPY GRANTS
+    as
         select unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE = 'DAILY'
         union all
         select unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE = 'DAILY';
@@ -98,7 +102,9 @@ BEGIN
         -- to do this thinking this would be more efficient given less data read off disk (and the expansion typically collapses
         -- immediately with an aggregate).
         -- This view is not intended to be serialized.
-        CREATE OR REPLACE VIEW reporting.enriched_query_history_hourly AS
+        CREATE OR REPLACE VIEW reporting.enriched_query_history_hourly
+        COPY GRANTS
+        AS
         WITH QH AS (
             SELECT * EXCLUDE (ST, ET, ST_PERIOD, unloaded_direct_compute_credits, cost, DURATION)
             FROM reporting.enriched_query_history
