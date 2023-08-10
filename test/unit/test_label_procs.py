@@ -172,3 +172,16 @@ def test_update_label_errors(conn, timestamp_string):
         run_proc(conn, sql)[0]
         == "Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name."
     ), "Stored procedure output does not match expected result!"
+
+
+# Test that validates that we can create/drop label with empty string for name
+# Legal in Snowflake
+def test_create_label_with_empty_string_name(conn, timestamp_string):
+
+    sql = "call ADMIN.CREATE_LABEL('', NULL, NULL, 'compilation_time > 5000');"
+    assert run_proc(conn, sql)[0] is None, "Stored procedure did not return NULL value!"
+
+    sql = "call ADMIN.DELETE_LABEL('');"
+    assert "done" in str(
+        run_proc(conn, sql)
+    ), "Stored procedure output does not match expected result!"
