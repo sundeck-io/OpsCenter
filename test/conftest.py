@@ -1,12 +1,11 @@
-import os
 import sys
 import datetime
 import pytest
-import snowflake.connector
-
 from contextlib import contextmanager
 from common_utils import delete_list_of_labels
-from configparser import RawConfigParser
+
+sys.path.append("../deploy")
+import helpers  # noqa E402
 
 # Adds --profile option to pytest
 def pytest_addoption(parser):
@@ -26,78 +25,13 @@ def snowsql_profile_name() -> str:
     return "opscenter"
 
 
-def get_db_parameters_from_snowsql_config(profile):
-    """
-    Sets the database connection parameters based on profile defined in ~/.snowsql/config
-    It can have multiple profiles that look like this:
-
-    [connections.local_dev]
-    accountname=xyz12345
-    username="vicky"
-    password="***"
-    warehousename ="COMPUTE_WH"
-    dbname = "testdb"
-    """
-
-    # Define a function to remove quotes from a string
-    def remove_quotes(string):
-        if string.startswith('"'):
-            string = string[1:]
-        if string.endswith('"'):
-            string = string[:-1]
-        return string
-
-    # Define the path to the SnowSQL config file
-    config_path = os.path.expanduser("~/.snowsql/config")
-
-    # Name in snowsql connection secion
-    profile = snowsql_profile_name()
-
-    # Create a ConfigParser object and read the config file
-    config = RawConfigParser()
-    config.read(config_path)
-
-    if not config.has_section(f"connections.{profile}"):
-        raise ValueError(
-            f"Profile {profile} not found in SnowSQL config file at {config_path}"
-        )
-
-    # Get the accountname, username, and password properties from the [connections] section
-    accountname = remove_quotes(config.get(f"connections.{profile}", "accountname"))
-    username = remove_quotes(config.get(f"connections.{profile}", "username"))
-    password = remove_quotes(config.get(f"connections.{profile}", "password"))
-    warehousename = remove_quotes(config.get(f"connections.{profile}", "warehousename"))
-    dbname = remove_quotes(config.get(f"connections.{profile}", "dbname"))
-    region = remove_quotes(config.get(f"connections.{profile}", "region", fallback=""))
-    schema = "public"
-
-    if len(dbname) == 0:
-        raise ValueError(f"Database must be specified in config connections.{profile}")
-
-    db_params = {
-        "user": username,
-        "password": password,
-        "account": accountname,
-        "warehousename": warehousename,
-        "database": dbname,
-        "schema": schema,
-        "region": region,
-    }
-
-    return db_params
-
-
-def create_connection(profile, **kwargs):
-    ret = get_db_parameters_from_snowsql_config(profile)
-    ret.update(kwargs)
-    connection = snowflake.connector.connect(**ret)
-    return connection
-
-
 @contextmanager
 def db(profile: str = "default", **kwargs):
 
-    cnx = create_connection(profile, **kwargs)
+    # Get profile from command line argument to pytest
+    profile = snowsql_profile_name()
+
+    cnx = helpers.connect_to_snowflake(profile=profile, schema="public")
     try:
         yield cnx
     finally:
