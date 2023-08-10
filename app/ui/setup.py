@@ -253,9 +253,9 @@ def generate_code_to_create_sundeck_account(
     db: str, sf_region: str, sd_deployment: str
 ) -> str:
     # The case-sensitive security integration name
-    security_integration_name = 'Sundeck'
+    security_integration_name = "Sundeck"
     if sd_deployment != "prod":
-        security_integration_name = f'SUNDECK_OAUTH_{db.upper()}'
+        security_integration_name = f"SUNDECK_OAUTH_{db.upper()}"
 
     # A quoted version of the name to ensure the security integration has verbatim casing
     # We cannot pass the quoted name to `generate_register_tenant_code` because the
