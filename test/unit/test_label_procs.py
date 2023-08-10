@@ -6,14 +6,12 @@ from common_utils import run_proc
 from common_utils import validate_row_count
 
 
-def test_smoke_create_drop_label(conn_cnx, timestamp_string):
+def test_smoke_create_drop_label(conn, timestamp_string):
     label = generate_unique_name("label", timestamp_string)
     sql = f"call ADMIN.CREATE_LABEL('{label}', NULL, NULL, 'rows_produced > 100');"
 
     # create_label returns NULL in case of successful label creation
-    assert (
-        run_proc(conn_cnx, sql)[0] is None
-    ), "Stored procedure did not return NULL value!"
+    assert run_proc(conn, sql)[0] is None, "Stored procedure did not return NULL value!"
 
     # make sure it was created with correct properties
     sql = f"""select count(*) from INTERNAL.labels where
@@ -24,23 +22,21 @@ def test_smoke_create_drop_label(conn_cnx, timestamp_string):
                  condition = 'rows_produced > 100' and
                  enabled is null
         """
-    assert validate_row_count(conn_cnx, sql)[0] == 1, "Label was not found!"
+    assert validate_row_count(conn, sql)[0] == 1, "Label was not found!"
 
     # drop label
     sql = f"call ADMIN.DELETE_LABEL('{label}');"
     assert (
-        run_proc(conn_cnx, sql)[0] == "done"
+        run_proc(conn, sql)[0] == "done"
     ), "Stored procedure did not return NULL value!"
 
 
-def test_smoke_update_label(conn_cnx, timestamp_string):
+def test_smoke_update_label(conn, timestamp_string):
     label = generate_unique_name("label", timestamp_string)
     sql = f"call ADMIN.CREATE_LABEL('{label}', NULL, NULL, 'rows_produced > 100');"
 
     # create_label returns NULL in case of successful label creation
-    assert (
-        run_proc(conn_cnx, sql)[0] is None
-    ), "Stored procedure did not return NULL value!"
+    assert run_proc(conn, sql)[0] is None, "Stored procedure did not return NULL value!"
 
     # make sure it was created with correct properties
     sql = f"""select count(*) from INTERNAL.labels where
@@ -51,13 +47,11 @@ def test_smoke_update_label(conn_cnx, timestamp_string):
                 condition = 'rows_produced > 100' and
                 enabled is null
         """
-    assert validate_row_count(conn_cnx, sql)[0] == 1, "Label was not found!"
+    assert validate_row_count(conn, sql)[0] == 1, "Label was not found!"
 
     # update label
     sql = f"call ADMIN.UPDATE_LABEL('{label}', '{label}', NULL, NULL, 'compilation_time > 3000');"
-    assert (
-        run_proc(conn_cnx, sql)[0] is None
-    ), "Stored procedure did not return NULL value!"
+    assert run_proc(conn, sql)[0] is None, "Stored procedure did not return NULL value!"
 
     # make sure it was created with correct properties
     sql = f"""select count(*) from INTERNAL.labels where
@@ -68,7 +62,7 @@ def test_smoke_update_label(conn_cnx, timestamp_string):
                 condition = 'compilation_time > 3000' and
                 enabled is null
         """
-    assert validate_row_count(conn_cnx, sql)[0] == 1, "Label was not found!"
+    assert validate_row_count(conn, sql)[0] == 1, "Label was not found!"
 
 
 # List of test cases with statements and expected error messages
@@ -121,53 +115,47 @@ test_cases = [
 
 # Test that validates that correct error message was returned
 @pytest.mark.parametrize("statement, expected_error", test_cases)
-def test_error_message(conn_cnx, timestamp_string, statement, expected_error):
+def test_error_message(conn, timestamp_string, statement, expected_error):
 
     label = generate_unique_name("label", timestamp_string)
     sql = statement.format(label=label)
     assert expected_error in str(
-        run_proc(conn_cnx, sql)
+        run_proc(conn, sql)
     ), "Stored procedure output does not match expected result!"
 
 
 # Test that validates that we get correct error on attempt to create label with existing name
-def test_create_label_with_existing_name(conn_cnx, timestamp_string):
+def test_create_label_with_existing_name(conn, timestamp_string):
 
     label = generate_unique_name("label", timestamp_string)
     sql = f"call ADMIN.CREATE_LABEL('{label}', NULL, NULL, 'compilation_time > 5000');"
-    assert (
-        run_proc(conn_cnx, sql)[0] is None
-    ), "Stored procedure did not return NULL value!"
+    assert run_proc(conn, sql)[0] is None, "Stored procedure did not return NULL value!"
 
     sql = f"call ADMIN.CREATE_LABEL('{label}', NULL, NULL, 'compilation_time > 5000');"
     assert (
-        run_proc(conn_cnx, sql)[0]
+        run_proc(conn, sql)[0]
         == "Duplicate label name found. Please use a distinct name."
     ), "Stored procedure output does not match expected result!"
 
 
 # Test that validates that we get correct errors on attempt to update existing label
-def test_update_label_errors(conn_cnx, timestamp_string):
+def test_update_label_errors(conn, timestamp_string):
 
     # First label
     label = generate_unique_name("label", timestamp_string)
     sql = f"call ADMIN.CREATE_LABEL('{label}', NULL, NULL, 'compilation_time > 5000');"
-    assert (
-        run_proc(conn_cnx, sql)[0] is None
-    ), "Stored procedure did not return NULL value!"
+    assert run_proc(conn, sql)[0] is None, "Stored procedure did not return NULL value!"
 
     # Second label
     sql = (
         f"call ADMIN.CREATE_LABEL('{label}_2', NULL, NULL, 'compilation_time > 5000');"
     )
-    assert (
-        run_proc(conn_cnx, sql)[0] is None
-    ), "Stored procedure did not return NULL value!"
+    assert run_proc(conn, sql)[0] is None, "Stored procedure did not return NULL value!"
 
     # Update second label with the name of the first label
     sql = f"call ADMIN.UPDATE_LABEL('{label}_2', '{label}', NULL, NULL, 'rows_produced > 100');"
     assert (
-        run_proc(conn_cnx, sql)[0]
+        run_proc(conn, sql)[0]
         == "A label with this name already exists. Please choose a distinct name."
     ), "Stored procedure output does not match expected result!"
 
@@ -175,12 +163,12 @@ def test_update_label_errors(conn_cnx, timestamp_string):
 
     sql = f"call ADMIN.UPDATE_LABEL('{label}_2', 'QUERY_TEXT', NULL, NULL, 'rows_produced > 100');"
     assert (
-        run_proc(conn_cnx, sql)[0]
+        run_proc(conn, sql)[0]
         == "Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name."
     ), "Stored procedure output does not match expected result!"
 
     sql = f"call ADMIN.UPDATE_LABEL('{label}_2', 'QUERY_TEXT', 'group_1', 100, 'rows_produced > 100');"
     assert (
-        run_proc(conn_cnx, sql)[0]
+        run_proc(conn, sql)[0]
         == "Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name."
     ), "Stored procedure output does not match expected result!"

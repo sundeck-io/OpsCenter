@@ -105,12 +105,12 @@ def db(profile: str = "default", **kwargs):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def conn_cnx():
+def conn():
     return db
 
 
 @pytest.fixture(scope="session", autouse=True)
-def timestamp_string(conn_cnx):
+def timestamp_string(conn):
 
     # Format the date and time as a timestamp string
     # This is a shared variable that will be used in object names created during test session
@@ -127,4 +127,4 @@ def timestamp_string(conn_cnx):
     print(f"[INFO] SQL stmt to find all the labels: {sql}")
 
     # call a function that deletes all the labels that were created in the session
-    delete_list_of_labels(conn_cnx, sql)
+    delete_list_of_labels(conn, sql)
