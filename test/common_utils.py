@@ -6,11 +6,21 @@ def generate_unique_name(prefix, timestamp_string) -> str:
     return name
 
 
-def run_proc(conn, sql) -> str:
+def _get_single_value(conn, sql):
     with conn() as cnx:
         cur = cnx.cursor()
         result = cur.execute(sql).fetchone()
-        return result
+        return result[0]
+
+
+def run_proc(conn, sql) -> str:
+    assert isinstance(result := _get_single_value(conn, sql), (str, type(None)))
+    return result
+
+
+def row_count(conn, sql) -> int:
+    assert isinstance(result := _get_single_value(conn, sql), int)
+    return result
 
 
 def delete_list_of_labels(conn, sql):
@@ -23,11 +33,3 @@ def delete_list_of_labels(conn, sql):
             assert "done" in str(
                 run_proc(conn, delete_label_statement)
             ), "Stored procedure output does not match expected result!"
-
-
-# Used for validating result correctness
-def validate_row_count(conn, sql) -> int:
-    with conn() as cnx:
-        cur = cnx.cursor()
-        result = cur.execute(sql).fetchone()
-        return result
