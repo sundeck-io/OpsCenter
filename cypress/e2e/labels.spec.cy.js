@@ -115,7 +115,7 @@ describe("Labels section", () => {
 
   }); // end group labels test
 
-  it.skip("Menu: Labels. Create/Delete ungrouped labels", () => {
+  it("Menu: Labels. Create/Delete ungrouped labels", () => {
 
     const label_1 = generateUniqueName("label");
     const label_2 = generateUniqueName("label");
@@ -166,7 +166,7 @@ describe("Labels section", () => {
   }); // end ungrouped labels test
 
 
-  it.skip("Menu: Labels. Update ungrouped label: positive test cases", () => {
+  it("Menu: Labels. Update ungrouped label: positive test cases", () => {
 
     const label_1 = generateUniqueName("label");
     const label_2 = generateUniqueName("label");
@@ -242,7 +242,7 @@ describe("Labels section", () => {
 
   });
 
-  it.skip("Menu: Labels. Update ungrouped label: negative cases (error conditions)", () => {
+  it("Menu: Labels. Update ungrouped label: negative cases (error conditions)", () => {
 
     const label_1 = generateUniqueName("label");
     const label_2 = generateUniqueName("label");
@@ -353,7 +353,7 @@ describe("Labels section", () => {
 
   });
 
-  it.skip("Menu: Labels. Create label with already existing label name: negative cases (error conditions)", () => {
+  it("Menu: Labels. Create label with already existing label name: negative cases (error conditions)", () => {
 
     const label_1 = generateUniqueName("label");
     const group_1 = generateUniqueName("group");
