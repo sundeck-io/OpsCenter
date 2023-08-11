@@ -204,7 +204,7 @@ export const labelDelete = (
   labelName
 ) => {
 
-  cy.get('div[data-testid="stHorizontalBlock"]')
+  cy.get('div[data-testid="stMarkdownContainer"]')
     .should("exist")
     .contains(labelName)
     .should("exist")
@@ -282,7 +282,7 @@ export const labelUpdateClick = (
   labelName
 ) => {
 
-  cy.get('div[data-testid="stHorizontalBlock"]')
+  cy.get('div[data-testid="stMarkdownContainer"]')
     .should("exist")
     .contains(labelName)
     .should("exist")
