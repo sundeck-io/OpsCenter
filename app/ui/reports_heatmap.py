@@ -11,6 +11,7 @@ def heatmap(
     bf: filters.BaseFilter,
     cost_per_credit,
 ):
+    _ = connection.execute("CALL INTERNAL.REPORT_PAGE_VIEW('Warehouse Heatmap')")
 
     sql = f"""
     with util as (

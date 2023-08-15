@@ -13,6 +13,11 @@ class Label:
         self.snowflake = Connection.get()
 
     def list_labels(self):
+        _ = self.snowflake.call(
+            "INTERNAL.REPORT_ACTION",
+            "labels",
+            "list",
+        )
         st.title("Query Labels")
         st.write(
             """
@@ -136,6 +141,11 @@ class Label:
 
     def on_create_click(self, name, group, rank, condition):
         with st.spinner("Creating new label..."):
+            _ = self.snowflake.call(
+                "INTERNAL.REPORT_ACTION",
+                "labels",
+                "create",
+            )
             outcome = self.snowflake.call(
                 "ADMIN.CREATE_LABEL", name, group, rank, condition
             )
@@ -150,6 +160,12 @@ class Label:
     def on_update_click(self, oldname, name, group, rank, condition):
         outcome = None
         with st.spinner("Updating label..."):
+            _ = self.snowflake.call(
+                "INTERNAL.REPORT_ACTION",
+                "labels",
+                "update",
+            )
+
             outcome = self.snowflake.call(
                 "ADMIN.UPDATE_LABEL", oldname, name, group, rank, condition
             )
@@ -162,6 +178,11 @@ class Label:
 
     def on_delete_click(self, name):
         with st.spinner("Deleting label..."):
+            _ = self.snowflake.call(
+                "INTERNAL.REPORT_ACTION",
+                "labels",
+                "delete",
+            )
             self.snowflake.call("ADMIN.DELETE_LABEL", name)
             self.session.set_toast("Label deleted.")
             self.session.do_list()

@@ -29,6 +29,11 @@ class Probe:
         self.snowflake = Connection.get()
 
     def list_probes(self):
+        _ = self.snowflake.call(
+            "INTERNAL.REPORT_ACTION",
+            "probes",
+            "list",
+        )
         st.title("Query Probes")
         st.markdown(
             """
@@ -132,6 +137,11 @@ class Probe:
         cancel,
     ):
         with st.spinner("Creating new probe..."):
+            _ = self.snowflake.call(
+                "INTERNAL.REPORT_ACTION",
+                "probes",
+                "create",
+            )
             outcome = self.snowflake.call(
                 "ADMIN.CREATE_PROBE",
                 name,
@@ -163,6 +173,11 @@ class Probe:
     ):
         outcome = None
         with st.spinner("Updating probe..."):
+            _ = self.snowflake.call(
+                "INTERNAL.REPORT_ACTION",
+                "probes",
+                "update",
+            )
             outcome = self.snowflake.call(
                 "ADMIN.UPDATE_PROBE",
                 oldname,
@@ -184,6 +199,11 @@ class Probe:
 
     def on_delete_click(self, name):
         with st.spinner("Deleting probe..."):
+            _ = self.snowflake.call(
+                "INTERNAL.REPORT_ACTION",
+                "probes",
+                "delete",
+            )
             self.snowflake.call("ADMIN.DELETE_PROBE", name)
             self.session.set_toast("Probe deleted.")
             self.session.do_list()

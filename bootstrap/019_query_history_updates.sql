@@ -8,7 +8,7 @@ BEGIN
     let migrate1 string := null;
     let migrate2 string := null;
     if (migrate) then
-        SYSTEM$LOG_TRACE('Migrating data.');
+        SYSTEM$LOG_TRACE('Migrating query history data.');
         call internal.migrate_view();
         call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY');
         migrate1 := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
@@ -56,7 +56,7 @@ BEGIN
 
     EXCEPTION
       WHEN OTHER THEN
-        SYSTEM$LOG_ERROR('Exception occurred.', OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing query history.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         ROLLBACK;
         insert into INTERNAL.TASK_QUERY_HISTORY SELECT :dt, false, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
         RAISE;

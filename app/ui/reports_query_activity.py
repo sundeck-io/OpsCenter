@@ -75,6 +75,10 @@ def report(
     else:
         grp = f""" "{grouping}" """
 
+    _ = connection.execute(
+        f"CALL INTERNAL.REPORT_PAGE_VIEW('Query Activity by {grouping}')"
+    )
+
     def overview():
         sql = f"""
         select
