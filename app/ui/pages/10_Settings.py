@@ -162,7 +162,7 @@ with tasks:
 with diagnostics_tab:
     st.title("Diagnostics")
 
-    provider_diag_regions = ('AWS_US_WEST_2', 'AWS_US_EAST_2')
+    provider_diag_regions = ("AWS_US_WEST_2", "AWS_US_EAST_2")
 
     st.markdown(
         """
@@ -173,7 +173,9 @@ with diagnostics_tab:
         """
     )
 
-    db, region = connection.execute("select current_database() as db, current_region()").values[0]
+    db, region = connection.execute(
+        "select current_database() as db, current_region()"
+    ).values[0]
 
     def expander(num: int, title: str) -> st.expander:
         return st.expander(f"Step {num}: {title}", expanded=True)
