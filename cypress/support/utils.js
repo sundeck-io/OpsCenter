@@ -91,7 +91,7 @@ export function generateUniqueName(prefix){
 export const probeDelete = (probeName) => {
   cy.log("Deleting probe: ",  probeName);
 
-  cy.get('div[data-testid="stHorizontalBlock"]')
+  cy.get('div[data-testid="stMarkdownContainer"]')
     .should("exist")
     .contains(probeName)
     .should("exist")
