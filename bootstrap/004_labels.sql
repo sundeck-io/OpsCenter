@@ -134,6 +134,59 @@ BEGIN
 
 END;
 
+CREATE OR REPLACE PROCEDURE INTERNAL.CREATE_PREDEFINED_LABEL(name text, grp text, rank number, condition text)
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+BEGIN
+    if (:name is null) then
+      return 'Name must not be null.';
+    elseif (grp is null and rank is not null) then
+      return 'Rank must only be set if Group name is also provided.';
+    elseif (grp is not null and rank is null) then
+      return 'Rank must provided if you are creating a grouped label.';
+    end if;
+    let outcome text := 'Failure validating name & condition. Please check your syntax.';
+
+    outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:name, :condition));
+
+    if (outcome is not null) then
+      return outcome;
+    end if;
+
+    outcome := (CALL INTERNAL.VALIDATE_LABEL_Name(:name));
+
+    if (outcome is not null) then
+      return outcome;
+    end if;
+
+    outcome := 'Duplicate label name found. Please use a distinct name.';
+    BEGIN TRANSACTION;
+        let cnt number := (SELECT COUNT(*) AS cnt FROM internal.predefined_labels WHERE name = :name);
+
+        IF (cnt = 0) THEN
+          INSERT INTO internal.predefined_labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT") VALUES (:name, :grp, :rank, current_timestamp(), :condition, current_timestamp());
+          outcome := null;
+        END IF;
+
+    COMMIT;
+    return outcome;
+END;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.DELETE_PREDEFINED_LABEL(name text)
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+BEGIN
+    if (:name is null) then
+      return 'Name must not be null.';
+    end if;
+
+    DELETE FROM internal.predefined_labels where name = :name;
+    return 'done';
+END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_LABEL(name text)
     RETURNS text
@@ -203,3 +256,36 @@ EXCEPTION
 END;
 
 CREATE VIEW CATALOG.LABELS IF NOT EXISTS AS SELECT * FROM INTERNAL.LABELS;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.POPULATE_PREDEFINED_LABELS()
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+BEGIN
+    let outcome string := '';
+
+    BEGIN TRANSACTION;
+    truncate table internal.predefined_labels;
+
+    outcome := (CALL INTERNAL.CREATE_PREDEFINED_LABEL('Large Results', null, null, 'rows_produced > 50000000'));
+    if (outcome is not null) then
+      ROLLBACK;
+      return outcome;
+    end if;
+
+    outcome := (CALL INTERNAL.CREATE_PREDEFINED_LABEL('Writes', null, null, 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\')'));
+    if (outcome is not null) then
+      ROLLBACK;
+      return outcome;
+    end if;
+
+    COMMIT;
+
+    return outcome;
+
+EXCEPTION
+  WHEN OTHER THEN
+      ROLLBACK;
+      RAISE;
+END;

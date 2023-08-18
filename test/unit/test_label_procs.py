@@ -182,3 +182,18 @@ def test_create_label_with_empty_string_name(conn, timestamp_string):
     assert "done" in str(
         run_proc(conn, sql)
     ), "Stored procedure output does not match expected result!"
+
+
+def test_create_predefined_label(conn, timestamp_string):
+    sql = "call INTERNAL.DELETE_PREDEFINED_LABEL('Large Results FOR TEST');"
+    assert "done" in str(
+        run_proc(conn, sql)
+    ), "Stored procedure output does not match expected result!"
+
+    sql = "CALL INTERNAL.CREATE_PREDEFINED_LABEL('Large Results FOR TEST', null, null, 'rows_produced > 50000000');"
+    assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
+
+    sql = "call INTERNAL.DELETE_PREDEFINED_LABEL('Large Results FOR TEST');"
+    assert "done" in str(
+        run_proc(conn, sql)
+    ), "Stored procedure output does not match expected result!"
