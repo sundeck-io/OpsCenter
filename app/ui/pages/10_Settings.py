@@ -162,6 +162,8 @@ with tasks:
 with diagnostics_tab:
     st.title("Diagnostics")
 
+    provider_diag_regions = ("AWS_US_WEST_2", "AWS_US_EAST_2")
+
     st.markdown(
         """
         Diagnostics for OpsCenter relies on an [Snowflake Event Table](https://docs.snowflake.com/en/developer-guide/logging-tracing/event-table-setting-up)
@@ -171,7 +173,9 @@ with diagnostics_tab:
         """
     )
 
-    db = connection.execute("select current_database() as db").values[0][0]
+    db, region = connection.execute(
+        "select current_database() as db, current_region()"
+    ).values[0]
 
     def expander(num: int, title: str) -> st.expander:
         return st.expander(f"Step {num}: {title}", expanded=True)
@@ -212,17 +216,25 @@ with diagnostics_tab:
         )
 
     with expander(2, "Enable Diagnostic Sharing with Sundeck for OpsCenter"):
-        st.markdown(
-            """
-            Sharing diagnostics with Sundeck helps us know when users are experiencing any errors in OpsCenter
-            so we can fix them as soon as possible. To enable this, please run the following:
-            """
-        )
-        st.code(
-            f"""
-            ALTER APPLICATION {db} SET SHARE_EVENTS_WITH_PROVIDER = true;
-            """
-        )
+        if region in provider_diag_regions:
+            st.markdown(
+                """
+                Sharing diagnostics with Sundeck helps us know when users are experiencing any errors in OpsCenter
+                so we can fix them as soon as possible. To enable this, please run the following:
+                """
+            )
+            st.code(
+                f"""
+                ALTER APPLICATION {db} SET SHARE_EVENTS_WITH_PROVIDER = true;
+                """
+            )
+        else:
+            st.markdown(
+                f"""
+                We're sorry, we don't yet have a Sundeck diagnostic sharing account set up for {region}. Please email us
+                at support@sundeck.io or send us a message on [Slack](https://join.slack.com/t/sundeck-community/shared_invite/zt-21ejxckg6-1C6uENxjR7oTna0wTgGJMw).
+                """
+            )
 
 
 with reset:
