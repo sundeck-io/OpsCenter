@@ -162,7 +162,7 @@ with tasks:
 with diagnostics_tab:
     st.title("Diagnostics")
 
-    provider_diag_regions = ("AWS_US_WEST_2", "AWS_US_EAST_2")
+    provider_diag_regions = ("AWS_US_WEST_2", "AWS_US_EAST_1", "AWS_US_EAST_2")
 
     st.markdown(
         """
