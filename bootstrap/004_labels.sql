@@ -201,11 +201,16 @@ BEGIN
     ON t.name = s.name and t.condition = s.condition and t.LABEL_MODIFIED_AT < s.LABEL_MODIFIED_AT
     WHEN MATCHED THEN
     UPDATE
-        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp()
+        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp();
+
+    MERGE INTO internal.labels t
+    USING internal.predefined_labels s
+    ON t.name = s.name
     WHEN NOT MATCHED THEN
     INSERT
         ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
         VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  current_timestamp(), s.condition, current_timestamp());
+
     let outcome text := null;
     return outcome;
 END;
