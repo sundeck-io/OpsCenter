@@ -64,6 +64,9 @@ call INTERNAL.MIGRATE_LABELS_TABLE();
 -- Populate the list of predefined labels
 call INTERNAL.POPULATE_PREDEFINED_LABELS();
 
+-- Migrate predefined labels into labels table
+call INTERNAL.MIGRATE_PREDEFINED_LABELS();
+
 CREATE OR REPLACE TASK TASKS.PROBE_MONITORING
     SCHEDULE = '1 minute'
     ALLOW_OVERLAPPING_EXECUTION = FALSE

@@ -134,7 +134,7 @@ BEGIN
 
 END;
 
-CREATE OR REPLACE PROCEDURE INTERNAL.CREATE_PREDEFINED_LABEL(name text, grp text, rank number, condition text)
+CREATE OR REPLACE PROCEDURE INTERNAL.UPSERT_PREDEFINED_LABEL(name text, grp text, rank number, condition text)
     RETURNS text
     LANGUAGE SQL
     EXECUTE AS OWNER
@@ -161,16 +161,18 @@ BEGIN
       return outcome;
     end if;
 
-    outcome := 'Duplicate label name found. Please use a distinct name.';
-    BEGIN TRANSACTION;
-        let cnt number := (SELECT COUNT(*) AS cnt FROM internal.predefined_labels WHERE name = :name);
+    MERGE INTO internal.predefined_labels t
+    USING (SELECT :name as name, :grp as grp, :rank as rank, :condition as condition) s
+    ON t.name = s.name
+    WHEN MATCHED THEN
+    UPDATE
+        SET t.GROUP_NAME = s.grp, t.GROUP_RANK = s.rank, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp()
+    WHEN NOT MATCHED THEN
+    INSERT
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
+        VALUES (s.name, s.grp, s.rank,  current_timestamp(), :condition, current_timestamp());
+    outcome := null;
 
-        IF (cnt = 0) THEN
-          INSERT INTO internal.predefined_labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT") VALUES (:name, :grp, :rank, current_timestamp(), :condition, current_timestamp());
-          outcome := null;
-        END IF;
-
-    COMMIT;
     return outcome;
 END;
 
@@ -186,6 +188,26 @@ BEGIN
 
     DELETE FROM internal.predefined_labels where name = :name;
     return 'done';
+END;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_LABELS()
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+BEGIN
+    MERGE INTO internal.labels t
+    USING internal.predefined_labels s
+    ON t.name = s.name and t.condition = s.condition and t.LABEL_MODIFIED_AT < s.LABEL_MODIFIED_AT
+    WHEN MATCHED THEN
+    UPDATE
+        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp()
+    WHEN NOT MATCHED THEN
+    INSERT
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
+        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  current_timestamp(), s.condition, current_timestamp());
+    let outcome text := null;
+    return outcome;
 END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_LABEL(name text)
@@ -268,13 +290,13 @@ BEGIN
     BEGIN TRANSACTION;
     truncate table internal.predefined_labels;
 
-    outcome := (CALL INTERNAL.CREATE_PREDEFINED_LABEL('Large Results', null, null, 'rows_produced > 50000000'));
+    outcome := (CALL INTERNAL.UPSERT_PREDEFINED_LABEL('Large Results', null, null, 'rows_produced > 50000000'));
     if (outcome is not null) then
       ROLLBACK;
       return outcome;
     end if;
 
-    outcome := (CALL INTERNAL.CREATE_PREDEFINED_LABEL('Writes', null, null, 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\')'));
+    outcome := (CALL INTERNAL.UPSERT_PREDEFINED_LABEL('Writes', null, null, 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\')'));
     if (outcome is not null) then
       ROLLBACK;
       return outcome;
