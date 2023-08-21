@@ -97,6 +97,39 @@ EXCEPTION
         RAISE;
 END;
 
+-- Quota reporting to Sundeck EF
+BEGIN
+    CREATE FUNCTION IF NOT EXISTS internal.ef_report_quota_used(request object)
+        RETURNS VARIANT
+        LANGUAGE JAVASCRIPT
+    AS 'throw "You must configure a Sundeck token before reporting quota consumption.";';
+EXCEPTION
+    WHEN statement_error THEN
+        let isalreadyef boolean := (select CONTAINS(:SQLERRM, 'API_INTEGRATION') AND CONTAINS(:SQLERRM, 'must be specified'));
+        if (not isalreadyef) then
+            RAISE;
+        end if;
+    WHEN OTHER THEN
+        RAISE;
+END;
+
+
+create or replace function internal.wrapper_report_quota_used(request object)
+    returns variant
+    immutable
+as
+$$
+    iff(length(internal.ef_report_quota_used(request):error) != 0,
+        internal.throw_exception(internal.ef_report_quota_used(request):error),
+        internal.ef_report_quota_used(request):failures)
+$$;
+
+create or replace function internal.report_quota_used(quota_used object)
+    returns variant
+as
+$$
+    internal.wrapper_report_quota_used(quota_used)
+$$;
 
 create function if not exists internal.get_ef_url()
     returns string
@@ -205,6 +238,13 @@ BEGIN
             api_integration = reference(\'' || api_integration_name || '\')
             headers = (\'sndk-token\' = \'' || token || '\')
             as \'' || url || '/extfunc/run\';
+
+            create or replace external function internal.ef_report_quota_used(quota_used object)
+            returns object
+            context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
+            api_integration = reference(\'' || api_integration_name || '\')
+            headers = (\'sndk-token\' = \'' || token || '\')
+            as \'' || url || '/extfunc/update_usage_stats\';
         END;
     ';
 

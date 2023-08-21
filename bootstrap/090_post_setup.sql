@@ -153,12 +153,25 @@ BEGIN
         SYSTEM$LOG_INFO('starting usage consumption');
         let start_time timestamp_ltz := (select current_timestamp());
         BEGIN
+            -- Get and run the query to compute the daily quota usage by user and role.
             call internal.get_daily_quota_select() into :sql;
             execute immediate sql;
             let quota_usage object := (select daily_quota from table(result_scan(last_query_id())));
-            -- TODO call external function with quota_usage
-            insert into internal.quota_task_history select :start_time, current_timestamp(), :quota_usage, 'success';
-            SYSTEM$LOG_DEBUG('successfully computed usage consumption');
+
+            -- Send the result to Sundeck
+            let quota_outcome string := '';
+            BEGIN
+                quota_outcome := (select to_json(INTERNAL.REPORT_QUOTA_USED(:quota_usage)));
+            EXCEPTION
+                WHEN other THEN
+                    SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'External function to report quota usage failed.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+                    quota_outcome := :sqlerrm;
+            END;
+
+            -- Log the results locally
+            insert into internal.quota_task_history select :start_time, current_timestamp(), :quota_usage, :quota_outcome;
+
+            SYSTEM$LOG_DEBUG('finished reporting usage consumption');
         exception
             when other then
                 SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred during quota computation.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));

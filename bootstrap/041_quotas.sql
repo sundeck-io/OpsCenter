@@ -32,7 +32,7 @@ role_usage as (
     group by role_name
 ),
 usage_aggr as (
-    select 'user' as kind, object_agg(name, usage_map) as credits_used from user_usage union all select 'role', object_agg(name, usage_map) from role_usage
+    select 'users' as kind, object_agg(name, usage_map) as credits_used from user_usage union all select 'roles', object_agg(name, usage_map) from role_usage
 )
 -- Aggregate into a final map {'user': {..}, 'role': {..}}
 select object_agg(kind, credits_used) as daily_quota from usage_aggr;
