@@ -13,7 +13,13 @@ BEGIN
 -- TODO this recomputes the usage since midnight every time it runs. We should cache this for the day and update quotas based on deltas.
 -- TODO the table func caps out at 10k rows which could miss queries for busy accounts.
 with todays_queries as(
-    select * from table(information_schema.query_history(RESULT_LIMIT => 10000, END_TIME_RANGE_START => date_trunc('day', current_timestamp()), END_TIME_RANGE_END => current_timestamp()))
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(RESULT_LIMIT => 10000, END_TIME_RANGE_START => date_trunc('day', current_timestamp()), END_TIME_RANGE_END => current_timestamp()))
     where end_time > date_trunc('day', current_timestamp())
 ),
 costed_queries as (
@@ -34,7 +40,7 @@ role_usage as (
 usage_aggr as (
     select 'users' as kind, object_agg(name, usage_map) as credits_used from user_usage union all select 'roles', object_agg(name, usage_map) from role_usage
 )
--- Aggregate into a final map {'user': {..}, 'role': {..}}
+-- Aggregate into a final map {'users': {..}, 'roles': {..}}
 select object_agg(kind, credits_used) as daily_quota from usage_aggr;
 $$;
     return s;
