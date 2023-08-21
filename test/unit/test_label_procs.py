@@ -198,6 +198,7 @@ def test_create_predefined_label(conn, timestamp_string):
         run_proc(conn, sql)
     ), "Stored procedure output does not match expected result!"
 
+
 def test_migrate_or_insert_predefined_label(conn, timestamp_string):
     # step 1: clean up the label
     sql = "call INTERNAL.DELETE_PREDEFINED_LABEL('Large Results FOR TEST');"
