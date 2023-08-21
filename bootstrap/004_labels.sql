@@ -198,18 +198,14 @@ AS
 BEGIN
     MERGE INTO internal.labels t
     USING internal.predefined_labels s
-    ON t.name = s.name and t.condition = s.condition and t.LABEL_MODIFIED_AT < s.LABEL_MODIFIED_AT
-    WHEN MATCHED THEN
+    ON t.name = s.name and t.condition = s.condition
+    WHEN MATCHED and t.LABEL_MODIFIED_AT <= s.LABEL_CREATED_AT THEN
     UPDATE
-        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp();
-
-    MERGE INTO internal.labels t
-    USING internal.predefined_labels s
-    ON t.name = s.name
+        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT
     WHEN NOT MATCHED THEN
     INSERT
         ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
-        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  current_timestamp(), s.condition, current_timestamp());
+        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  s.LABEL_CREATED_AT, s.condition, s.LABEL_CREATED_AT);
 
     let outcome text := null;
     return outcome;
@@ -293,7 +289,6 @@ BEGIN
     let outcome string := '';
 
     BEGIN TRANSACTION;
-    truncate table internal.predefined_labels;
 
     outcome := (CALL INTERNAL.UPSERT_PREDEFINED_LABEL('Large Results', null, null, 'rows_produced > 50000000'));
     if (outcome is not null) then
