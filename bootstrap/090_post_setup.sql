@@ -141,8 +141,8 @@ Query Text: {bt}{bt}{bt}{query_text}{bt}{bt}{bt}
     END FOR;
 EXCEPTION
     WHEN OTHER THEN
-        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred during probe monitoring.', 'outcome', :outcome, 'probe_action' :action, 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-        insert into internal.probe_actions select CURRENT_TIMESTAMP(), :name, :query_id, parse_json(:action), :outcome;
+        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during probe monitoring.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+        insert into internal.probe_actions select CURRENT_TIMESTAMP(), '', '', null::VARIANT, 'Caught unhandled exception';
         RAISE;
 END;
 
