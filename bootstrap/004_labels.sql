@@ -134,79 +134,6 @@ BEGIN
 
 END;
 
-CREATE OR REPLACE PROCEDURE INTERNAL.UPSERT_PREDEFINED_LABEL(name text, grp text, rank number, condition text)
-    RETURNS text
-    LANGUAGE SQL
-    EXECUTE AS OWNER
-AS
-BEGIN
-    if (:name is null) then
-      return 'Name must not be null.';
-    elseif (grp is null and rank is not null) then
-      return 'Rank must only be set if Group name is also provided.';
-    elseif (grp is not null and rank is null) then
-      return 'Rank must provided if you are creating a grouped label.';
-    end if;
-    let outcome text := 'Failure validating name & condition. Please check your syntax.';
-
-    outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:name, :condition));
-
-    if (outcome is not null) then
-      return outcome;
-    end if;
-
-    outcome := (CALL INTERNAL.VALIDATE_LABEL_Name(:name));
-
-    if (outcome is not null) then
-      return outcome;
-    end if;
-
-    MERGE INTO internal.predefined_labels t
-    USING (SELECT :name as name, :grp as grp, :rank as rank, :condition as condition) s
-    ON t.name = s.name
-    WHEN MATCHED THEN
-    UPDATE
-        SET t.GROUP_NAME = s.grp, t.GROUP_RANK = s.rank, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp()
-    WHEN NOT MATCHED THEN
-    INSERT
-        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
-        VALUES (s.name, s.grp, s.rank,  current_timestamp(), :condition, current_timestamp());
-    outcome := null;
-
-    return outcome;
-END;
-
-CREATE OR REPLACE PROCEDURE INTERNAL.DELETE_PREDEFINED_LABEL(name text)
-    RETURNS text
-    LANGUAGE SQL
-    EXECUTE AS OWNER
-AS
-BEGIN
-    if (:name is null) then
-      return 'Name must not be null.';
-    end if;
-
-    DELETE FROM internal.predefined_labels where name = :name;
-    return 'done';
-END;
-
---CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_LABELS()
---    RETURNS text
---    LANGUAGE SQL
---    EXECUTE AS OWNER
---AS
---BEGIN
---    MERGE INTO internal.labels t
---    USING internal.predefined_labels s
---    ON t.name = s.name and t.condition = s.condition
---    WHEN MATCHED and t.LABEL_MODIFIED_AT <= s.LABEL_CREATED_AT THEN
---    UPDATE
---        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT;
---
---    let outcome text := 'done';
---    return outcome;
---END;
-
 CREATE OR REPLACE PROCEDURE INTERNAL.INITIALIZE_LABELS()
     RETURNS boolean
     LANGUAGE SQL
@@ -218,13 +145,13 @@ BEGIN
     let label_inited text := '';
     label_inited := (CALL INTERNAL.get_config('LABELS_INITED'));
 
-    if (labelcnt > 0 OR label_inited = 'YES') THEN
+    if (labelcnt > 0 OR label_inited = 'True') THEN
         SYSTEM$LOG_INFO('Predefined labels import is skipped. \n');
         RETURN FALSE;
     ELSE
         INSERT INTO INTERNAL.LABELS
             SELECT * FROM INTERNAL.PREDEFINED_LABELS;
-        CALL INTERNAL.SET_CONFIG('LABELS_INITED', 'YES');
+        CALL INTERNAL.SET_CONFIG('LABELS_INITED', 'True');
         SYSTEM$LOG_INFO('Predefined labels are imported into LABELS table. \n');
         RETURN TRUE;
     END IF;
@@ -306,28 +233,48 @@ CREATE OR REPLACE PROCEDURE INTERNAL.POPULATE_PREDEFINED_LABELS()
     EXECUTE AS OWNER
 AS
 BEGIN
-    let outcome string := '';
+    MERGE INTO internal.predefined_labels t
+    USING (
+        SELECT *
+        from (values
+                ('Large Results', null, null, 'rows_produced > 50000000'),
+                ('Writes', null, null, 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\')')
+             )) s (name, grp, rank, condition)
+    ON t.name = s.name
+    WHEN MATCHED THEN
+    UPDATE
+        SET t.GROUP_NAME = s.grp, t.GROUP_RANK = s.rank, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp()
+    WHEN NOT MATCHED THEN
+    INSERT
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
+        VALUES (s.name, s.grp, s.rank,  current_timestamp(), s.condition, current_timestamp());
 
-    BEGIN TRANSACTION;
-
-    outcome := (CALL INTERNAL.UPSERT_PREDEFINED_LABEL('Large Results', null, null, 'rows_produced > 50000000'));
-    if (outcome is not null) then
-      ROLLBACK;
-      return outcome;
-    end if;
-
-    outcome := (CALL INTERNAL.UPSERT_PREDEFINED_LABEL('Writes', null, null, 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\')'));
-    if (outcome is not null) then
-      ROLLBACK;
-      return outcome;
-    end if;
-
-    COMMIT;
-
-    return outcome;
-
+    RETURN NULL;
 EXCEPTION
   WHEN OTHER THEN
       ROLLBACK;
       RAISE;
 END;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_PREDEFINED_LABELS()
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+$$
+DECLARE
+    outcome string;
+    labels cursor for select "NAME", "CONDITION" from internal.predefined_labels;
+BEGIN
+    for record in labels do
+        let name string := record."NAME";
+        let condition string := record."CONDITION";
+        outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:name, :condition));
+        IF (outcome is not null) then
+            let res text := 'Predefined label  \'' || name || '\' with condition  \'' || condition || '\' is not valid';
+            RETURN res;
+        END IF;
+    end for;
+    RETURN NULL;
+END;
+$$;

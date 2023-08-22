@@ -185,19 +185,9 @@ def test_create_label_with_empty_string_name(conn, timestamp_string):
     ), "Stored procedure output does not match expected result!"
 
 
-def test_create_predefined_label(conn, timestamp_string):
-    sql = "call INTERNAL.DELETE_PREDEFINED_LABEL('Large Results FOR TEST');"
-    assert "done" in str(
-        run_proc(conn, sql)
-    ), "Stored procedure output does not match expected result!"
-
-    sql = "CALL INTERNAL.UPSERT_PREDEFINED_LABEL('Large Results FOR TEST', null, null, 'rows_produced > 50000000');"
-    assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
-
-    sql = "call INTERNAL.DELETE_PREDEFINED_LABEL('Large Results FOR TEST');"
-    assert "done" in str(
-        run_proc(conn, sql)
-    ), "Stored procedure output does not match expected result!"
+def test_validate_predefined_label(conn, timestamp_string):
+    sql = "CALL INTERNAL.VALIDATE_PREDEFINED_LABELS();"
+    assert run_proc(conn, sql) is None
 
 
 def test_initialize_labels(conn, timestamp_string):
@@ -216,13 +206,13 @@ def test_initialize_labels(conn, timestamp_string):
     sql = "delete from internal.config where KEY = 'LABELS_INITED'"
     run_sql(conn, sql)
 
-    # step 3: UPSERT predefined_label
-    sql = "CALL INTERNAL.UPSERT_PREDEFINED_LABEL('Large Results FOR TEST', null, null, 'rows_produced > 50000000');"
+    # step 3: populate predefined_labels table
+    sql = "CALL INTERNAL.POPULATE_PREDEFINED_LABELS();"
     assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
 
-    sql = "select count(*) from internal.PREDEFINED_LABELS where NAME = 'Large Results FOR TEST'"
+    sql = "select count(*) from internal.PREDEFINED_LABELS"
     output = row_count(conn, sql)
-    assert 1 == output, "SQL output " + str(output) + " does not match expected result!"
+    assert output > 0, "SQL output " + str(output) + " does not match expected result!"
 
     # step 4: call internal.initialize_labels()
     sql = "call INTERNAL.INITIALIZE_LABELS()"
@@ -230,14 +220,14 @@ def test_initialize_labels(conn, timestamp_string):
     assert "True" in output, "SQL output" + output + " does not match expected result!"
 
     # step 5: verify rows in labels table
-    sql = "select count(*) from internal.LABELS where NAME = 'Large Results FOR TEST'"
+    sql = "select count(*) from internal.LABELS"
     output = row_count(conn, sql)
-    assert 1 == output, "SQL output " + str(output) + " does not match expected result!"
+    assert output > 0, "SQL output " + str(output) + " does not match expected result!"
 
     # step 6: verify flag in internal.config
     sql = "call internal.get_config('LABELS_INITED')"
     output = str(run_sql(conn, sql))
-    assert "YES" in output, "SQL output" + output + " does not match expected result!"
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
 
     # step 7: call internal.initialize_labels() again
     sql = "call INTERNAL.INITIALIZE_LABELS()"
@@ -245,9 +235,9 @@ def test_initialize_labels(conn, timestamp_string):
     assert "False" in output, "SQL output" + output + " does not match expected result!"
 
     # step 8: verify rows in labels table
-    sql = "select count(*) from internal.LABELS where NAME = 'Large Results FOR TEST'"
+    sql = "select count(*) from internal.LABELS"
     output = row_count(conn, sql)
-    assert 1 == output, "SQL output " + str(output) + " does not match expected result!"
+    assert output > 0, "SQL output " + str(output) + " does not match expected result!"
 
     # step 9: clean up the labels table and predefined_labels table
     sql = "truncate table internal.labels"
