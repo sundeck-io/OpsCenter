@@ -59,9 +59,9 @@ def consumption_listing():
     enabled = config.get_generate_consumption()
     return (
         st.checkbox(
-            f"Enable Cost Control Tracking (every minute)",
+            "Enable Cost Control Tracking (every minute)",
             value=enabled,
-            key=f"enable_quota_consumption",
+            key="enable_quota_consumption",
         ),
         enabled,
     )
@@ -173,7 +173,12 @@ with tasks:
             "Save Changes",
             on_click=save_tasks,
             args=[form, wem, qhm, pm, consumption_checkbox],
-            disabled=(wems == wem and qhms == qhm and pms == pm and consumption_checkbox == consumption_enabled),
+            disabled=(
+                wems == wem
+                and qhms == qhm
+                and pms == pm
+                and consumption_checkbox == consumption_enabled
+            ),
         )
 
     if wem is None or qhm is None or pm is None:
