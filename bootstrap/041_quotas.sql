@@ -19,7 +19,142 @@ with todays_queries as(
         warehouse_size,
         user_name,
         role_name
-    from table(information_schema.query_history(RESULT_LIMIT => 10000, END_TIME_RANGE_START => date_trunc('day', current_timestamp()), END_TIME_RANGE_END => current_timestamp()))
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => date_trunc('day', current_timestamp()),
+        END_TIME_RANGE_END => timestampadd('hour', 2, date_trunc('day', current_timestamp())))
+    where end_time > date_trunc('day', current_timestamp())
+    union all
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => timestampadd('hour', 2, date_trunc('day', current_timestamp())),
+        END_TIME_RANGE_END => timestampadd('hour', 4, date_trunc('day', current_timestamp())))
+    where end_time > date_trunc('day', current_timestamp())
+    union all
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => timestampadd('hour', 4, date_trunc('day', current_timestamp())),
+        END_TIME_RANGE_END => timestampadd('hour', 6, date_trunc('day', current_timestamp())))
+    where end_time > date_trunc('day', current_timestamp())
+    union all
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => timestampadd('hour', 6, date_trunc('day', current_timestamp())),
+        END_TIME_RANGE_END => timestampadd('hour', 8, date_trunc('day', current_timestamp())))
+    where end_time > date_trunc('day', current_timestamp())
+    union all
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => timestampadd('hour', 8, date_trunc('day', current_timestamp())),
+        END_TIME_RANGE_END => timestampadd('hour', 10, date_trunc('day', current_timestamp())))
+    where end_time > date_trunc('day', current_timestamp())
+    union all
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => timestampadd('hour', 10, date_trunc('day', current_timestamp())),
+        END_TIME_RANGE_END => timestampadd('hour', 12, date_trunc('day', current_timestamp())))
+    where end_time > date_trunc('day', current_timestamp())
+    union all
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => timestampadd('hour', 12, date_trunc('day', current_timestamp())),
+        END_TIME_RANGE_END => timestampadd('hour', 14, date_trunc('day', current_timestamp())))
+    where end_time > date_trunc('day', current_timestamp())
+    union all
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => timestampadd('hour', 14, date_trunc('day', current_timestamp())),
+        END_TIME_RANGE_END => timestampadd('hour', 16, date_trunc('day', current_timestamp())))
+    where end_time > date_trunc('day', current_timestamp())
+    union all
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => timestampadd('hour', 16, date_trunc('day', current_timestamp())),
+        END_TIME_RANGE_END => timestampadd('hour', 18, date_trunc('day', current_timestamp())))
+    where end_time > date_trunc('day', current_timestamp())
+    union all
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => timestampadd('hour', 18, date_trunc('day', current_timestamp())),
+        END_TIME_RANGE_END => timestampadd('hour', 20, date_trunc('day', current_timestamp())))
+    where end_time > date_trunc('day', current_timestamp())
+    union all
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => timestampadd('hour', 20, date_trunc('day', current_timestamp())),
+        END_TIME_RANGE_END => timestampadd('hour', 22, date_trunc('day', current_timestamp())))
+    where end_time > date_trunc('day', current_timestamp())
+    union all
+    select
+        total_elapsed_time,
+        credits_used_cloud_services,
+        warehouse_size,
+        user_name,
+        role_name
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => timestampadd('hour', 22, date_trunc('day', current_timestamp())),
+        END_TIME_RANGE_END => timestampadd('day', 1, date_trunc('day', current_timestamp())))
     where end_time > date_trunc('day', current_timestamp())
 ),
 costed_queries as (
@@ -61,3 +196,22 @@ MERGE INTO internal.config AS target
     WHEN NOT MATCHED THEN
         INSERT (key, value)
             VALUES (source.key, source.value);
+
+create or replace procedure internal.quota_js_test()
+RETURNS OBJECT
+LANGUAGE JAVASCRIPT
+AS
+$$
+  return {'key': 'it worked'};
+$$;
+
+create or replace procedure internal.quota_read_qh()
+RETURNS double
+LANGUAGE JAVASCRIPT
+AS
+$$
+       var q = "select count(1) from table(information_schema.query_history(RESULT_LIMIT => 10000, END_TIME_RANGE_START => date_trunc('day', current_timestamp()))";
+       var rs = snowflake.createStatement({sqlText: q}).execute();
+       rs.next();
+       return rs.getColumnValue(1);
+$$;
