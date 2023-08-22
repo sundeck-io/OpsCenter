@@ -23,6 +23,11 @@ def row_count(conn, sql) -> int:
     return result
 
 
+def run_sql(conn, sql) -> str:
+    result = _get_single_value(conn, sql)
+    return str(result)
+
+
 def delete_list_of_labels(conn, sql):
     print(f"[INFO] SQL in delete function: {sql}")
 

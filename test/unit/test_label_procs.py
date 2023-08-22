@@ -4,6 +4,7 @@ import pytest
 from common_utils import generate_unique_name
 from common_utils import run_proc
 from common_utils import row_count
+from common_utils import run_sql
 
 
 def test_smoke_create_drop_label(conn, timestamp_string):
@@ -199,18 +200,23 @@ def test_create_predefined_label(conn, timestamp_string):
     ), "Stored procedure output does not match expected result!"
 
 
-def test_migrate_or_insert_predefined_label(conn, timestamp_string):
-    # step 1: clean up the label
-    sql = "call INTERNAL.DELETE_PREDEFINED_LABEL('Large Results FOR TEST');"
-    assert "done" in str(
-        run_proc(conn, sql)
-    ), "Stored procedure output does not match expected result!"
+def test_initialize_labels(conn, timestamp_string):
+    # step 1: clean up the labels table and predefined_labels table
+    sql = "truncate table internal.labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
 
-    sql = "select count(*) from internal.PREDEFINED_LABELS where NAME = 'Large Results FOR TEST'"
-    output = row_count(conn, sql)
-    assert 0 == output, "SQL output " + str(output) + " does not match expected result!"
+    sql = "truncate table internal.predefined_labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
 
-    # step 2: insert a predefined label to predefined_labels table
+    # step 2: clean up the flag in internal.config
+    sql = "delete from internal.config where KEY = 'LABELS_INITED'"
+    run_sql(conn, sql)
+
+    # step 3: UPSERT predefined_label
     sql = "CALL INTERNAL.UPSERT_PREDEFINED_LABEL('Large Results FOR TEST', null, null, 'rows_produced > 50000000');"
     assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
 
@@ -218,38 +224,38 @@ def test_migrate_or_insert_predefined_label(conn, timestamp_string):
     output = row_count(conn, sql)
     assert 1 == output, "SQL output " + str(output) + " does not match expected result!"
 
-    # step 3: migrate_predefined_labels(), which will populate into `labels` table
-    sql = "CALL INTERNAL.MIGRATE_PREDEFINED_LABELS();"
-    assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
+    # step 4: call internal.initialize_labels()
+    sql = "call INTERNAL.INITIALIZE_LABELS()"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
 
+    # step 5: verify rows in labels table
     sql = "select count(*) from internal.LABELS where NAME = 'Large Results FOR TEST'"
     output = row_count(conn, sql)
     assert 1 == output, "SQL output " + str(output) + " does not match expected result!"
 
-    # step 4: update a predefined label. Changing it from no-group to grouped label
-    sql = "CALL INTERNAL.UPSERT_PREDEFINED_LABEL('Large Results FOR TEST', 'TestGroup', 5, 'rows_produced > 50000000');"
-    assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
+    # step 6: verify flag in internal.config
+    sql = "call internal.get_config('LABELS_INITED')"
+    output = str(run_sql(conn, sql))
+    assert "YES" in output, "SQL output" + output + " does not match expected result!"
 
-    # step 5: migrate_predefined_labels(), which will upgrade into `labels` table
-    sql = "CALL INTERNAL.MIGRATE_PREDEFINED_LABELS();"
-    assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
+    # step 7: call internal.initialize_labels() again
+    sql = "call INTERNAL.INITIALIZE_LABELS()"
+    output = str(run_sql(conn, sql))
+    assert "False" in output, "SQL output" + output + " does not match expected result!"
 
-    # step 6: verify the label 'Large Results FOR TEST' is upgraded in `labels` table
-    sql = "select count(*) from internal.LABELS where NAME = 'Large Results FOR TEST' and GROUP_NAME is NULL"
-    output = row_count(conn, sql)
-    assert 0 == output, "SQL output " + str(output) + " does not match expected result!"
-
-    sql = "select count(*) from internal.LABELS where NAME = 'Large Results FOR TEST' and GROUP_NAME = 'TestGroup' and GROUP_RANK = 5"
+    # step 8: verify rows in labels table
+    sql = "select count(*) from internal.LABELS where NAME = 'Large Results FOR TEST'"
     output = row_count(conn, sql)
     assert 1 == output, "SQL output " + str(output) + " does not match expected result!"
 
-    # step 7: clean up in `predefined_labels` and `labels` tables.
-    sql = "call INTERNAL.DELETE_PREDEFINED_LABEL('Large Results FOR TEST');"
-    assert "done" in str(
-        run_proc(conn, sql)
-    ), "Stored procedure output does not match expected result!"
+    # step 9: clean up the labels table and predefined_labels table
+    sql = "truncate table internal.labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
 
-    sql = "call ADMIN.DELETE_LABEL('Large Results FOR TEST');"
-    assert "done" in str(
-        run_proc(conn, sql)
-    ), "Stored procedure output does not match expected result!"
+    sql = "truncate table internal.predefined_labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"

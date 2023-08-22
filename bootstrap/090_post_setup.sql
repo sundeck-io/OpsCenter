@@ -64,8 +64,12 @@ call INTERNAL.MIGRATE_LABELS_TABLE();
 -- Populate the list of predefined labels
 call INTERNAL.POPULATE_PREDEFINED_LABELS();
 
+-- Init labels using predefined_labels, if the consumer account has not call INTERNAL.INITIALIZE_LABELS, and it
+-- does not have user-created labels.
+call INTERNAL.INITIALIZE_LABELS();
+
 -- Migrate predefined labels into labels table
-call INTERNAL.MIGRATE_PREDEFINED_LABELS();
+-- call INTERNAL.MIGRATE_PREDEFINED_LABELS();
 
 CREATE OR REPLACE TASK TASKS.PROBE_MONITORING
     SCHEDULE = '1 minute'

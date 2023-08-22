@@ -190,26 +190,46 @@ BEGIN
     return 'done';
 END;
 
-CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_LABELS()
-    RETURNS text
+--CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_LABELS()
+--    RETURNS text
+--    LANGUAGE SQL
+--    EXECUTE AS OWNER
+--AS
+--BEGIN
+--    MERGE INTO internal.labels t
+--    USING internal.predefined_labels s
+--    ON t.name = s.name and t.condition = s.condition
+--    WHEN MATCHED and t.LABEL_MODIFIED_AT <= s.LABEL_CREATED_AT THEN
+--    UPDATE
+--        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT;
+--
+--    let outcome text := 'done';
+--    return outcome;
+--END;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.INITIALIZE_LABELS()
+    RETURNS boolean
     LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 BEGIN
-    MERGE INTO internal.labels t
-    USING internal.predefined_labels s
-    ON t.name = s.name and t.condition = s.condition
-    WHEN MATCHED and t.LABEL_MODIFIED_AT <= s.LABEL_CREATED_AT THEN
-    UPDATE
-        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT
-    WHEN NOT MATCHED THEN
-    INSERT
-        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
-        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  s.LABEL_CREATED_AT, s.condition, s.LABEL_CREATED_AT);
+    let labelcnt number := (SELECT COUNT(*) FROM internal.labels);
 
-    let outcome text := null;
-    return outcome;
+    let label_inited text := '';
+    label_inited := (CALL INTERNAL.get_config('LABELS_INITED'));
+
+    if (labelcnt > 0 OR label_inited = 'YES') THEN
+        SYSTEM$LOG_INFO('Predefined labels import is skipped. \n');
+        RETURN FALSE;
+    ELSE
+        INSERT INTO INTERNAL.LABELS
+            SELECT * FROM INTERNAL.PREDEFINED_LABELS;
+        CALL INTERNAL.SET_CONFIG('LABELS_INITED', 'YES');
+        SYSTEM$LOG_INFO('Predefined labels are imported into LABELS table. \n');
+        RETURN TRUE;
+    END IF;
 END;
+
 
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_LABEL(name text)
     RETURNS text
