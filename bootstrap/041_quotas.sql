@@ -49,35 +49,3 @@ select object_agg(kind, credits_used) as daily_quota from usage_aggr;
 $$;
     return s;
 END;
-
-create or replace function internal.is_consumption_enabled()
-returns boolean
-as
-$$
-    select coalesce((select TRY_TO_BOOLEAN(value) from internal.config where key = 'generate_consumption'), TRUE)
-$$;
-
--- Create the 'generate_consumption' config value set to TRUE only when it doesn't exist
-MERGE INTO internal.config AS target
-    USING (SELECT 'generate_consumption' AS key, 'TRUE' AS value
-    ) AS source
-    ON target.key = source.key
-    WHEN NOT MATCHED THEN
-        INSERT (key, value)
-            VALUES (source.key, source.value);
-
-
-create or replace procedure internal.set_consumption_enabled(enabled boolean)
-returns string
-language sql
-as
-$$
-DECLARE
-    config_value string;
-BEGIN
-    call internal.set_config('generate_consumption', TO_VARCHAR(:enabled)) into :config_value;
-    -- make sure the probe_monitoring task is in the correct state
-    call ADMIN.UPDATE_PROBE_MONITOR_RUNNING();
-    return :config_value;
-END;
-$$;

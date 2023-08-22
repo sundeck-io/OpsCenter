@@ -51,22 +51,6 @@ def task_listing(
     )
 
 
-def consumption_listing():
-    """
-    Return the checkbox and state for cost control tracking.
-    :return:
-    """
-    enabled = config.get_generate_consumption()
-    return (
-        st.checkbox(
-            "Enable Cost Control Tracking (every minute)",
-            value=enabled,
-            key="enable_quota_consumption",
-        ),
-        enabled,
-    )
-
-
 tasks, config_tab, setup_tab, diagnostics_tab, reset = st.tabs(
     ["Tasks", "Config", "Initial Setup", "Diagnostics", "Reset"]
 )
@@ -135,14 +119,11 @@ def save_tasks(container, wem, qhm, pm, cost_control):
                 alter task TASKS.WAREHOUSE_EVENTS_MAINTENANCE {get_task_state(wem)};
                 alter task TASKS.QUERY_HISTORY_MAINTENANCE {get_task_state(qhm)};
                 alter task TASKS.SFUSER_MAINTENANCE {get_task_state(pm)};
-                call internal.set_consumption_enabled('{cost_control}');
+                alter task TASKS.COST_CONTROL_MONITORING {get_task_state(cost_control)};
             end;
             $$);
             """
             connection.execute(sql)
-
-            # Refresh the config to update the UI with the consumption config
-            config.refresh()
 
 
 with tasks:
@@ -164,7 +145,9 @@ with tasks:
         pm, pms = task_listing(
             "Snowflake User Replication", "SFUSER_MAINTENANCE", "every day"
         )
-        consumption_checkbox, consumption_enabled = consumption_listing()
+        consumption_checkbox, consumption_enabled = task_listing(
+            "Cost Control Maintenance", "COST_CONTROL_MONITORING", "every five minutes"
+        )
 
         # Only enable the button once the page has been reloaded and the checkbox is inconsistent with the task state. This is because streamlit
         # state is ugly and we don't want to record state here since it is already managed in Snowflake. Note this still has a bug if users

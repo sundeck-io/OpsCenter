@@ -66,28 +66,6 @@ def get_compute_credit_cost():
     return Config.get("compute_credit_cost") or 2
 
 
-def get_generate_consumption() -> bool:
-    """
-    Returns whether OpsCenter should generate query consumption data. If an unparseable
-    value is read from the configuration, this method will return False.
-
-    :return: True if OpsCenter should generate query consumption data, False otherwise.
-    """
-    val = Config.get("generate_consumption")
-    if val:
-        return val.lower() == "true"
-    return False
-
-
-def set_generate_consumption(val: bool):
-    """
-    Sets whether OpsCenter should generate query consumption data.
-    :param val: True if OpsCenter should generate query consumption data, False otherwise.
-    :return:
-    """
-    return Config.set("generate_consumption", str(val))
-
-
 class CurrentVersion:
     _props = None
 
