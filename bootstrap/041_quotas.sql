@@ -65,3 +65,19 @@ MERGE INTO internal.config AS target
     WHEN NOT MATCHED THEN
         INSERT (key, value)
             VALUES (source.key, source.value);
+
+
+create or replace procedure internal.set_consumption_enabled(enabled boolean)
+returns string
+language sql
+as
+$$
+DECLARE
+    config_value string;
+BEGIN
+    call internal.set_config('generate_consumption', TO_VARCHAR(:enabled)) into :config_value;
+    -- make sure the probe_monitoring task is in the correct state
+    call ADMIN.UPDATE_PROBE_MONITOR_RUNNING();
+    return :config_value;
+END;
+$$;
