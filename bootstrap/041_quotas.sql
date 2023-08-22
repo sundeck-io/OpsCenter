@@ -24,8 +24,11 @@ with todays_queries as(
         END_TIME_RANGE_END => current_timestamp()))
 ),
 costed_queries as (
-    select greatest(0,total_elapsed_time)*zeroifnull(wc.credits_per_milli) + credits_used_cloud_services as credits_used, user_name, role_name
-    from todays_queries tq left outer join INTERNAL_REPORTING.WAREHOUSE_CREDITS_PER_SIZE wc on tq.warehouse_size = wc.warehouse_size
+    select
+        greatest(0,total_elapsed_time) * internal.warehouse_credits_per_milli(warehouse_size) + credits_used_cloud_services as credits_used,
+        user_name,
+        role_name
+    from todays_queries
 ),
 -- Is there a way to collapse user_usage and role_usage together? They're essentially the same query.
 user_usage as (
