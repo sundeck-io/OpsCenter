@@ -10,7 +10,6 @@ language sql
 as
 BEGIN
     let s string := $$
--- TODO this recomputes the usage since midnight every time it runs. We should cache this for the day and update quotas based on deltas.
 -- TODO the table func caps out at 10k rows which could miss queries for busy accounts.
 with todays_queries as(
     select
@@ -19,8 +18,10 @@ with todays_queries as(
         warehouse_size,
         user_name,
         role_name
-    from table(information_schema.query_history(RESULT_LIMIT => 10000, END_TIME_RANGE_START => date_trunc('day', current_timestamp()), END_TIME_RANGE_END => current_timestamp()))
-    where end_time > date_trunc('day', current_timestamp())
+    from table(information_schema.query_history(
+        RESULT_LIMIT => 10000,
+        END_TIME_RANGE_START => date_trunc('day', current_timestamp()),
+        END_TIME_RANGE_END => current_timestamp()))
 ),
 costed_queries as (
     select greatest(0,total_elapsed_time)*zeroifnull(wc.credits_per_milli) + credits_used_cloud_services as credits_used, user_name, role_name
