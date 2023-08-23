@@ -1,5 +1,5 @@
 
-CREATE TABLE INTERNAL.PROBES (name string, condition string, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean, enabled boolean, probe_modified_at timestamp) IF NOT EXISTS;
+CREATE TABLE INTERNAL.PROBES (name string, condition string, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean, enabled boolean, probe_modified_at timestamp, probe_created_at timestamp) IF NOT EXISTS;
 CREATE OR REPLACE VIEW CATALOG.PROBES AS SELECT * FROM INTERNAL.PROBES;
 
 CREATE TABLE INTERNAL.PREDEFINED_PROBES if not exists LIKE INTERNAL.PROBES;
@@ -36,6 +36,12 @@ BEGIN
         UPDATE INTERNAL.PROBES SET PROBE_MODIFIED_AT = CURRENT_TIMESTAMP() WHERE PROBE_MODIFIED_AT IS NULL;
     END IF;
 
+    -- Add created at column
+    IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PROBES' AND COLUMN_NAME = 'PROBE_CREATED_AT')) THEN
+        ALTER TABLE INTERNAL.PROBES ADD COLUMN PROBE_CREATED_AT TIMESTAMP;
+        UPDATE INTERNAL.PROBES SET PROBE_CREATED_AT = CURRENT_TIMESTAMP() WHERE PROBE_CREATED_AT IS NULL;
+    END IF;
+
     -- Recreate the view to avoid number of column mis-match. Should be cheap and only run on install/upgrade, so it's OK
     -- if we run this unnecessarily.
     CREATE OR REPLACE VIEW CATALOG.PROBES COPY GRANTS AS SELECT * FROM INTERNAL.PROBES;
@@ -45,6 +51,21 @@ EXCEPTION
         raise;
 END;
 
+CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_PROBES_TABLE()
+RETURNS OBJECT
+AS
+BEGIN
+    -- Add created at column
+    IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PREDEFINED_PROBES' AND COLUMN_NAME = 'PROBE_CREATED_AT')) THEN
+        ALTER TABLE INTERNAL.PREDEFINED_PROBES ADD COLUMN PROBE_CREATED_AT TIMESTAMP;
+        UPDATE INTERNAL.PREDEFINED_PROBES SET PROBE_CREATED_AT = CURRENT_TIMESTAMP() WHERE PROBE_CREATED_AT IS NULL;
+    END IF;
+
+EXCEPTION
+    WHEN OTHER THEN
+        SYSTEM$LOG('error', 'Failed to migrate predefined_probes table. ' || :SQLCODE || ': ' || :SQLERRM);
+        raise;
+END;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_PROBE_CONDITION(name string, condition string)
 RETURNS STRING
@@ -253,3 +274,103 @@ EXCEPTION
       ROLLBACK;
       RAISE;
 END;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.POPULATE_PREDEFINED_PROBES()
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+BEGIN
+    MERGE INTO internal.predefined_probes t
+    USING (
+        SELECT *
+        from (values
+                ('Long Queries', 'start_time < dateadd(minute, -10, current_timestamp())'),
+                ('Big Readers', 'bytes_scanned > 10000000000')
+             )) s (name, condition)
+    ON t.name = s.name
+    WHEN MATCHED THEN
+    UPDATE
+        SET t.CONDITION = s.CONDITION, t.PROBE_MODIFIED_AT = current_timestamp()
+    WHEN NOT MATCHED THEN
+    INSERT
+        ("NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL", "PROBE_MODIFIED_AT", "PROBE_CREATED_AT")
+        VALUES (s.name, s.condition, False,  'Email', '', 'Email', False, current_timestamp(), current_timestamp());
+
+    RETURN NULL;
+EXCEPTION
+  WHEN OTHER THEN
+      ROLLBACK;
+      RAISE;
+END;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.INITIALIZE_PROBES()
+    RETURNS boolean
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+BEGIN
+    let probecnt number := (SELECT COUNT(*) FROM internal.probes);
+
+    let probe_inited text := '';
+    probe_inited := (CALL INTERNAL.get_config('PROBES_INITED'));
+
+    if (probecnt > 0 OR probe_inited = 'True') THEN
+        SYSTEM$LOG_INFO('Predefined probes import is skipped. \n');
+        RETURN FALSE;
+    ELSE
+        INSERT INTO INTERNAL.PROBES ("NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL", "PROBE_MODIFIED_AT", "PROBE_CREATED_AT")
+            SELECT "NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL", "PROBE_CREATED_AT", "PROBE_CREATED_AT"
+            FROM INTERNAL.PREDEFINED_PROBES;
+        CALL INTERNAL.SET_CONFIG('PROBES_INITED', 'True');
+        SYSTEM$LOG_INFO('Predefined probes are imported into PROBES table. \n');
+        RETURN TRUE;
+    END IF;
+END;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_PROBES(gap_in_seconds NUMBER)
+    RETURNS BOOLEAN
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+$$
+BEGIN
+    let rowCount1 number := (
+        WITH
+        OLD_PREDEFINED_PROBES AS
+            (SELECT name, condition, PROBE_CREATED_AT FROM INTERNAL.PREDEFINED_PROBES WHERE TIMESTAMPDIFF(SECOND, PROBE_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
+        USER_PROBES AS
+            (SELECT name, condition, PROBE_MODIFIED_AT FROM INTERNAL.PROBES)
+        SELECT count(*) from (select * from OLD_PREDEFINED_PROBES MINUS SELECT * FROM USER_PROBES) S
+        );
+    let rowCount1 number := (
+        WITH
+        OLD_PREDEFINED_PROBES AS
+            (SELECT name, condition, PROBE_CREATED_AT FROM INTERNAL.PREDEFINED_PROBES WHERE TIMESTAMPDIFF(SECOND, PROBE_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
+        USER_PROBES AS
+            (SELECT name, condition, PROBE_MODIFIED_AT FROM INTERNAL.PROBES)
+        SELECT count(*) from (select * from  USER_PROBES MINUS SELECT * FROM OLD_PREDEFINED_PROBES ) S
+        );
+
+    IF (rowCount1 > 0 OR rowCount2 > 0) THEN
+        RETURN FALSE;
+    END IF;
+
+    MERGE INTO internal.probes t
+    USING internal.predefined_probes s
+    ON t.name = s.name and t.condition = s.condition
+    WHEN MATCHED THEN
+    UPDATE
+        SET t.NOTIFY_WRITER = s.NOTIFY_WRITER,
+            t.NOTIFY_WRITER_METHOD = s.NOTIFY_WRITER_METHOD,
+            t.NOTIFY_OTHER = s.NOTIFY_OTHER,
+            t.NOTIFY_OTHER_METHOD = s.NOTIFY_OTHER_METHOD,
+            t.CANCEL = s.CANCEL,
+            t.PROBE_MODIFIED_AT = s.PROBE_CREATED_AT
+    WHEN NOT MATCHED THEN
+    INSERT ("NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL", "PROBE_MODIFIED_AT", "PROBE_CREATED_AT")
+        VALUES (s.NAME, s."CONDITION", s."NOTIFY_WRITER", s."NOTIFY_WRITER_METHOD", s."NOTIFY_OTHER", s."NOTIFY_OTHER_METHOD", s."CANCEL", s."PROBE_CREATED_AT", s."PROBE_CREATED_AT");
+
+    return TRUE;
+END;
+$$;

@@ -61,6 +61,9 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
 call INTERNAL.MIGRATE_PROBES_TABLE();
 call INTERNAL.MIGRATE_LABELS_TABLE();
 
+-- Migrate the schema of the predefined_probes table if it already exists
+call INTERNAL.MIGRATE_PREDEFINED_PROBES_TABLE();
+
 -- Migrate the schema of predefined_labels table if it already exists
 call INTERNAL.MIGRATE_PREDEFINED_LABELS_TABLE();
 
@@ -77,6 +80,15 @@ call INTERNAL.INITIALIZE_LABELS();
 -- after last install/upgrade of APP
 -- parameter 7200 (seconds) is the timestamp difference when a predefined label is regarded as an old one.
 call INTERNAL.MIGRATE_PREDEFINED_LABELS(7200);
+
+
+-- Populate the list of predefined probes
+call INTERNAL.POPULATE_PREDEFINED_PROBES();
+
+-- Init PROBES using predefined_probess, if the consumer account has not call INTERNAL.INITIALIZE_PROBES, and it
+-- does not have user-created probes.
+call INTERNAL.INITIALIZE_PROBES();
+
 
 CREATE OR REPLACE TASK TASKS.PROBE_MONITORING
     SCHEDULE = '1 minute'
