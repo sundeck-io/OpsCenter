@@ -1,8 +1,8 @@
 
-CREATE TABLE INTERNAL.PROBES (name string, condition string, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean, enabled boolean, probe_modified_at timestamp, probe_created_at timestamp) IF NOT EXISTS;
+CREATE TABLE INTERNAL.PROBES IF NOT EXISTS (name string, condition string, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean, enabled boolean, probe_modified_at timestamp, probe_created_at timestamp);
 CREATE OR REPLACE VIEW CATALOG.PROBES AS SELECT * FROM INTERNAL.PROBES;
 
-CREATE TABLE INTERNAL.PREDEFINED_PROBES if not exists LIKE INTERNAL.PROBES;
+CREATE TABLE INTERNAL.PREDEFINED_PROBES if not exists (name string, condition string, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean, enabled boolean, probe_modified_at timestamp, probe_created_at timestamp);
 
 CREATE TABLE INTERNAL.PROBE_ACTIONS (action_time timestamp, probe_name string, query_id string, actions_taken variant, outcome string) IF NOT EXISTS;
 CREATE OR REPLACE VIEW REPORTING.PROBE_ACTIONS AS SELECT * FROM INTERNAL.PROBE_ACTIONS;
@@ -55,6 +55,12 @@ CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_PROBES_TABLE()
 RETURNS OBJECT
 AS
 BEGIN
+    -- Add modified at column
+    IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PREDEFINED_PROBES' AND COLUMN_NAME = 'PROBE_MODIFIED_AT')) THEN
+        ALTER TABLE INTERNAL.PREDEFINED_PROBES ADD COLUMN PROBE_MODIFIED_AT TIMESTAMP;
+        UPDATE INTERNAL.PREDEFINED_PROBES SET PROBE_MODIFIED_AT = CURRENT_TIMESTAMP() WHERE PROBE_MODIFIED_AT IS NULL;
+    END IF;
+
     -- Add created at column
     IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PREDEFINED_PROBES' AND COLUMN_NAME = 'PROBE_CREATED_AT')) THEN
         ALTER TABLE INTERNAL.PREDEFINED_PROBES ADD COLUMN PROBE_CREATED_AT TIMESTAMP;
