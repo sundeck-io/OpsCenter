@@ -238,17 +238,23 @@ BEGIN
     USING (
         SELECT *
         from (values
-                ('Large Results', null, null, 'rows_produced > 50000000'),
-                ('Writes', null, null, 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\')')
-             )) s (name, grp, rank, condition)
+                ('Large Results', 'rows_produced > 50000000'),
+                ('Writes', 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\')'),
+                ('Expanding Output', '10*bytes_scanned < BYTES_WRITTEN_TO_RESULT'),
+                ('Full Scans', 'coalesce(partitions_scanned, 0)/coalesce(partitions_total, 1) > 0.95'),
+                ('Long Compilation', 'COMPILATION_TIME > 100'),
+                ('Long Queries', 'TOTAL_ELAPSED_TIME > 600000'),
+                ('Expensive Queries', 'COST>0.5'),
+                ('Accelerated Queries', 'QUERY_ACCELERATION_BYTES_SCANNED > 0')
+             )) s (name, condition)
     ON t.name = s.name
     WHEN MATCHED THEN
     UPDATE
-        SET t.GROUP_NAME = s.grp, t.GROUP_RANK = s.rank, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp()
+        SET t.GROUP_NAME = NULL, t.GROUP_RANK = NULL, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp()
     WHEN NOT MATCHED THEN
     INSERT
         ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
-        VALUES (s.name, s.grp, s.rank,  current_timestamp(), s.condition, current_timestamp());
+        VALUES (s.name, NULL, NULL,  current_timestamp(), s.condition, current_timestamp());
 
     RETURN NULL;
 EXCEPTION

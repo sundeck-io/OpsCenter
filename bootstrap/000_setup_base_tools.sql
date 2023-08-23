@@ -35,12 +35,6 @@ END;
 CREATE OR REPLACE PROCEDURE internal.get_config(key string) RETURNS STRING LANGUAGE SQL
     AS
 BEGIN
-    let cnt number := (SELECT COUNT(*) AS cnt FROM internal.config WHERE key = :key);
-
-    IF (cnt = 0) THEN
-        return NULL;
-    END IF;
-
     let config_value string := (SELECT value FROM internal.config WHERE key = :key);
     return config_value;
 END;
