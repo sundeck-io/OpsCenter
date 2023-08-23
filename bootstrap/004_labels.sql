@@ -134,6 +134,30 @@ BEGIN
 
 END;
 
+CREATE OR REPLACE PROCEDURE INTERNAL.INITIALIZE_LABELS()
+    RETURNS boolean
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+BEGIN
+    let labelcnt number := (SELECT COUNT(*) FROM internal.labels);
+
+    let label_inited text := '';
+    label_inited := (CALL INTERNAL.get_config('LABELS_INITED'));
+
+    if (labelcnt > 0 OR label_inited = 'True') THEN
+        SYSTEM$LOG_INFO('Predefined labels import is skipped. \n');
+        RETURN FALSE;
+    ELSE
+        INSERT INTO INTERNAL.LABELS (NAME, GROUP_NAME, GROUP_RANK, LABEL_CREATED_AT, CONDITION, ENABLED, LABEL_MODIFIED_AT)
+            SELECT NAME, GROUP_NAME, GROUP_RANK, LABEL_CREATED_AT, CONDITION, ENABLED, LABEL_CREATED_AT
+            FROM INTERNAL.PREDEFINED_LABELS;
+        CALL INTERNAL.SET_CONFIG('LABELS_INITED', 'True');
+        SYSTEM$LOG_INFO('Predefined labels are imported into LABELS table. \n');
+        RETURN TRUE;
+    END IF;
+END;
+
 
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_LABEL(name text)
     RETURNS text
@@ -203,3 +227,61 @@ EXCEPTION
 END;
 
 CREATE VIEW CATALOG.LABELS IF NOT EXISTS AS SELECT * FROM INTERNAL.LABELS;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.POPULATE_PREDEFINED_LABELS()
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+BEGIN
+    MERGE INTO internal.predefined_labels t
+    USING (
+        SELECT *
+        from (values
+                ('Large Results', 'rows_produced > 50000000'),
+                ('Writes', 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\')'),
+                ('Expanding Output', '10*bytes_scanned < BYTES_WRITTEN_TO_RESULT'),
+                ('Full Scans', 'coalesce(partitions_scanned, 0)/coalesce(partitions_total, 1) > 0.95'),
+                ('Long Compilation', 'COMPILATION_TIME > 100'),
+                ('Long Queries', 'TOTAL_ELAPSED_TIME > 600000'),
+                ('Expensive Queries', 'COST>0.5'),
+                ('Accelerated Queries', 'QUERY_ACCELERATION_BYTES_SCANNED > 0')
+             )) s (name, condition)
+    ON t.name = s.name
+    WHEN MATCHED THEN
+    UPDATE
+        SET t.GROUP_NAME = NULL, t.GROUP_RANK = NULL, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp()
+    WHEN NOT MATCHED THEN
+    INSERT
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
+        VALUES (s.name, NULL, NULL,  current_timestamp(), s.condition, current_timestamp());
+
+    RETURN NULL;
+EXCEPTION
+  WHEN OTHER THEN
+      ROLLBACK;
+      RAISE;
+END;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_PREDEFINED_LABELS()
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+$$
+DECLARE
+    outcome string;
+    labels cursor for select "NAME", "CONDITION" from internal.predefined_labels;
+BEGIN
+    for record in labels do
+        let name string := record."NAME";
+        let condition string := record."CONDITION";
+        outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:name, :condition));
+        IF (outcome is not null) then
+            let res text := 'Predefined label  \'' || name || '\' with condition  \'' || condition || '\' is not valid';
+            RETURN res;
+        END IF;
+    end for;
+    RETURN NULL;
+END;
+$$;

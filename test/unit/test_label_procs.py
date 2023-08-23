@@ -4,6 +4,7 @@ import pytest
 from common_utils import generate_unique_name
 from common_utils import run_proc
 from common_utils import row_count
+from common_utils import run_sql
 
 
 def test_smoke_create_drop_label(conn, timestamp_string):
@@ -182,3 +183,69 @@ def test_create_label_with_empty_string_name(conn, timestamp_string):
     assert "done" in str(
         run_proc(conn, sql)
     ), "Stored procedure output does not match expected result!"
+
+
+def test_validate_predefined_label(conn, timestamp_string):
+    sql = "CALL INTERNAL.VALIDATE_PREDEFINED_LABELS();"
+    assert run_proc(conn, sql) is None
+
+
+def test_initialize_labels(conn, timestamp_string):
+    # step 1: clean up the labels table and predefined_labels table
+    sql = "truncate table internal.labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "truncate table internal.predefined_labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    # step 2: clean up the flag in internal.config
+    sql = "delete from internal.config where KEY = 'LABELS_INITED'"
+    run_sql(conn, sql)
+
+    # step 3: populate predefined_labels table
+    sql = "CALL INTERNAL.POPULATE_PREDEFINED_LABELS();"
+    assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
+
+    sql = "select count(*) from internal.PREDEFINED_LABELS"
+    output = row_count(conn, sql)
+    assert output > 0, "SQL output " + str(output) + " does not match expected result!"
+
+    # step 4: call internal.initialize_labels()
+    sql = "call INTERNAL.INITIALIZE_LABELS()"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 5: verify rows in labels table
+    sql = "select count(*) from internal.LABELS"
+    output = row_count(conn, sql)
+    assert output > 0, "SQL output " + str(output) + " does not match expected result!"
+
+    # step 6: verify flag in internal.config
+    sql = "call internal.get_config('LABELS_INITED')"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 7: call internal.initialize_labels() again
+    sql = "call INTERNAL.INITIALIZE_LABELS()"
+    output = str(run_sql(conn, sql))
+    assert "False" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 8: verify rows in labels table
+    sql = "select count(*) from internal.LABELS"
+    output = row_count(conn, sql)
+    assert output > 0, "SQL output " + str(output) + " does not match expected result!"
+
+    # step 9: clean up the labels table and predefined_labels table
+    sql = "truncate table internal.labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "truncate table internal.predefined_labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
