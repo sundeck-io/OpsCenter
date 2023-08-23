@@ -257,7 +257,7 @@ BEGIN
                 ('Large Results', 'rows_produced > 50000000'),
                 ('Writes', 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\')'),
                 ('Expanding Output', '10*bytes_scanned < BYTES_WRITTEN_TO_RESULT'),
-                ('Full Scans', 'coalesce(partitions_scanned, 0)/coalesce(partitions_total, 1) > 0.95'),
+                ('Full Scans', 'coalesce(partitions_scanned, 0) > coalesce(partitions_total, 1) * 0.95'),
                 ('Long Compilation', 'COMPILATION_TIME > 100'),
                 ('Long Queries', 'TOTAL_ELAPSED_TIME > 600000'),
                 ('Expensive Queries', 'COST>0.5'),
