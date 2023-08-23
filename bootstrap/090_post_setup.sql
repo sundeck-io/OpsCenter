@@ -61,6 +61,9 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
 call INTERNAL.MIGRATE_PROBES_TABLE();
 call INTERNAL.MIGRATE_LABELS_TABLE();
 
+-- Migrate the schema of predefined_labels table if it already exists
+call INTERNAL.MIGRATE_PREDEFINED_LABELS_TABLE();
+
 -- Populate the list of predefined labels
 call INTERNAL.POPULATE_PREDEFINED_LABELS();
 
