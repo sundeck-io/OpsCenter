@@ -285,3 +285,46 @@ BEGIN
     RETURN NULL;
 END;
 $$;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_LABELS(gap_in_seconds NUMBER)
+    RETURNS BOOLEAN
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+$$
+BEGIN
+    let rowCount1 number := (
+        WITH
+        OLD_PREDEFINED_LABELS AS
+            (SELECT name, condition, LABEL_CREATED_AT FROM INTERNAL.PREDEFINED_LABELS WHERE TIMESTAMPDIFF(SECOND, LABEL_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
+        USER_LABELS AS
+            (SELECT name, condition, LABEL_MODIFIED_AT FROM INTERNAL.LABELS)
+        SELECT count(*) from (select * from OLD_PREDEFINED_LABELS MINUS SELECT * FROM USER_LABELS) S
+        );
+    let rowCount2 number := (
+        WITH
+        OLD_PREDEFINED_LABELS AS
+            (SELECT name, condition, LABEL_CREATED_AT FROM INTERNAL.PREDEFINED_LABELS WHERE TIMESTAMPDIFF(SECOND, LABEL_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
+        USER_LABELS AS
+            (SELECT name, condition, LABEL_MODIFIED_AT FROM INTERNAL.LABELS)
+        SELECT count(*) from (select * from USER_LABELS MINUS SELECT * FROM OLD_PREDEFINED_LABELS) S
+        );
+
+    IF (rowCount1 > 0 OR rowCount2 > 0) THEN
+        RETURN FALSE;
+    END IF;
+
+    MERGE INTO internal.labels t
+    USING internal.predefined_labels s
+    ON t.name = s.name and t.condition = s.condition
+    WHEN MATCHED THEN
+    UPDATE
+        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT
+    WHEN NOT MATCHED THEN
+    INSERT
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
+        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT);
+
+    return TRUE;
+END;
+$$;

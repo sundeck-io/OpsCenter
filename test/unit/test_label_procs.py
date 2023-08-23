@@ -5,6 +5,7 @@ from common_utils import generate_unique_name
 from common_utils import run_proc
 from common_utils import row_count
 from common_utils import run_sql
+import time
 
 
 def test_smoke_create_drop_label(conn, timestamp_string):
@@ -249,3 +250,75 @@ def test_initialize_labels(conn, timestamp_string):
     assert "successfully" in str(
         run_sql(conn, sql)
     ), "SQL output does not match expected result!"
+
+
+def test_migrate_predefined_labels(conn, timestamp_string):
+    # step 1: clean up the labels table and predefined_labels table
+    sql = "truncate table internal.labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "truncate table internal.predefined_labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "delete from internal.config where KEY = 'LABELS_INITED'"
+    run_sql(conn, sql)
+
+    # step 3: populate predefined_labels table
+    sql = "CALL INTERNAL.POPULATE_PREDEFINED_LABELS();"
+    assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
+
+    sql = "select count(*) from internal.PREDEFINED_LABELS"
+    output = row_count(conn, sql)
+    assert output > 0, "SQL output " + str(output) + " does not match expected result!"
+
+    # step 4: call internal.initialize_labels()
+    sql = "call INTERNAL.INITIALIZE_LABELS()"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 5: verify rows in labels table
+    sql = "select count(*) from internal.LABELS"
+    output = row_count(conn, sql)
+    assert output > 0, "SQL output " + str(output) + " does not match expected result!"
+
+    # step 6: verify flag in internal.config
+    sql = "call internal.get_config('LABELS_INITED')"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 7: sleep 5 seconds
+    time.sleep(5)
+
+    # step 7: call internal.migrate_predefined_labels()
+    sql = "call INTERNAL.MIGRATE_PREDEFINED_LABELS(5)"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 8: insert a row into user's labels
+    sql = (
+        "INSERT INTO INTERNAL.LABELS (name, condition) values ('test', 'testcondition')"
+    )
+    run_sql(conn, sql)
+
+    ## step 9: MIGRATE_PREDEFINED_LABELS should return False, because user adds one label
+    sql = "call INTERNAL.MIGRATE_PREDEFINED_LABELS(5)"
+    output = str(run_sql(conn, sql))
+    assert "False" in output, "SQL output" + output + " does not match expected result!"
+
+    ## step 10: clean up data
+    sql = "truncate table internal.labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "truncate table internal.predefined_labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "delete from internal.config where KEY = 'LABELS_INITED'"
+    run_sql(conn, sql)

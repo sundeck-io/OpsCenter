@@ -68,6 +68,13 @@ call INTERNAL.POPULATE_PREDEFINED_LABELS();
 -- does not have user-created labels.
 call INTERNAL.INITIALIZE_LABELS();
 
+-- Migrate predefined labels to user's labels if user
+-- 1) does not make any change to predefined label,
+-- 2) and does not create new user label
+-- after last install/upgrade of APP
+-- parameter 7200 (seconds) is the timestamp difference when a predefined label is regarded as an old one.
+call INTERNAL.MIGRATE_PREDEFINED_LABELS(7200);
+
 CREATE OR REPLACE TASK TASKS.PROBE_MONITORING
     SCHEDULE = '1 minute'
     ALLOW_OVERLAPPING_EXECUTION = FALSE
