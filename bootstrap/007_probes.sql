@@ -69,8 +69,7 @@ AS
 BEGIN
     let probes_enabled boolean := (select count(*) > 0 from internal.probes where cancel or notify_writer or length(notify_other) > 3);
     let configured boolean := (select count(*) > 0 from internal.config where key = 'post_setup');
-    let quota_enabled boolean := (select internal.is_consumption_enabled());
-    if ((probes_enabled OR quota_enabled) and configured) then
+    if (probes_enabled and configured) then
         execute immediate 'alter task tasks.PROBE_MONITORING resume';
     else
         execute immediate 'alter task tasks.PROBE_MONITORING suspend';
