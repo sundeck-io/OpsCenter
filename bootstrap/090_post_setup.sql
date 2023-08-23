@@ -69,6 +69,7 @@ CREATE OR REPLACE TASK TASKS.PROBE_MONITORING
 DECLARE
   sql STRING;
 BEGIN
+    SYSTEM$LOG_DEBUG('probe_monitoring task beginning');
     CALL INTERNAL.GET_PROBE_SELECT() into :sql;
     execute immediate sql;
     LET c1 CURSOR FOR SELECT probe_name, query_id, to_json(action_taken) as action_takens, action_taken, query_text, user_name, warehouse_name, start_time FROM TABLE(RESULT_SCAN(LAST_QUERY_ID()));
@@ -133,16 +134,51 @@ Query Text: {bt}{bt}{bt}{query_text}{bt}{bt}{bt}
            outcome := outcome || slackResult;
        END IF;
 
-
-        let name string := act.PROBE_NAME;
-        let action string := act.ACTION_TAKENS;
-        let query_id string := act.QUERY_ID;
-        insert into internal.probe_actions select CURRENT_TIMESTAMP(), :name, :query_id, parse_json(:action), :outcome;
-    END FOR;
+       let name string := act.PROBE_NAME;
+       let action string := act.ACTION_TAKENS;
+       let query_id string := act.QUERY_ID;
+       insert into internal.probe_actions select CURRENT_TIMESTAMP(), :name, :query_id, parse_json(:action), :outcome;
+   END FOR;
 EXCEPTION
-    WHEN OTHER THEN
-        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during probe monitoring.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-        insert into internal.probe_actions select CURRENT_TIMESTAMP(), '', '', null::VARIANT, 'Caught unhandled exception';
+   WHEN OTHER THEN
+       SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during probe monitoring.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+       insert into internal.probe_actions select CURRENT_TIMESTAMP(), '', '', null::VARIANT, 'Caught unhandled exception';
+       RAISE;
+END;
+
+CREATE OR REPLACE TASK TASKS.COST_CONTROL_MONITORING
+    SCHEDULE = '5 minute'
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
+    AS
+DECLARE
+    sql STRING;
+    start_time timestamp_ltz default current_timestamp();
+BEGIN
+    SYSTEM$LOG_DEBUG('starting task to monitor user and role cost');
+    -- Get and run the query to compute the daily quota usage by user and role.
+    call internal.get_daily_quota_select() into :sql;
+    execute immediate sql;
+    let quota_usage object := (select daily_quota from table(result_scan(last_query_id())));
+
+    -- Send the result to Sundeck
+    let quota_outcome string := '';
+    BEGIN
+        quota_outcome := (select to_json(INTERNAL.REPORT_QUOTA_USED(:quota_usage)));
+    EXCEPTION
+        WHEN other THEN
+            SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'External function to report cost usage failed.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+            quota_outcome := :sqlerrm;
+    END;
+
+    -- Log the results locally
+    insert into internal.quota_task_history select :start_time, current_timestamp(), :quota_usage, :quota_outcome;
+
+    SYSTEM$LOG_DEBUG('finished cost monitoring');
+exception
+    when other then
+        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred during cost control computation.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+        insert into internal.quota_task_history select :start_time, current_timestamp(), null, '(' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
         RAISE;
 END;
 
@@ -158,10 +194,12 @@ call ADMIN.UPDATE_PROBE_MONITOR_RUNNING();
 alter task TASKS.SFUSER_MAINTENANCE resume;
 alter task TASKS.WAREHOUSE_EVENTS_MAINTENANCE resume;
 alter task TASKS.QUERY_HISTORY_MAINTENANCE resume;
+alter task TASKS.COST_CONTROL_MONITORING resume;
 
 -- Kick off the maintenance tasks.
 execute task TASKS.SFUSER_MAINTENANCE;
 execute task TASKS.WAREHOUSE_EVENTS_MAINTENANCE;
 execute task TASKS.QUERY_HISTORY_MAINTENANCE;
+execute task TASKS.COST_CONTROL_MONITORING;
 
 END;
