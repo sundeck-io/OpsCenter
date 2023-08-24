@@ -298,18 +298,45 @@ def test_migrate_predefined_labels(conn, timestamp_string):
     output = str(run_sql(conn, sql))
     assert "True" in output, "SQL output" + output + " does not match expected result!"
 
-    # step 8: insert a row into user's labels
+    # step 8: insert a new predefined label to PREDEFIEND_LABELS
+    sql = "INSERT INTO INTERNAL.PREDEFINED_LABELS (name, condition, LABEL_CREATED_AT, LABEL_MODIFIED_AT) values ('NEW PREDEFINED LABEL', 'rows_produced > 50 ', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+    run_sql(conn, sql)
+
+    # step 9: call internal.migrate_predefined_labels()
+    sql = "call INTERNAL.MIGRATE_PREDEFINED_LABELS(5)"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 10: verify labels table has the new added predefinend label "NEW PREDEFINED LABEL"
+    sql = "select count(*) from internal.LABELS where name = 'NEW PREDEFINED LABEL'"
+    rowcount2 = row_count(conn, sql)
+    assert rowcount2 == 1, (
+        "SQL output " + str(rowcount2) + " does not match expected result!"
+    )
+
+    # step 11: update the condition of 'NEW PREDEFINED LABEL'
+    sql = "UPDATE INTERNAL.PREDEFINED_LABELS SET CONDITION = 'rows_produced > 100 ' where NAME = 'NEW PREDEFINED LABEL'"
+    run_sql(conn, sql)
+
+    # step 12: call internal.migrate_predefined_labels()
+    time.sleep(5)
+
+    sql = "call INTERNAL.MIGRATE_PREDEFINED_LABELS(5)"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 13: insert a row into user's labels
     sql = (
         "INSERT INTO INTERNAL.LABELS (name, condition) values ('test', 'testcondition')"
     )
     run_sql(conn, sql)
 
-    ## step 9: MIGRATE_PREDEFINED_LABELS should return False, because user adds one label
+    ## step 14: MIGRATE_PREDEFINED_LABELS should return False, because user adds one label
     sql = "call INTERNAL.MIGRATE_PREDEFINED_LABELS(5)"
     output = str(run_sql(conn, sql))
     assert "False" in output, "SQL output" + output + " does not match expected result!"
 
-    ## step 10: clean up data
+    ## step 15: clean up data
     sql = "truncate table internal.labels"
     assert "successfully" in str(
         run_sql(conn, sql)

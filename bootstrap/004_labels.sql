@@ -257,7 +257,7 @@ BEGIN
                 ('Large Results', 'rows_produced > 50000000'),
                 ('Writes', 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\')'),
                 ('Expanding Output', '10*bytes_scanned < BYTES_WRITTEN_TO_RESULT'),
-                ('Full Scans', 'coalesce(partitions_scanned, 0)/coalesce(partitions_total, 1) > 0.95'),
+                ('Full Scans', 'coalesce(partitions_scanned, 0) > coalesce(partitions_total, 1) * 0.95'),
                 ('Long Compilation', 'COMPILATION_TIME > 100'),
                 ('Long Queries', 'TOTAL_ELAPSED_TIME > 600000'),
                 ('Expensive Queries', 'COST>0.5'),
@@ -312,17 +312,17 @@ BEGIN
     let rowCount1 number := (
         WITH
         OLD_PREDEFINED_LABELS AS
-            (SELECT name, condition, LABEL_CREATED_AT FROM INTERNAL.PREDEFINED_LABELS WHERE TIMESTAMPDIFF(SECOND, LABEL_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
+            (SELECT name, LABEL_CREATED_AT FROM INTERNAL.PREDEFINED_LABELS WHERE TIMESTAMPDIFF(SECOND, LABEL_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
         USER_LABELS AS
-            (SELECT name, condition, LABEL_MODIFIED_AT FROM INTERNAL.LABELS)
+            (SELECT name, LABEL_MODIFIED_AT FROM INTERNAL.LABELS)
         SELECT count(*) from (select * from OLD_PREDEFINED_LABELS MINUS SELECT * FROM USER_LABELS) S
         );
     let rowCount2 number := (
         WITH
         OLD_PREDEFINED_LABELS AS
-            (SELECT name, condition, LABEL_CREATED_AT FROM INTERNAL.PREDEFINED_LABELS WHERE TIMESTAMPDIFF(SECOND, LABEL_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
+            (SELECT name, LABEL_CREATED_AT FROM INTERNAL.PREDEFINED_LABELS WHERE TIMESTAMPDIFF(SECOND, LABEL_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
         USER_LABELS AS
-            (SELECT name, condition, LABEL_MODIFIED_AT FROM INTERNAL.LABELS)
+            (SELECT name, LABEL_MODIFIED_AT FROM INTERNAL.LABELS)
         SELECT count(*) from (select * from USER_LABELS MINUS SELECT * FROM OLD_PREDEFINED_LABELS) S
         );
 
@@ -332,7 +332,7 @@ BEGIN
 
     MERGE INTO internal.labels t
     USING internal.predefined_labels s
-    ON t.name = s.name and t.condition = s.condition
+    ON t.name = s.name
     WHEN MATCHED THEN
     UPDATE
         SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT
