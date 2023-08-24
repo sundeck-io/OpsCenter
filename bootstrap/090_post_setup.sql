@@ -185,7 +185,7 @@ BEGIN
     let quota_usage object := (
         with todays_usage as (
             select * from internal.aggregated_hourly_quota
-            where day_of_quota = TO_DATE(:start_time)
+            where day = TO_DATE(:start_time)
         ), user_usage as(
             -- Exclude the oldest hourly buckets of cached credit use data as we are getting fresh data
             -- from the information_schema.query_history table function to avoid double-counting.

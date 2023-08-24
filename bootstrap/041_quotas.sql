@@ -44,34 +44,16 @@ $$;
     return s;
 END;
 
-create or replace table internal.aggregated_hourly_quota(day_of_quota date, hour_of_day integer, name string, persona string, credits_used float, last_updated timestamp);
---create table if not exists internal.aggregated_hourly_quota(day_of_quota date, hour_of_day integer, name string, persona string, credits_used float, last_updated timestamp);
+create table if not exists internal.aggregated_hourly_quota(day date, hour_of_day integer, name string, persona string, credits_used float, last_updated timestamp);
 
--- account_usage.query_history has a 45 minute delay, we want to get the last hour bucket which is "guaranteed" to be
--- complete. We have to rewind one extra hour backward to make sure that whole hour is reflected in the query_history view.
--- e.g. 1730 - 45mins = 1645. However, the '16' bucket cannot be complete because the range [1645,1700) is not guaranteed
---   to be complete per snowflake. However, the '15' bucket can be safely computed.
-CREATE OR REPLACE FUNCTION INTERNAL.GET_QUERY_HISTORY_START_RANGE(t TIMESTAMP)
-RETURNS TIMESTAMP
-AS
-$$
-    timestampadd('hour', -1, date_trunc('hour', timestampadd('minutes', -45, t)))
-$$;
-
+-- We want to read the last 1 hour plus N minutes where N is the number of minutes since top of the hour.
+-- This has the limitation that if there are more than 10K queries run in a two-hour window, we will miss some.
 CREATE OR REPLACE FUNCTION INTERNAL.GET_QUERY_HISTORY_FUNC_START_RANGE(t TIMESTAMP)
 RETURNS TIMESTAMP
 AS
 $$
     timestampadd('hour', -1, date_trunc('hour', t))
 $$;
-
-CREATE OR REPLACE FUNCTION INTERNAL.MAKE_QUOTA_HOUR_BUCKET(t TIMESTAMP)
-RETURNS INTEGER
-AS
-$$
-    extract(HOUR from internal.get_query_history_start_range(t))
-$$;
-
 
 
 CREATE OR REPLACE PROCEDURE INTERNAL.REFRESH_HOURLY_QUERY_USAGE_SQL(now TIMESTAMP)
@@ -113,29 +95,29 @@ BEGIN
             select
                 user_name                   as name,
                 sum(credits_used)           as credits_used,
-                date_trunc('day', end_time) as day_of_quota,
+                date_trunc('day', end_time) as day,
                 extract(HOUR from end_time) as hour_of_day,
                 'user'                      as persona
             from costed_queries
-            group by user_name, day_of_quota, hour_of_day
+            group by user_name, day, hour_of_day
             union all
             select role_name                   as name,
                 sum(credits_used)           as credits_used,
-                date_trunc('day', end_time) as day_of_quota,
+                date_trunc('day', end_time) as day,
                 extract(HOUR from end_time) as hour_of_day,
                 'role'                      as persona
             from costed_queries
-            group by role_name, day_of_quota, hour_of_day
-        ) select name, credits_used, day_of_quota, hour_of_day, persona from usage
-    ) new_usage (name, credits_used, day_of_quota, hour_of_day, persona)
+            group by role_name, day, hour_of_day
+        ) select name, credits_used, day, hour_of_day, persona from usage
+    ) new_usage (name, credits_used, day, hour_of_day, persona)
     -- Name + persona + date + hour, e.g. (josh, user, 2023-08-24, 12)
-    ON q.name = new_usage.name AND q.persona = new_usage.persona AND q.day_of_quota = new_usage.day_of_quota AND q.hour_of_day = new_usage.hour_of_day
+    ON q.name = new_usage.name AND q.persona = new_usage.persona AND q.day = new_usage.day AND q.hour_of_day = new_usage.hour_of_day
     WHEN MATCHED THEN
         -- Set the new credits_used as we recomputed that whole hour
         UPDATE SET q.credits_used = new_usage.credits_used, q.last_updated = current_timestamp()
     WHEN NOT MATCHED THEN
-        INSERT (name, credits_used, day_of_quota, hour_of_day, persona, last_updated)
-        VALUES(new_usage.name, new_usage.credits_used, new_usage.day_of_quota, new_usage.hour_of_day, new_usage.persona, current_timestamp());
+        INSERT (name, credits_used, day, hour_of_day, persona, last_updated)
+        VALUES(new_usage.name, new_usage.credits_used, new_usage.day, new_usage.hour_of_day, new_usage.persona, current_timestamp());
 
     -- Record the number of rows we wrote
     let rows_added integer := SQLROWCOUNT;
