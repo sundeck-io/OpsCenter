@@ -173,52 +173,45 @@ DECLARE
     start_time timestamp default current_timestamp();
 BEGIN
     SYSTEM$LOG_DEBUG('starting task to monitor user and role cost');
-    -- Get and run the query to compute the daily quota usage by user and role.
-    call internal.get_recent_quota_usage_select() into :sql;
+
+    -- Update internal.aggregated_hourly_quota with the latest usage data from the QH table function.
+    CALL INTERNAL.REFRESH_HOURLY_QUERY_USAGE_SQL(:start_time) into :sql;
     execute immediate sql;
 
-    -- Union the last 24-N hours of query history from account_usage.query_history with the last N hours from
-    -- information_schema.query_history. Aggregate them into the map that the external function expects.
+    let quota_outcome string := (select * from table(result_scan(last_query_id())));
+
+    -- Aggregate the usage for today from aggregated_hourly_quota into the map that the external function expects.
+    -- e.g. {'users': {'bob': 1.0}, 'roles': {'PUBLIC': 2.0}}
     let quota_usage object := (
-        with recent_usage as (
-            select name, persona, credits_used from table (result_scan(last_query_id()))
+        with todays_usage as (
+            select * from internal.aggregated_hourly_quota
+            where day_of_quota = TO_DATE(:start_time)
         ), user_usage as(
             -- Exclude the oldest hourly buckets of cached credit use data as we are getting fresh data
             -- from the information_schema.query_history table function to avoid double-counting.
-            SELECT credits_used, name
-            FROM internal.aggregated_hourly_quota
-            WHERE persona = 'user' AND hour_of_day NOT BETWEEN internal.make_quota_hour_bucket(current_timestamp()) AND extract(hour from date_trunc('hour', current_timestamp()))
-            UNION ALL
-            SELECT credits_used, name
-            FROM recent_usage
+            SELECT name, sum(credits_used) as credits
+            FROM todays_usage
             WHERE persona = 'user'
+            group by name
         ), role_usage as (
-            SELECT credits_used, name
-            FROM internal.aggregated_hourly_quota
-            WHERE persona = 'role' AND hour_of_day NOT BETWEEN internal.make_quota_hour_bucket(current_timestamp()) AND extract(hour from date_trunc('hour', current_timestamp()))
-            UNION ALL
-            SELECT credits_used, name
-            FROM recent_usage
+            SELECT name, sum(credits_used) as credits
+            FROM todays_usage
             WHERE persona = 'role'
-        ), user_sum as (
-            select sum(credits_used) as credits, name from user_usage group by name
-        ), role_sum as (
-            select sum(credits_used) as credits, name from role_usage group by name
+            group by name
         ), aggr as (
-            select 'users' as kind, object_agg(name, credits) as usage_map from user_sum
+            select 'users' as kind, object_agg(name, credits) as usage_map from user_usage
             union all
-            select 'roles' as kind, object_agg(name, credits) as usage_map from role_sum
+            select 'roles' as kind, object_agg(name, credits) as usage_map from role_usage
         )
         select object_agg(kind, usage_map) from aggr);
 
     -- Send the result to Sundeck
-    let quota_outcome string := '';
     BEGIN
-        quota_outcome := (select to_json(INTERNAL.REPORT_QUOTA_USED(:quota_usage)));
+        quota_outcome := :quota_outcome || '. ' || (select to_json(INTERNAL.REPORT_QUOTA_USED(:quota_usage)));
     EXCEPTION
         WHEN other THEN
             SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'External function to report cost usage failed.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-            quota_outcome := 'Failed to report quota usage to Sundeck ' || :sqlerrm;
+            quota_outcome := :quota_outcome || '. Failed to report quota usage to Sundeck ' || :sqlerrm;
     END;
 
     -- Log the results locally
