@@ -344,17 +344,17 @@ BEGIN
     let rowCount1 number := (
         WITH
         OLD_PREDEFINED_PROBES AS
-            (SELECT name, condition, PROBE_CREATED_AT FROM INTERNAL.PREDEFINED_PROBES WHERE TIMESTAMPDIFF(SECOND, PROBE_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
+            (SELECT name, PROBE_CREATED_AT FROM INTERNAL.PREDEFINED_PROBES WHERE TIMESTAMPDIFF(SECOND, PROBE_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
         USER_PROBES AS
-            (SELECT name, condition, PROBE_MODIFIED_AT FROM INTERNAL.PROBES)
+            (SELECT name, PROBE_MODIFIED_AT FROM INTERNAL.PROBES)
         SELECT count(*) from (select * from OLD_PREDEFINED_PROBES MINUS SELECT * FROM USER_PROBES) S
         );
-    let rowCount1 number := (
+    let rowCount2 number := (
         WITH
         OLD_PREDEFINED_PROBES AS
-            (SELECT name, condition, PROBE_CREATED_AT FROM INTERNAL.PREDEFINED_PROBES WHERE TIMESTAMPDIFF(SECOND, PROBE_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
+            (SELECT name, PROBE_CREATED_AT FROM INTERNAL.PREDEFINED_PROBES WHERE TIMESTAMPDIFF(SECOND, PROBE_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
         USER_PROBES AS
-            (SELECT name, condition, PROBE_MODIFIED_AT FROM INTERNAL.PROBES)
+            (SELECT name, PROBE_MODIFIED_AT FROM INTERNAL.PROBES)
         SELECT count(*) from (select * from  USER_PROBES MINUS SELECT * FROM OLD_PREDEFINED_PROBES ) S
         );
 
@@ -364,10 +364,11 @@ BEGIN
 
     MERGE INTO internal.probes t
     USING internal.predefined_probes s
-    ON t.name = s.name and t.condition = s.condition
+    ON t.name = s.name
     WHEN MATCHED THEN
     UPDATE
-        SET t.NOTIFY_WRITER = s.NOTIFY_WRITER,
+        SET t.CONDITION = s.CONDITION,
+            t.NOTIFY_WRITER = s.NOTIFY_WRITER,
             t.NOTIFY_WRITER_METHOD = s.NOTIFY_WRITER_METHOD,
             t.NOTIFY_OTHER = s.NOTIFY_OTHER,
             t.NOTIFY_OTHER_METHOD = s.NOTIFY_OTHER_METHOD,

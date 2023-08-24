@@ -85,9 +85,16 @@ call INTERNAL.MIGRATE_PREDEFINED_LABELS(7200);
 -- Populate the list of predefined probes
 call INTERNAL.POPULATE_PREDEFINED_PROBES();
 
--- Init PROBES using predefined_probess, if the consumer account has not call INTERNAL.INITIALIZE_PROBES, and it
+-- Init PROBES using predefined_probes, if the consumer account has not call INTERNAL.INITIALIZE_PROBES, and it
 -- does not have user-created probes.
 call INTERNAL.INITIALIZE_PROBES();
+
+-- Migrate predefined probes to user's probes if user
+-- 1) does not make any change to predefined probes,
+-- 2) and does not create new user probe
+-- after last install/upgrade of APP
+-- parameter 7200 (seconds) is the timestamp difference when a predefined probe is regarded as an old one.
+call INTERNAL.MIGRATE_PREDEFINED_PROBES(7200);
 
 
 CREATE OR REPLACE TASK TASKS.PROBE_MONITORING

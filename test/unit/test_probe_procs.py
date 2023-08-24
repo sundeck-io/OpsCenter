@@ -3,9 +3,10 @@ from __future__ import annotations
 from common_utils import run_proc
 from common_utils import row_count
 from common_utils import run_sql
+import time
 
 
-def test_initialize_probes(conn, timestamp_string):
+def test_initialize_then_migrate_probes(conn, timestamp_string):
     # step 1: clean up the probes table and predefined_probes table
     sql = "truncate table internal.probes"
     assert "successfully" in str(
@@ -54,7 +55,51 @@ def test_initialize_probes(conn, timestamp_string):
     output = row_count(conn, sql)
     assert output > 0, "SQL output " + str(output) + " does not match expected result!"
 
-    # step 9: clean up the probes table and predefined_probes table
+    # step 9: sleep 5 seconds
+    time.sleep(5)
+
+    # step 10: call internal.migrate_predefined_probes()
+    sql = "call INTERNAL.MIGRATE_PREDEFINED_PROBES(5)"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 11: insert a new predefined probe to PREDEFIEND_PROBES
+    sql = "INSERT INTO INTERNAL.PREDEFINED_PROBES (name, condition, PROBE_CREATED_AT, PROBE_MODIFIED_AT) values ('NEW PREDEFINED PROBE', 'bytes_scanned > 10000', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+    run_sql(conn, sql)
+
+    # step 12: call internal.migrate_predefined_probes(). Migration should return true, since we have a new predefined probe.
+    sql = "call INTERNAL.MIGRATE_PREDEFINED_PROBES(5)"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 13: verify probes table has the new added predefinend probe "NEW PREDEFINED PROBE"
+    sql = "select count(*) from internal.PROBES where name = 'NEW PREDEFINED PROBE'"
+    rowcount = row_count(conn, sql)
+    assert rowcount == 1, (
+        "SQL output " + str(rowcount) + " does not match expected result!"
+    )
+
+    # step 14: update the condition of 'NEW PREDEFINED PROBE'
+    sql = "UPDATE INTERNAL.PREDEFINED_PROBES SET CONDITION = 'bytes_scanned > 20000 ' where NAME = 'NEW PREDEFINED PROBE'"
+    run_sql(conn, sql)
+
+    # step 15: call internal.migrate_predefined_probes(). Migration should return true, since we modify condition of one old predefined probes.
+    time.sleep(5)
+
+    sql = "call INTERNAL.MIGRATE_PREDEFINED_probes(5)"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 16: insert a row into user's PROBES
+    sql = "INSERT INTO INTERNAL.PROBES (name, condition, PROBE_CREATED_AT, PROBE_MODIFIED_AT) values ('test', 'bytes_scanned > 100', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+    run_sql(conn, sql)
+
+    ## step 17: MIGRATE_PREDEFINED_PROBES should return False, because user adds one PROBE
+    sql = "call INTERNAL.MIGRATE_PREDEFINED_PROBES(5)"
+    output = str(run_sql(conn, sql))
+    assert "False" in output, "SQL output" + output + " does not match expected result!"
+
+    # step 18: clean up the probes table and predefined_probes table
     sql = "truncate table internal.probes"
     assert "successfully" in str(
         run_sql(conn, sql)
