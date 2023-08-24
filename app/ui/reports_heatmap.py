@@ -1,7 +1,8 @@
 import streamlit as st
+import datetime
 import connection
 import pandas as pd
-import plotly.figure_factory as ff
+import plotly.express as px
 import calendar
 import numpy as np
 import filters
@@ -29,6 +30,20 @@ def heatmap(
     df = connection.execute(
         sql, {"start": bf.start, "end": bf.end, "warehouse_names": bf.warehouse_names}
     )
+    df.set_index(["PERIOD"], inplace=True)
+    low = df.index.min().date()
+    high = df.index.max().date()
+
+    df = df.reindex(
+        pd.date_range(
+            low - datetime.timedelta(days=low.weekday()),
+            high - datetime.timedelta(days=low.weekday()) + datetime.timedelta(days=5),
+            freq="D",
+        ),
+        fill_value=np.nan,
+    )
+    df.reset_index(inplace=True)
+    df.rename(columns={"index": "PERIOD"}, inplace=True)
     df["UTILIZATION"] = (df["UTILIZATION"].astype(float) * 100).round(1)
 
     df["week"] = df["PERIOD"].dt.isocalendar().week
@@ -42,58 +57,43 @@ def heatmap(
     df = df.sort_values(["year", "week"])
 
     day_order = [
-        "Sunday",
         "Monday",
         "Tuesday",
         "Wednesday",
         "Thursday",
         "Friday",
         "Saturday",
+        "Sunday",
     ]
     df["weekday"] = pd.Categorical(df["weekday"], categories=day_order, ordered=True)
 
-    pivot_df = df.pivot_table(
-        values="UTILIZATION",
-        index=["year", "week"],
-        columns="weekday",
-        aggfunc="first",
-        fill_value=None,
-        dropna=False,
-    )
-    pivot_df = pivot_df.fillna(np.nan)
-
-    # Create labels for the heatmap (short date format)
     df["short_date"] = df["PERIOD"].dt.strftime("%m/%d")
-    pivot_df_labels = df.pivot_table(
-        values="short_date",
-        index=["year", "week"],
-        columns="weekday",
-        aggfunc="first",
-        fill_value=None,
-        dropna=False,
-    )
 
-    pivot_df = pivot_df.sort_index(ascending=False)
+    pivot_df = df.groupby(["year", "week", "weekday"]).first().unstack()
+    # pivot_df = pivot_df.fillna(np.nan)
 
-    pivot_df_utilization_labels = pivot_df.applymap(
+    pivot_df = pivot_df.sort_index(ascending=True)
+
+    pivot_df.UTILIZATION_TEXT = pivot_df.UTILIZATION.applymap(
         lambda x: f"{x}%" if pd.notnull(x) else ""
     )
 
     # Create the heatmap with customized colorscale and hovertext
-    fig = ff.create_annotated_heatmap(
-        z=pivot_df.values,
-        x=list(pivot_df.columns),
+    fig = px.imshow(
+        pivot_df.UTILIZATION.values,
+        x=list(pivot_df.UTILIZATION.columns),
         y=[f"Week {idx[1]} {idx[0]}" for idx in pivot_df.index],
-        annotation_text=pivot_df_utilization_labels.values,
-        text=pivot_df_labels.values,
-        hovertemplate="<extra></extra>%{text}<br>Utilization: %{z}%",
+        color_continuous_scale=[[0, "#E0D9FC"], [1, "#562FEE"]],
     )
 
+    fig.update_traces(
+        text=pivot_df.UTILIZATION_TEXT.values,
+        texttemplate="%{text}",
+        hovertemplate="<extra></extra>%{hovertext}<br>Utilization: %{z}%",
+        hovertext=pivot_df.short_date.values,
+    )
     fig["data"][0]["showscale"] = True
-    fig["data"][0]["colorscale"] = [
-        [0, "#E0D9FC"],
-        [1, "#562FEE"],
-    ]  # darker shade of lavender
+    fig.update_xaxes(side="top")
 
     fig.update_layout(
         title="Weekly Utilization Heatmap",
