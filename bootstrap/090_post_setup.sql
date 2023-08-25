@@ -231,13 +231,8 @@ BEGIN
     -- Record the number of rows we wrote
     let rows_added integer := SQLROWCOUNT;
 
-    let outcome string := 'Updated ' || :rows_added || ' rows in aggregated_hourly_quota since ' || :qh_func_start_time;
-
-    -- Record the success
-    insert into INTERNAL.QUOTA_TASK_HISTORY SELECT :start_time, current_timestamp(), NULL, :outcome;
-
     -- Save the output of that query so we can return it from the task to ease debugging.
-    let quota_outcome string := (select * from table(result_scan(last_query_id())));
+    let outcome string := 'Updated ' || :rows_added || ' rows in aggregated_hourly_quota since ' || :qh_func_start_time;
 
     -- Aggregate the usage for today from aggregated_hourly_quota into the map that the external function expects.
     -- e.g. {'users': {'bob': 1.0}, 'roles': {'PUBLIC': 2.0}}
@@ -266,15 +261,15 @@ BEGIN
 
     -- Send the result to Sundeck, record the outcome from calling the external function
     BEGIN
-        quota_outcome := :quota_outcome || '. ' || (select to_json(INTERNAL.REPORT_QUOTA_USED(:quota_usage)));
+        outcome := :outcome || '. ' || (select to_json(INTERNAL.REPORT_QUOTA_USED(:quota_usage)));
     EXCEPTION
         WHEN other THEN
             SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'External function to report cost usage failed.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-            quota_outcome := :quota_outcome || '. Failed to report quota usage to Sundeck ' || :sqlerrm;
+            outcome := :outcome || '. Failed to report quota usage to Sundeck ' || :sqlerrm;
     END;
 
     -- Log the results locally
-    INSERT INTO internal.quota_task_history SELECT :start_time, current_timestamp(), :quota_usage, :quota_outcome;
+    INSERT INTO internal.quota_task_history SELECT :start_time, current_timestamp(), :quota_usage, :outcome;
 
     SYSTEM$LOG_DEBUG('finished cost monitoring');
 exception
