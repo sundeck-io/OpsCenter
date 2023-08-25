@@ -27,17 +27,19 @@ def heatmap(
     left outer join util u on d.date = u.PERIOD
     where d.date between %(start)s and %(end)s
     """
+    low = bf.start - datetime.timedelta(days=bf.start.weekday())
+    high = (
+        bf.end - datetime.timedelta(days=bf.end.weekday()) + datetime.timedelta(days=6)
+    )
     df = connection.execute(
-        sql, {"start": bf.start, "end": bf.end, "warehouse_names": bf.warehouse_names}
+        sql, {"start": low, "end": high, "warehouse_names": bf.warehouse_names}
     )
     df.set_index(["PERIOD"], inplace=True)
-    low = df.index.min().date()
-    high = df.index.max().date()
 
     df = df.reindex(
         pd.date_range(
-            low - datetime.timedelta(days=low.weekday()),
-            high - datetime.timedelta(days=low.weekday()) + datetime.timedelta(days=5),
+            low,
+            high,
             freq="D",
         ),
         fill_value=np.nan,
@@ -70,12 +72,11 @@ def heatmap(
     df["short_date"] = df["PERIOD"].dt.strftime("%m/%d")
 
     pivot_df = df.groupby(["year", "week", "weekday"]).first().unstack()
-    # pivot_df = pivot_df.fillna(np.nan)
 
     pivot_df = pivot_df.sort_index(ascending=True)
 
     pivot_df.UTILIZATION_TEXT = pivot_df.UTILIZATION.applymap(
-        lambda x: f"{x}%" if pd.notnull(x) else ""
+        lambda x: f"{x}%" if pd.notnull(x) else "No Data"
     )
 
     # Create the heatmap with customized colorscale and hovertext
@@ -89,7 +90,7 @@ def heatmap(
     fig.update_traces(
         text=pivot_df.UTILIZATION_TEXT.values,
         texttemplate="%{text}",
-        hovertemplate="<extra></extra>%{hovertext}<br>Utilization: %{z}%",
+        hovertemplate="<extra></extra>%{hovertext}<br>Utilization: %{text}",
         hovertext=pivot_df.short_date.values,
     )
     fig["data"][0]["showscale"] = True
