@@ -171,12 +171,70 @@ CREATE OR REPLACE TASK TASKS.COST_CONTROL_MONITORING
 DECLARE
     sql STRING;
     start_time timestamp default current_timestamp();
+    qh_func_start_time timestamp default internal.get_query_history_func_start_range(:start_time);
 BEGIN
     SYSTEM$LOG_DEBUG('starting task to monitor user and role cost');
 
-    -- Update internal.aggregated_hourly_quota with the latest usage data from the QH table function.
-    CALL INTERNAL.REFRESH_HOURLY_QUERY_USAGE_SQL(:start_time) into :sql;
-    execute immediate sql;
+    -- Read account_usage.query_history and summarize by user/role and write to the table
+    MERGE INTO internal.aggregated_hourly_quota q
+    USING (
+        with todays_queries as (
+            select total_elapsed_time,
+                   credits_used_cloud_services,
+                   warehouse_size,
+                   user_name,
+                   role_name,
+                   end_time,
+                   warehouse_name
+            from table (information_schema.query_history(
+                   RESULT_LIMIT => 10000,
+                   -- TODO the function demands TIMESTAMP_LTZ. What does that actually do to our TIMESTAMP_NTZ?
+                   END_TIME_RANGE_START => TO_TIMESTAMP_LTZ(:qh_func_start_time),
+                   END_TIME_RANGE_END => TO_TIMESTAMP_LTZ(:start_time)))
+        ), costed_queries as (
+            select
+                greatest(0, total_elapsed_time) * internal.warehouse_credits_per_milli(warehouse_size) +
+                credits_used_cloud_services as credits_used,
+                user_name,
+                role_name,
+                end_time
+            from todays_queries
+            WHERE NOT INTERNAL.IS_SERVERLESS_WAREHOUSE(warehouse_name)
+        ), usage as (
+            select
+                user_name                   as name,
+                sum(credits_used)           as credits_used,
+                date_trunc('day', end_time) as day,
+                extract(HOUR from end_time) as hour_of_day,
+                'user'                      as persona
+            from costed_queries
+            group by user_name, day, hour_of_day
+            union all
+            select role_name                   as name,
+                sum(credits_used)           as credits_used,
+                date_trunc('day', end_time) as day,
+                extract(HOUR from end_time) as hour_of_day,
+                'role'                      as persona
+            from costed_queries
+            group by role_name, day, hour_of_day
+        ) select name, credits_used, day, hour_of_day, persona from usage
+    ) new_usage (name, credits_used, day, hour_of_day, persona)
+    -- Name + persona + date + hour, e.g. (josh, user, 2023-08-24, 12)
+    ON q.name = new_usage.name AND q.persona = new_usage.persona AND q.day = new_usage.day AND q.hour_of_day = new_usage.hour_of_day
+    WHEN MATCHED THEN
+        -- Set the new credits_used as we recomputed that whole hour
+        UPDATE SET q.credits_used = new_usage.credits_used, q.last_updated = current_timestamp()
+    WHEN NOT MATCHED THEN
+        INSERT (name, credits_used, day, hour_of_day, persona, last_updated)
+        VALUES(new_usage.name, new_usage.credits_used, new_usage.day, new_usage.hour_of_day, new_usage.persona, current_timestamp());
+
+    -- Record the number of rows we wrote
+    let rows_added integer := SQLROWCOUNT;
+
+    let outcome string := 'Updated ' || :rows_added || ' rows in aggregated_hourly_quota since ' || :qh_func_start_time;
+
+    -- Record the success
+    insert into INTERNAL.QUOTA_TASK_HISTORY SELECT :start_time, current_timestamp(), NULL, :outcome;
 
     -- Save the output of that query so we can return it from the task to ease debugging.
     let quota_outcome string := (select * from table(result_scan(last_query_id())));
@@ -206,7 +264,7 @@ BEGIN
         )
         select object_agg(kind, usage_map) from aggr);
 
-    -- Send the result to Sundeck
+    -- Send the result to Sundeck, record the outcome from calling the external function
     BEGIN
         quota_outcome := :quota_outcome || '. ' || (select to_json(INTERNAL.REPORT_QUOTA_USED(:quota_usage)));
     EXCEPTION
@@ -216,13 +274,13 @@ BEGIN
     END;
 
     -- Log the results locally
-    insert into internal.quota_task_history select :start_time, current_timestamp(), :quota_usage, :quota_outcome;
+    INSERT INTO internal.quota_task_history SELECT :start_time, current_timestamp(), :quota_usage, :quota_outcome;
 
     SYSTEM$LOG_DEBUG('finished cost monitoring');
 exception
     when other then
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred during cost control computation.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-        insert into internal.quota_task_history select :start_time, current_timestamp(), null, '(' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
+        INSERT INTO internal.quota_task_history SELECT :start_time, current_timestamp(), null, '(' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
         RAISE;
 END;
 

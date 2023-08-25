@@ -18,6 +18,14 @@ CREATE OR REPLACE FUNCTION INTERNAL.IS_SERVERLESS_WAREHOUSE(warehouse number)
     warehouse > 700000
     $$;
 
+-- Variant of IS_SERVERLESS_WAREHOUSE(number) for information_schema.query_history which
+-- does not contain the WAREHOUSE_ID NUMBER column.
+CREATE OR REPLACE FUNCTION INTERNAL.IS_SERVERLESS_WAREHOUSE(warehouse_name string)
+    RETURNS BOOLEAN AS
+    $$
+    startswith(warehouse_name, 'COMPUTE_SERVICE_WH_USER_TASKS_POOL_')
+    $$;
+
 CREATE OR REPLACE FUNCTION INTERNAL.GET_CREDIT_COST(warehouse number)
     RETURNS NUMBER AS
     $$
