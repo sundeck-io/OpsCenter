@@ -178,6 +178,7 @@ BEGIN
     CALL INTERNAL.REFRESH_HOURLY_QUERY_USAGE_SQL(:start_time) into :sql;
     execute immediate sql;
 
+    -- Save the output of that query so we can return it from the task to ease debugging.
     let quota_outcome string := (select * from table(result_scan(last_query_id())));
 
     -- Aggregate the usage for today from aggregated_hourly_quota into the map that the external function expects.

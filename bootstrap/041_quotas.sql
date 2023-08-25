@@ -2,48 +2,6 @@
 create table if not exists internal.quota_task_history(start_time timestamp, end_time timestamp, credits_used object, outcome string);
 CREATE OR REPLACE VIEW REPORTING.QUOTA_TASK_HISTORY AS SELECT * FROM INTERNAL.QUOTA_TASK_HISTORY;
 
--- returns SQL which reads the query_history table function and aggregates the credits used by both user and role. executed within a task
--- as an owner's rights procedure cannot call the query_history table function.
-create or replace procedure internal.get_recent_quota_usage_select()
-returns string
-language sql
-as
-BEGIN
-    let s string := $$
--- Compute just the remainder since the last time query history maintenance ran
-with todays_queries as(
-    select
-        total_elapsed_time,
-        credits_used_cloud_services,
-        warehouse_size,
-        user_name,
-        role_name
-    from table(information_schema.query_history(
-        RESULT_LIMIT => 10000,
-        END_TIME_RANGE_START => TO_TIMESTAMP_LTZ(INTERNAL.GET_QUERY_HISTORY_FUNC_START_RANGE(current_timestamp())),
-        END_TIME_RANGE_END => current_timestamp()))
-),
-costed_queries as (
-    select
-        greatest(0,total_elapsed_time) * internal.warehouse_credits_per_milli(warehouse_size) + credits_used_cloud_services as credits_used,
-        user_name,
-        role_name
-    from todays_queries
-),
-usage as (
-    select user_name as name, sum(credits_used) as credits_used, 'user' as persona
-    from costed_queries
-    group by user_name
-    union all
-    select role_name as name, sum(credits_used) as credits_used, 'role' as persona
-    from costed_queries
-    group by role_name
-)
-select name, persona, credits_used from usage;
-$$;
-    return s;
-END;
-
 create table if not exists internal.aggregated_hourly_quota(day date, hour_of_day integer, name string, persona string, credits_used float, last_updated timestamp);
 
 -- We want to read the last 1 hour plus N minutes where N is the number of minutes since top of the hour.
@@ -144,3 +102,4 @@ END;
 -- Cleanup old artifacts, accepting that a task may fail once if it happens to run
 -- in between the drop and finalize_setup() procedure's completion.
 drop procedure if exists internal.get_daily_quota_select();
+drop procedure if exists internal.get_recent_quota_usage_select()
