@@ -170,8 +170,9 @@ CREATE OR REPLACE TASK TASKS.COST_CONTROL_MONITORING
     AS
 DECLARE
     sql STRING;
-    start_time timestamp default current_timestamp();
-    qh_func_start_time timestamp default internal.get_query_history_func_start_range(:start_time);
+    -- Qualify the current timezone with the default timezone configured for this account
+    start_time timestamp_tz default current_timestamp();
+    qh_func_start_time timestamp_tz default internal.get_query_history_func_start_range(:start_time);
 BEGIN
     SYSTEM$LOG_DEBUG('starting task to monitor user and role cost');
 
@@ -188,9 +189,11 @@ BEGIN
                    warehouse_name
             from table (information_schema.query_history(
                    RESULT_LIMIT => 10000,
-                   -- TODO the function demands TIMESTAMP_LTZ. What does that actually do to our TIMESTAMP_NTZ?
-                   END_TIME_RANGE_START => TO_TIMESTAMP_LTZ(:qh_func_start_time),
-                   END_TIME_RANGE_END => TO_TIMESTAMP_LTZ(:start_time)))
+                   -- This function requires TIMESTAMP_LTZ. TO_TIMESTAMP_LTZ will treat the current timestamp as being
+                   -- in the account's current TIMEZONE parameter without shifting the time
+                   -- e.g. '2023-08-25 08:00:00' with TIMEZONE='America/Los_Angeles' becomes '2023-08-25 08:00:00 -07:00'
+                   END_TIME_RANGE_START => TO_TIMESTAMP_LTZ(:qh_func_start_time)
+                   ))
         ), costed_queries as (
             select
                 greatest(0, total_elapsed_time) * internal.warehouse_credits_per_milli(warehouse_size) +

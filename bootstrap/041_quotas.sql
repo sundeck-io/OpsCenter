@@ -1,13 +1,13 @@
 
-create table if not exists internal.quota_task_history(start_time timestamp, end_time timestamp, credits_used object, outcome string);
+create table if not exists internal.quota_task_history(start_time timestamp_tz, end_time timestamp_tz, credits_used object, outcome string);
 CREATE OR REPLACE VIEW REPORTING.QUOTA_TASK_HISTORY AS SELECT * FROM INTERNAL.QUOTA_TASK_HISTORY;
 
 create table if not exists internal.aggregated_hourly_quota(day date, hour_of_day integer, name string, persona string, credits_used float, last_updated timestamp);
 
 -- We want to read the last 1 hour plus N minutes where N is the number of minutes since top of the hour.
 -- This has the limitation that if there are more than 10K queries run in a two-hour window, we will miss some.
-CREATE OR REPLACE FUNCTION INTERNAL.GET_QUERY_HISTORY_FUNC_START_RANGE(t TIMESTAMP)
-RETURNS TIMESTAMP
+CREATE OR REPLACE FUNCTION INTERNAL.GET_QUERY_HISTORY_FUNC_START_RANGE(t TIMESTAMP_TZ)
+RETURNS TIMESTAMP_TZ
 AS
 $$
     timestampadd('hour', -1, date_trunc('hour', t))
