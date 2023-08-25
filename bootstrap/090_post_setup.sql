@@ -169,7 +169,6 @@ CREATE OR REPLACE TASK TASKS.COST_CONTROL_MONITORING
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
 DECLARE
-    sql STRING;
     -- Qualify the current timezone with the default timezone configured for this account
     start_time timestamp_tz default current_timestamp();
     qh_func_start_time timestamp_tz default internal.get_query_history_func_start_range(:start_time);
@@ -192,7 +191,9 @@ BEGIN
                    -- This function requires TIMESTAMP_LTZ. TO_TIMESTAMP_LTZ will treat the current timestamp as being
                    -- in the account's current TIMEZONE parameter without shifting the time
                    -- e.g. '2023-08-25 08:00:00' with TIMEZONE='America/Los_Angeles' becomes '2023-08-25 08:00:00 -07:00'
-                   END_TIME_RANGE_START => TO_TIMESTAMP_LTZ(:qh_func_start_time)
+                   END_TIME_RANGE_START => TO_TIMESTAMP_LTZ(:qh_func_start_time),
+                   -- Critical, else in-progress queries are included
+                   END_TIME_RANGE_END => current_timestamp()
                    ))
         ), costed_queries as (
             select
@@ -226,16 +227,16 @@ BEGIN
     ON q.name = new_usage.name AND q.persona = new_usage.persona AND q.day = new_usage.day AND q.hour_of_day = new_usage.hour_of_day
     WHEN MATCHED THEN
         -- Set the new credits_used as we recomputed that whole hour
-        UPDATE SET q.credits_used = new_usage.credits_used, q.last_updated = current_timestamp()
+        UPDATE SET q.credits_used = new_usage.credits_used, q.last_updated = :start_time
     WHEN NOT MATCHED THEN
         INSERT (name, credits_used, day, hour_of_day, persona, last_updated)
-        VALUES(new_usage.name, new_usage.credits_used, new_usage.day, new_usage.hour_of_day, new_usage.persona, current_timestamp());
+        VALUES(new_usage.name, new_usage.credits_used, new_usage.day, new_usage.hour_of_day, new_usage.persona, :start_time);
 
     -- Record the number of rows we wrote
     let rows_added integer := SQLROWCOUNT;
 
     -- Save the output of that query so we can return it from the task to ease debugging.
-    let outcome string := 'Updated ' || :rows_added || ' rows in aggregated_hourly_quota since ' || :qh_func_start_time;
+    let quota_outcome string := 'Updated ' || :rows_added || ' rows in aggregated_hourly_quota since ' || :qh_func_start_time;
 
     -- Aggregate the usage for today from aggregated_hourly_quota into the map that the external function expects.
     -- e.g. {'users': {'bob': 1.0}, 'roles': {'PUBLIC': 2.0}}
@@ -264,15 +265,15 @@ BEGIN
 
     -- Send the result to Sundeck, record the outcome from calling the external function
     BEGIN
-        outcome := :outcome || '. ' || (select to_json(INTERNAL.REPORT_QUOTA_USED(:quota_usage)));
+        quota_outcome := (select :quota_outcome || '. ' || to_json(INTERNAL.REPORT_QUOTA_USED(:quota_usage)));
     EXCEPTION
         WHEN other THEN
             SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'External function to report cost usage failed.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-            outcome := :outcome || '. Failed to report quota usage to Sundeck ' || :sqlerrm;
+            quota_outcome := :quota_outcome || '. Failed to report quota usage to Sundeck ' || :sqlerrm;
     END;
 
     -- Log the results locally
-    INSERT INTO internal.quota_task_history SELECT :start_time, current_timestamp(), :quota_usage, :outcome;
+    INSERT INTO internal.quota_task_history SELECT :start_time, current_timestamp(), :quota_usage, :quota_outcome;
 
     SYSTEM$LOG_DEBUG('finished cost monitoring');
 exception
