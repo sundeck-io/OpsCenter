@@ -102,4 +102,4 @@ END;
 -- Cleanup old artifacts, accepting that a task may fail once if it happens to run
 -- in between the drop and finalize_setup() procedure's completion.
 drop procedure if exists internal.get_daily_quota_select();
-drop procedure if exists internal.get_recent_quota_usage_select()
+drop procedure if exists internal.get_recent_quota_usage_select();
