@@ -95,10 +95,11 @@ def report(
             sql,
             {"start": bf.start, "end": bf.end, "warehouse_names": bf.warehouse_names},
         )
-        df = topn(df, 10, {"Cost": "sum", "Queries": "sum"})
+        df_c = topn(df, 10, "Cost", "sum")
+        df_q = topn(df, 10, "Queries", "sum")
 
         fig_cost = px.bar(
-            df,
+            df_c,
             x="Date",
             y="Cost",
             color="Group",
@@ -116,7 +117,7 @@ def report(
         st.plotly_chart(fig_cost, use_container_width=True)
 
         fig_count = px.bar(
-            df,
+            df_q,
             x="Date",
             y="Queries",
             color="Group",
@@ -162,20 +163,26 @@ def report(
 def topn(
     df: pd.DataFrame,
     n: int,
-    col_aggs: dict,
+    col: str,
+    col_agg: str,
     rank_col_name: str = "Group",
     has_date: bool = True,
 ) -> pd.DataFrame:
-    df["rank"] = df.groupby([rank_col_name]).ngroup().map(lambda x: min(x, n))
-    df["NewGroup"] = df.apply(
-        lambda x: x[rank_col_name] if x["rank"] < n else "Other", axis=1
+    topn = set(
+        df.groupby([rank_col_name])
+        .agg({col: col_agg})
+        .reset_index()
+        .sort_values([col], ascending=False)
+        .head(n)[rank_col_name]
+        .tolist()
     )
+    df["NewGroup"] = df[rank_col_name].map(lambda x: x if x in topn else "Other")
     date_list = ["Date"] if has_date else []
-    df = df[["NewGroup"] + date_list + list(col_aggs.keys())]
+    df = df[["NewGroup", col] + date_list]
     df.rename(columns={"NewGroup": rank_col_name}, inplace=True)
     return (
         df.groupby([rank_col_name] + date_list)
-        .agg(col_aggs)
+        .agg({col: col_agg})
         .reset_index()
-        .sort_values(by=list(col_aggs.keys()))
+        .sort_values([col], ascending=True)
     )

@@ -140,7 +140,7 @@ where
             .reset_index()
             .sort_values(by=["Cost"], ascending=True)
         )
-        dfm = topn(dfm[dfm.Cost > 0.5], 20, {"Cost": "sum"}, "ModelId", False)
+        dfm = topn(dfm[dfm.Cost > 0.5], 20, "Cost", "sum", "ModelId", False)
 
         fig = px.bar(dfm[dfm.Cost > 0.5], x="Cost", y="ModelId", orientation="h")
         fig.update_layout({"title": "Model Cost"})
