@@ -169,7 +169,6 @@ CREATE OR REPLACE TASK TASKS.COST_CONTROL_MONITORING
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
 DECLARE
-    -- Qualify the current timezone with the default timezone configured for this account
     start_time timestamp_ltz default (select current_timestamp());
     qh_func_start_time timestamp_ltz default (select internal.get_query_history_func_start_range(:start_time));
 BEGIN
