@@ -291,8 +291,8 @@ BEGIN
     USING (
         SELECT *
         from (values
-                ('Long Queries', 'start_time < dateadd(minute, -10, current_timestamp())'),
-                ('Big Readers', 'bytes_scanned > 10000000000')
+                ('Long Queries', 'start_time < dateadd(minute, -10, current_timestamp()) AND NOT (query_text ilike \'execute streamlit%\')'),
+                ('Big Readers', 'bytes_scanned > 10000000000 AND NOT (query_text ilike \'execute streamlit%\')')
              )) s (name, condition)
     ON t.name = s.name
     WHEN MATCHED THEN
