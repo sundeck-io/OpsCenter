@@ -291,7 +291,7 @@ BEGIN
     USING (
         SELECT *
         from (values
-                ('Long Queries', 'start_time < dateadd(minute, -10, current_timestamp())'),
+                ('Long Queries', 'start_time < dateadd(minute, -10, current_timestamp()) AND NOT QUERY_TYPE = \'EXECUTE_STREAMLIT\''),
                 ('Big Readers', 'bytes_scanned > 10000000000')
              )) s (name, condition)
     ON t.name = s.name
