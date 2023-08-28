@@ -2,50 +2,17 @@
 create table if not exists internal.quota_task_history(start_time timestamp_ltz, end_time timestamp_ltz, credits_used object, outcome string);
 CREATE OR REPLACE VIEW REPORTING.QUOTA_TASK_HISTORY AS SELECT * FROM INTERNAL.QUOTA_TASK_HISTORY;
 
--- returns SQL which reads the query_history table function and aggregates the credits used by both user and role. executed within a task
--- as an owner's rights procedure cannot call the query_history table function.
-create or replace procedure internal.get_daily_quota_select()
-returns string
-language sql
-as
-BEGIN
-    let s string := $$
--- TODO the table func caps out at 10k rows which could miss queries for busy accounts.
-with todays_queries as(
-    select
-        total_elapsed_time,
-        credits_used_cloud_services,
-        warehouse_size,
-        user_name,
-        role_name
-    from table(information_schema.query_history(
-        RESULT_LIMIT => 10000,
-        END_TIME_RANGE_START => date_trunc('day', current_timestamp()),
-        END_TIME_RANGE_END => current_timestamp()))
-),
-costed_queries as (
-    select
-        greatest(0,total_elapsed_time) * internal.warehouse_credits_per_milli(warehouse_size) + credits_used_cloud_services as credits_used,
-        user_name,
-        role_name
-    from todays_queries
-),
--- Is there a way to collapse user_usage and role_usage together? They're essentially the same query.
-user_usage as (
-    select user_name as name, sum(credits_used) as usage_map
-    from costed_queries
-    group by user_name
-),
-role_usage as (
-    select role_name as name, sum(credits_used) as usage_map
-    from costed_queries
-    group by role_name
-),
-usage_aggr as (
-    select 'users' as kind, object_agg(name, usage_map) as credits_used from user_usage union all select 'roles', object_agg(name, usage_map) from role_usage
-)
--- Aggregate into a final map {'users': {..}, 'roles': {..}}
-select object_agg(kind, credits_used) as daily_quota from usage_aggr;
+create table if not exists internal.aggregated_hourly_quota(day date, hour_of_day integer, name string, persona string, credits_used float, last_updated timestamp_ltz);
+
+-- We want to read the last 1 hour plus N minutes where N is the number of minutes since top of the hour.
+-- This has the limitation that if there are more than 10K queries run in a two-hour window, we will miss some.
+CREATE OR REPLACE FUNCTION INTERNAL.GET_QUERY_HISTORY_FUNC_START_RANGE(t TIMESTAMP_LTZ)
+RETURNS TIMESTAMP_LTZ
+AS
+$$
+    timestampadd('hour', -1, date_trunc('hour', t))
 $$;
-    return s;
-END;
+
+-- Cleanup old artifacts, accepting that a task may fail once if it happens to run
+-- in between the drop and finalize_setup() procedure's completion.
+drop procedure if exists internal.get_daily_quota_select();
