@@ -264,13 +264,15 @@ BEGIN
         select object_agg(kind, usage_map) from aggr);
 
     -- Send the result to Sundeck, record the outcome from calling the external function
+    let ef_outcome string := '';
     BEGIN
-        quota_outcome := (select :quota_outcome || '. ' || to_json(INTERNAL.REPORT_QUOTA_USED(:quota_usage)));
+        ef_outcome := (select IFNULL(to_json(INTERNAL.REPORT_QUOTA_USED(:quota_usage)), ''));
     EXCEPTION
         WHEN other THEN
             SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'External function to report cost usage failed.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-            quota_outcome := :quota_outcome || '. Failed to report quota usage to Sundeck ' || :sqlerrm;
+            ef_outcome := 'Failed to report quota usage to Sundeck ' || :sqlerrm;
     END;
+    quota_outcome := quota_outcome || '. ' || ef_outcome;
 
     -- Log the results locally
     INSERT INTO internal.quota_task_history SELECT :start_time, current_timestamp(), :quota_usage, :quota_outcome;
