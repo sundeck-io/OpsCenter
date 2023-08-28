@@ -14,12 +14,15 @@ BEGIN
                 from information_schema.columns
                 where table_catalog = current_database() and table_schema in ('ACCOUNT_USAGE', 'ORGANIZATION_USAGE')
                 group by table_name, table_schema
-              )
+              ), delays as (
+            select $1 as table_name, $2 as delay, $3 as ts from (values ('QUERY_HISTORY', 45, 'END_TIME'), ('WAREHOUSE_EVENTS_HISTORY', 180, 'TIMESTAMP'), ('WAREHOUSE_LOAD_HISTORY', 180, 'END_TIME'), ('WAREHOUSE_METERING_HISTORY', 180, 'END_TIME'), ('USERS', 120, 'CREATED_ON'), ('SERVERLESS_TASK_HISTORY', 180, 'END_TIME'))
+            )
               select
-                 'create or replace view "' || v.table_schema || '"."' || v.table_name || '" AS select '|| c.cols || ' from "' || v.table_catalog || '"."' || v.table_schema || '"."' || v.table_name ||
-                 '"' as v
+                 'create or replace view "' || v.table_schema || '"."' || v.table_name || '" AS select '|| c.cols || ' from "' || v.table_catalog || '"."' || v.table_schema || '"."' || v.table_name ||'" WHERE ' || d.ts || ' < timestampadd(minute, -' || d.delay || ', current_timestamp) '
+                  as v
               from snowflake.information_schema.views v
               join columns c on v.table_schema = c.table_schema and v.table_name = c.table_name
+              left outer join delays d on v.table_name = d.table_name
               where v.table_catalog = 'SNOWFLAKE' AND v.table_schema in ('ACCOUNT_USAGE') AND v.table_name in ('QUERY_HISTORY', 'WAREHOUSE_EVENTS_HISTORY', 'WAREHOUSE_LOAD_HISTORY', 'WAREHOUSE_METERING_HISTORY', 'USERS', 'SERVERLESS_TASK_HISTORY');
           counter int := 0;
         BEGIN
