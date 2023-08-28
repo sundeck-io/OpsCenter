@@ -152,11 +152,7 @@ with tasks:
             "Save Changes",
             on_click=save_tasks,
             args=[form, wem, qhm, pm],
-            disabled=(
-                wems == wem
-                and qhms == qhm
-                and pms == pm
-            ),
+            disabled=(wems == wem and qhms == qhm and pms == pm),
         )
 
     if wem is None or qhm is None or pm is None:
