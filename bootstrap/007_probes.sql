@@ -291,17 +291,19 @@ BEGIN
     USING (
         SELECT *
         from (values
-                ('Long Queries', 'start_time < dateadd(minute, -10, current_timestamp()) AND NOT QUERY_TYPE = \'EXECUTE_STREAMLIT\''),
-                ('Big Readers', 'bytes_scanned > 10000000000')
-             )) s (name, condition)
+                ('Long Queries', 'start_time < dateadd(minute, -10, current_timestamp()) AND NOT QUERY_TYPE = \'EXECUTE_STREAMLIT\'', False),
+                ('Big Readers', 'bytes_scanned > 10000000000', False),
+                ('Costs 10 Credits', 'tools.approx_credits_used(warehouse_name, start_time) > 10', True),
+                ('Costs 50 Credits', 'tools.approx_credits_used(warehouse_name, start_time) > 50', True)
+             )) s (name, condition, notify_writer)
     ON t.name = s.name
     WHEN MATCHED THEN
     UPDATE
-        SET t.CONDITION = s.CONDITION, t.PROBE_MODIFIED_AT = current_timestamp()
+        SET t.CONDITION = s.CONDITION, t.PROBE_MODIFIED_AT = current_timestamp(), t.NOTIFY_WRITER = s.NOTIFY_WRITER
     WHEN NOT MATCHED THEN
     INSERT
         ("NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL", "PROBE_MODIFIED_AT", "PROBE_CREATED_AT")
-        VALUES (s.name, s.condition, False,  'Email', '', 'Email', False, current_timestamp(), current_timestamp());
+        VALUES (s.name, s.condition, s.notify_writer,  'Email', '', 'Email', False, current_timestamp(), current_timestamp());
 
     RETURN NULL;
 EXCEPTION

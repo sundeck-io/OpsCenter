@@ -47,3 +47,17 @@ $$
     -- credits per hour / seconds in an hour / milliseconds in a second
     zeroifnull(internal.warehouse_multiplier(warehouse_size))/3600/1000
 $$;
+
+CREATE OR REPLACE FUNCTION TOOLS.WAREHOUSE_CREDITS_PER_MILLI(warehouse_size varchar)
+RETURNS NUMBER
+AS
+$$
+    internal.warehouse_credits_per_milli(warehouse_size)
+$$;
+
+CREATE OR REPLACE FUNCTION TOOLS.WAREHOUSE_MULTIPLIER(warehouse_size varchar)
+RETURNS NUMBER
+AS
+$$
+    internal.warehouse_multiplier(warehouse_size)
+$$;
