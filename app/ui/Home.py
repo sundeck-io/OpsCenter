@@ -44,5 +44,5 @@ else:
     st.container()
 
     filter_values = filters.display(filter_container)
-    with st.spinner(f"""Loading Warehouse Heatmap"""):
+    with st.spinner("Loading Warehouse Heatmap"):
         reports_heatmap.heatmap(filter_values, credit_cost)
