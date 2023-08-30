@@ -99,9 +99,8 @@ SELECT
     SESSION_ID,
     session_start,
     session_end,
-    -- See comment in 017_query_history.sql about PERIOD_PLUS
     DATEDIFF('day', session_start, session_end) + 1 AS PERIOD_PLUS,
-    IFF(index = PERIOD_PLUS, 'COMPLETE', 'DAILY') AS RECORD_TYPE,
+    IFF(index = PERIOD_PLUS, 'DAILY', 'COMPLETE') AS RECORD_TYPE,
     IFF(index in (0, PERIOD_PLUS), session_start, dateadd('day', index, date_trunc('day', session_start))) as ST,
     IFF(index in (PERIOD_PLUS - 1, PERIOD_PLUS), session_end, least(CURRENT_TIMESTAMP(), dateadd('day', index + 1, date_trunc('day', session_end)))) as ET,
     date_trunc('day', ST) AS ST_PERIOD,

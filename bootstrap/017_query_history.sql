@@ -14,11 +14,8 @@ BEGIN
         SELECT
             current_timestamp() as run_id,
             tools.qtag(query_text, true, true) as qtag,
-            -- We emit N+1 rows for the number of days a query spans (e.g. a query spans 1 day, PERIOD_PLUS is 2. A query spans 2 days, PERIOD_PLUS is 3)
-            -- This logic is also in 015_warehouse_views.sql
             DATEDIFF('day', START_TIME, END_TIME) + 1 AS PERIOD_PLUS,
-            -- [0, PERIOD_PLUS) are the daily bins for this query, PERIOD_PLUS is the complete query
-            IFF(index = PERIOD_PLUS, 'COMPLETE', 'DAILY') AS RECORD_TYPE,
+            IFF(index = PERIOD_PLUS, 'DAILY', 'COMPLETE') AS RECORD_TYPE,
             IFF(index in (0, PERIOD_PLUS), start_time, dateadd('day', index, date_trunc('day', start_time))) as ST,
             IFF(index in (PERIOD_PLUS - 1, PERIOD_PLUS), end_time, least(CURRENT_TIMESTAMP(), dateadd('day', index + 1, date_trunc('day', start_time)))) as ET,
             date_trunc('day', ST) AS ST_PERIOD,
