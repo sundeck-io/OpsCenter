@@ -51,8 +51,15 @@ def task_listing(
     )
 
 
-tasks, config_tab, setup_tab, diagnostics_tab, reset = st.tabs(
-    ["Tasks", "Config", "Initial Setup", "Diagnostics", "Reset"]
+tasks, config_tab, setup_tab, diagnostics_tab, reset, initial_probes = st.tabs(
+    [
+        "Tasks",
+        "Config",
+        "Initial Setup",
+        "Diagnostics",
+        "Reset",
+        "Pre-Configured Probes/Labels",
+    ]
 )
 
 
@@ -274,5 +281,18 @@ with reset:
             text="Warehouse events refreshed, refreshing queries. This may take a bit.",
         )
         connection.execute("call internal.refresh_queries(true);")
+        bar.progress(100, text="All events refreshed.")
+        msg.info("Reset Complete.")
+
+with initial_probes:
+    st.title("Pre-Configured Probes and Labels")
+    do_reset = st.button("Re-load all preconfigured labels and probes.")
+    if do_reset:
+        bar = st.progress(0, text="Loading preconfigured probes")
+        msg = st.empty()
+        msg.warning("Resetting. Please do not navigate away from this page.")
+        connection.execute("call internal.merge_predefined_probes();")
+        bar.progress(50, text="Loading preconfigured labels")
+        connection.execute("call internal.merge_predefined_labels(1000);")
         bar.progress(100, text="All events refreshed.")
         msg.info("Reset Complete.")
