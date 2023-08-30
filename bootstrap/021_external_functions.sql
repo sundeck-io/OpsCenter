@@ -40,6 +40,13 @@ $$
     internal.wrapper_qlike(object_construct('selector', selector, 'query_text', query_text, 'database', current_database(), 'schema', current_schema()))
 $$;
 
+create or replace function tools.qlike(query_text varchar, selector varchar, params varchar)
+    returns boolean
+as
+$$
+    internal.wrapper_qlike(object_construct('selector', selector, 'query_text', query_text, 'database', current_database(), 'schema', current_schema(), 'selector_params', params))
+$$;
+
 create or replace function tools.qlike(query_text varchar, selector varchar, database varchar, currentschema varchar)
     returns boolean
 as
@@ -47,7 +54,12 @@ $$
     internal.wrapper_qlike(object_construct('selector', selector, 'query_text', query_text, 'database', database, 'schema', currentschema))
 $$;
 
-
+create or replace function tools.qlike(query_text varchar, selector varchar, params varchar, database varchar, currentschema varchar)
+    returns boolean
+as
+$$
+    internal.wrapper_qlike(object_construct('selector', selector, 'query_text', query_text, 'database', database, 'schema', currentschema, 'selector_params', params))
+$$;
 
 BEGIN
     CREATE FUNCTION IF NOT EXISTS internal.ef_notifications(request object)
