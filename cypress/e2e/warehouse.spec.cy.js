@@ -15,9 +15,23 @@ describe("Warehouse section", () => {
       .contains("Warehouses")
       .should("be.visible")
       .click();
+
+    // Check that text "Warehouse Heatmap" is visible
     cy.get("span")
-      .contains("Warehouse Activity")
-      .should("be.visible");
+        .contains("Warehouse Heatmap")
+        .should("be.visible");
+
+    // Dropdown menu: clicks on the first dropdown found on the page
+    cy.get('svg[title="open"]')
+        .first()
+        .should("be.visible")
+        .click();
+
+    cy.get('li[role="option"]')
+        .should("be.visible")
+        .contains("Warehouse Activity")
+        .should("be.visible")
+        .click();
 
     // Click on Filters
     cy.get('div[data-testid="stMarkdownContainer"]')
@@ -41,28 +55,10 @@ describe("Warehouse section", () => {
 
     const stringList= ["365", "90", "30", "7"];
 
-    // Click on the Menu on the SideNav
+    // Heatmap should be visible
     cy.get("span")
-      .contains("Warehouses")
-      .should("be.visible")
-      .click();
-
-    // Check that text "Warehouse Activity" is visible
-    cy.get("span")
-      .contains("Warehouse Activity")
-      .should("be.visible");
-
-    // Dropdown menu: clicks on the first dropdown found on the page
-    cy.get('svg[title="open"]')
-      .first()
-      .should("be.visible")
-      .click();
-
-    cy.get('li[role="option"]')
-      .should("be.visible")
       .contains("Warehouse Heatmap")
-      .should("be.visible")
-      .click();
+      .should("be.visible");
 
     // Click on Filters
     cy.get('div[data-testid="stMarkdownContainer"]')
