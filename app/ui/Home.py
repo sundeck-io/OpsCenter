@@ -40,6 +40,12 @@ if not config.get_materialization_complete():
 else:
     credit_cost = config.get_compute_credit_cost()
 
+    st.markdown("""
+## Warehouse Heatmap
+This heatmap helps you understand how busy your Snowflake warehouses are. Ideally, warehouses should be 100%
+utilized as anything less represents cost for active warehouses that are not running queries and generating values.
+""")
+
     filter_container = st.expander("Filters", expanded=False)
     st.container()
 
