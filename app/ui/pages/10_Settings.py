@@ -286,6 +286,7 @@ with reset:
 
 with initial_probes:
     st.title("Pre-Configured Probes and Labels")
+    st.text("OpsCenter includes a number of helpful labels and probes that are created when you have none defined. OpsCenter will not overwrite any existing labels and probes you have defined. Click the button below to reset all labels and probes to the defaults provided by OpsCenter.")
     do_reset = st.button("Re-load all preconfigured labels and probes.")
     if do_reset:
         bar = st.progress(0, text="Loading preconfigured probes")
