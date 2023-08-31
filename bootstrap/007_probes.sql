@@ -342,21 +342,7 @@ LANGUAGE SQL
 EXECUTE AS OWNER
 AS
 $$
-    MERGE INTO internal.probes t
-    USING internal.predefined_probes s
-    ON t.name = s.name
-    WHEN MATCHED THEN
-    UPDATE
-        SET t.CONDITION = s.CONDITION,
-            t.NOTIFY_WRITER = s.NOTIFY_WRITER,
-            t.NOTIFY_WRITER_METHOD = s.NOTIFY_WRITER_METHOD,
-            t.NOTIFY_OTHER = s.NOTIFY_OTHER,
-            t.NOTIFY_OTHER_METHOD = s.NOTIFY_OTHER_METHOD,
-            t.CANCEL = s.CANCEL,
-            t.PROBE_MODIFIED_AT = s.PROBE_CREATED_AT
-    WHEN NOT MATCHED THEN
-    INSERT ("NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL", "PROBE_MODIFIED_AT", "PROBE_CREATED_AT")
-        VALUES (s.NAME, s."CONDITION", s."NOTIFY_WRITER", s."NOTIFY_WRITER_METHOD", s."NOTIFY_OTHER", s."NOTIFY_OTHER_METHOD", s."CANCEL", s."PROBE_CREATED_AT", s."PROBE_CREATED_AT");
+  INSERT INTO internal.probes  (name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel, probe_modified_at, probe_created_at) select name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel, probe_modified_at, probe_created_at from internal.predefined_probes s where s.name not in (select name from internal.probes);
 $$;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_PROBES(gap_in_seconds NUMBER)
@@ -387,7 +373,21 @@ BEGIN
         RETURN FALSE;
     END IF;
 
-    call internal.merge_predefined_probes();
+    MERGE INTO internal.probes t
+    USING internal.predefined_probes s
+    ON t.name = s.name
+    WHEN MATCHED THEN
+    UPDATE
+        SET t.CONDITION = s.CONDITION,
+            t.NOTIFY_WRITER = s.NOTIFY_WRITER,
+            t.NOTIFY_WRITER_METHOD = s.NOTIFY_WRITER_METHOD,
+            t.NOTIFY_OTHER = s.NOTIFY_OTHER,
+            t.NOTIFY_OTHER_METHOD = s.NOTIFY_OTHER_METHOD,
+            t.CANCEL = s.CANCEL,
+            t.PROBE_MODIFIED_AT = s.PROBE_CREATED_AT
+    WHEN NOT MATCHED THEN
+    INSERT ("NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL", "PROBE_MODIFIED_AT", "PROBE_CREATED_AT")
+        VALUES (s.NAME, s."CONDITION", s."NOTIFY_WRITER", s."NOTIFY_WRITER_METHOD", s."NOTIFY_OTHER", s."NOTIFY_OTHER_METHOD", s."CANCEL", s."PROBE_CREATED_AT", s."PROBE_CREATED_AT");
     return TRUE;
 END;
 $$;
