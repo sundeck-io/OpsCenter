@@ -5,7 +5,7 @@ This is a Snowflake Native Application (using the v2 apis). It provides various 
 
 ## Install via Marketplace
 
-You can use this app by installing it from it's [Snowflake Marketplace](https://app.snowflake.com/marketplace/listing/GZTYZT5BVO).
+You can use this app by installing it from its [Snowflake Marketplace](https://app.snowflake.com/marketplace/listing/GZTYZT5BVO).
 
 ## Local Development
 
