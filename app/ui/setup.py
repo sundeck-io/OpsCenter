@@ -45,7 +45,7 @@ def decode_token(token: str):
 
 
 def setup_permissions():
-    db = connection.execute("select current_database() as db").values[0][0]
+    db = connection.execute_select("select current_database() as db").values[0][0]
 
     privileges = [
         "EXECUTE MANAGED TASK",
@@ -64,7 +64,7 @@ def setup_permissions():
 def setup_block():
 
     db, account, user, sf_region, sd_deployment = list(
-        connection.execute(
+        connection.execute_select(
             """select current_database() as db,
         current_account() as account,
         current_user() as username,

@@ -147,7 +147,7 @@ def report(
             group by warehouse_id, warehouse_name, st_period;
             """
 
-        df = connection.execute(
+        df = connection.execute_select(
             sql,
             {"start": bf.start, "end": bf.end, "warehouse_names": bf.warehouse_names},
         )

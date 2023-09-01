@@ -31,7 +31,7 @@ def heatmap(
     high = (
         bf.end - datetime.timedelta(days=bf.end.weekday()) + datetime.timedelta(days=6)
     )
-    df = connection.execute(
+    df = connection.execute_select(
         sql, {"start": low, "end": high, "warehouse_names": bf.warehouse_names}
     )
     df.set_index(["PERIOD"], inplace=True)

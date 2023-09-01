@@ -83,8 +83,7 @@ class Connection:
                         "schema": schema,
                     }
 
-                    Session.builder.configs(connection_parameters).create()
-                    cls.session = get_active_session()
+                    cls.session = Session.builder.configs(connection_parameters).create()
             return cls.session
 
     @staticmethod

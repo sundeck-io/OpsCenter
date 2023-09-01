@@ -14,7 +14,7 @@ readme = "README.md"
 python = "~3.8"
 plotly = "~5.11"
 streamlit = "~1.22"
-snowflake-snowpark-python = { version = "^1.5.1", extras = ["pandas"] }
+snowflake-snowpark-python = { version = "~1.5.1", extras = ["pandas"] }
 
 [tool.poetry.group.dev.dependencies]
 watchdog = "^3.0.0"
