@@ -53,6 +53,7 @@ class Session:
     mode: Mode
     initialized: bool
     group_create: str
+    is_dynamic: bool
     report_session: ReportSession
 
     def __init__(self):
@@ -68,9 +69,10 @@ class Session:
     def do_list(self):
         self.mode = Mode.LIST
 
-    def do_create(self, group: str):
+    def do_create(self, group: str, is_dynamic: bool):
         self.group_create = group
         self.mode = Mode.CREATE
+        self.is_dynamic = is_dynamic
 
     def set_toast(self, message: str):
         self.toast = message

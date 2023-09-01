@@ -52,24 +52,34 @@ class Label:
                 """No labels defined. Labels help you categorize incoming queries, similar to GMail labels.
                         Labels can be used to create and filter reports."""
             )
-            st.button("New", key="create", on_click=self.session.do_create, args=[None])
-            st.button("New (in group)", on_click=self.session.do_create, args=[""])
+            st.button(
+                "New", key="create", on_click=self.session.do_create, args=[None, False]
+            )
+            st.button(
+                "New (in group)", on_click=self.session.do_create, args=["", False]
+            )
+            st.button(
+                "New dynamic grouped labels",
+                on_click=self.session.do_create,
+                args=["", True],
+            )
             return
 
         groups = self.snowflake.sql(
             """
             with groups as (
-                select distinct case when group_name is null then 'Ungrouped' else group_name end as g
+                select distinct case when group_name is null then 'Ungrouped' else group_name end as g, is_dynamic
                 from internal.labels
                 union all
-                select 'Ungrouped'
+                select 'Ungrouped', FALSE
             )
-            select distinct g
+            select distinct g, is_dynamic
             from groups
             order by IFF(g = 'Ungrouped', 0, 1), g"""
         ).collect()
 
         items = list(map(lambda m: m[0], groups))
+        dynamics = list(map(lambda m: m[1], groups))
 
         tabs = st.tabs(items)
 
@@ -79,9 +89,12 @@ class Label:
                 cols = [1, 4, 0.5, 1]
 
                 header = st.columns(cols)
-                header[0].text("Name")
+                if dynamics[x] is False:
+                    header[0].text("Name")
+                else:
+                    header[0].text("Dynamic grouped label")
                 header[1].text("Condition")
-                if grouped:
+                if grouped and dynamics[x] is False:
                     header[2].text("Rank")
                 header[3].text("Actions")
 
@@ -95,7 +108,7 @@ class Label:
                     columns = st.columns(cols)
                     write_if(columns[0], row["NAME"])
                     columns[1].code(row["CONDITION"], language="sql")
-                    if grouped:
+                    if grouped and dynamics[x] is False:
                         columns[2].text(row["GROUP_RANK"])
                     with columns[3]:
                         buttons = st.columns(3)
@@ -104,6 +117,7 @@ class Label:
                             "group_name": row["GROUP_NAME"],
                             "group_rank": row["GROUP_RANK"],
                             "condition": row["CONDITION"],
+                            "is_dynamic": row["IS_DYNAMIC"],
                         }
                         buttons[0].button(
                             "✏️",
@@ -111,27 +125,41 @@ class Label:
                             on_click=self.session.do_edit,
                             args=[label],
                         )
-                        buttons[1].button(
-                            "🗑️",
-                            key=f"delete{i}-{x}",
-                            on_click=self.on_delete_click,
-                            args=[row["NAME"]],
-                        )
+                        if dynamics[x] is False:
+                            buttons[1].button(
+                                "🗑️",
+                                key=f"delete{i}-{x}",
+                                on_click=self.on_delete_click,
+                                args=[row["NAME"], False],
+                            )
+                        else:
+                            buttons[1].button(
+                                "🗑️",
+                                key=f"delete{i}-{x}",
+                                on_click=self.on_delete_click,
+                                args=[row["GROUP_NAME"], True],
+                            )
 
                 if items[x] == "Ungrouped":
                     st.button(
                         "New",
                         key=f"create{x}",
                         on_click=self.session.do_create,
-                        args=[None],
+                        args=[None, False],
                     )
                     st.button(
                         "New (in group)",
                         key=f"create_group{x}",
                         on_click=self.session.do_create,
-                        args=[""],
+                        args=["", False],
                     )
-                else:
+                    st.button(
+                        "New dynamic grouped labels",
+                        key=f"create_function_group{x}",
+                        on_click=self.session.do_create,
+                        args=["", True],
+                    )
+                elif dynamics[x] is False:
                     st.button(
                         "Add label to group",
                         key=f"create{x}",
@@ -139,7 +167,7 @@ class Label:
                         args=[items[x]],
                     )
 
-    def on_create_click(self, name, group, rank, condition):
+    def on_create_click(self, name, group, rank, condition, is_dynamic):
         with st.spinner("Creating new label..."):
             _ = self.snowflake.call(
                 "INTERNAL.REPORT_ACTION",
@@ -147,7 +175,7 @@ class Label:
                 "create",
             )
             outcome = self.snowflake.call(
-                "ADMIN.CREATE_LABEL", name, group, rank, condition
+                "ADMIN.CREATE_LABEL", name, group, rank, condition, is_dynamic
             )
 
             if outcome is None:
@@ -157,7 +185,7 @@ class Label:
 
         self.status.error(outcome)
 
-    def on_update_click(self, oldname, name, group, rank, condition):
+    def on_update_click(self, oldname, name, group, rank, condition, is_dynamic):
         outcome = None
         with st.spinner("Updating label..."):
             _ = self.snowflake.call(
@@ -167,7 +195,7 @@ class Label:
             )
 
             outcome = self.snowflake.call(
-                "ADMIN.UPDATE_LABEL", oldname, name, group, rank, condition
+                "ADMIN.UPDATE_LABEL", oldname, name, group, rank, condition, is_dynamic
             )
 
             if outcome is None:
@@ -176,18 +204,21 @@ class Label:
             else:
                 st.error(outcome)
 
-    def on_delete_click(self, name):
+    def on_delete_click(self, name, is_dynamic):
         with st.spinner("Deleting label..."):
             _ = self.snowflake.call(
                 "INTERNAL.REPORT_ACTION",
                 "labels",
                 "delete",
             )
-            self.snowflake.call("ADMIN.DELETE_LABEL", name)
+            if is_dynamic is False:
+                self.snowflake.call("ADMIN.DELETE_LABEL", name)
+            else:
+                self.snowflake.call("ADMIN.DELETE_DYNAMIC_LABEL", name)
             self.session.set_toast("Label deleted.")
             self.session.do_list()
 
-    def create_label(self, grouped: str):
+    def create_label(self, grouped: str, is_dynamic: bool):
         st.title("New Label")
         group = None
         rank = None
@@ -199,22 +230,29 @@ class Label:
                 value=grouped,
                 disabled=(grouped != ""),
             )
+        name = None
+        if not is_dynamic:
+            name = st.text_input(key="NAME", label="Label Name")
 
-        name = st.text_input(key="NAME", label="Label Name")
         condition = st.text_area(key="CONDITION", label="Condition")
-        if grouped is not None:
+        if grouped is not None and not is_dynamic:
             rank = st.number_input(
                 key="GROUP_RANK", label="Rank", format="%i", value=10
             )
         st.button(
             "Create",
-            on_click=lambda: self.on_create_click(name, group, rank, condition),
+            on_click=lambda: self.on_create_click(
+                name, group, rank, condition, is_dynamic
+            ),
         )
         st.button("Cancel", on_click=self.session.do_list)
 
     def edit_label(self, update: dict):
         st.title("Edit Label")
-        name = st.text_input(key="NAME", label="Label Name", value=update["name"])
+        is_dynamic = update["is_dynamic"]
+        name = None
+        if is_dynamic is False:
+            name = st.text_input(key="NAME", label="Label Name", value=update["name"])
         group = update["group_name"]
         rank = update["group_rank"]
         if group is not None:
@@ -224,6 +262,7 @@ class Label:
                 value=update["group_name"],
                 disabled=True,
             )
+        if group is not None and is_dynamic is False:
             rank = st.number_input(
                 key="GROUP_RANK",
                 label="Group Rank",
@@ -237,7 +276,7 @@ class Label:
         st.button(
             "Update",
             on_click=self.on_update_click,
-            args=[update["name"], name, group, rank, condition],
+            args=[update["name"], name, group, rank, condition, is_dynamic],
         )
         st.button("Cancel", on_click=self.session.do_list)
 
@@ -248,7 +287,7 @@ def display():
     if labels.session.mode is Mode.LIST:
         labels.list_labels()
     elif labels.session.mode is Mode.CREATE:
-        labels.create_label(labels.session.group_create)
+        labels.create_label(labels.session.group_create, labels.session.is_dynamic)
     elif labels.session.mode is Mode.EDIT:
         labels.edit_label(labels.session.update)
     else:
