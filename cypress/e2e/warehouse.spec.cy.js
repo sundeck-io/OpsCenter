@@ -9,6 +9,8 @@ describe("Warehouse section", () => {
 
     cy.visit("/");
 
+    cy.wait(10000);
+
     const stringList= ["365", "90", "30", "7"];
 
     cy.get("span")
