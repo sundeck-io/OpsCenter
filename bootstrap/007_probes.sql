@@ -336,6 +336,15 @@ BEGIN
     END IF;
 END;
 
+CREATE OR REPLACE PROCEDURE INTERNAL.MERGE_PREDEFINED_PROBES()
+RETURNS BOOLEAN
+LANGUAGE SQL
+EXECUTE AS OWNER
+AS
+$$
+  INSERT INTO internal.probes  (name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel, probe_modified_at, probe_created_at) select name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel, probe_modified_at, probe_created_at from internal.predefined_probes s where s.name not in (select name from internal.probes);
+$$;
+
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_PROBES(gap_in_seconds NUMBER)
     RETURNS BOOLEAN
     LANGUAGE SQL
@@ -379,7 +388,6 @@ BEGIN
     WHEN NOT MATCHED THEN
     INSERT ("NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL", "PROBE_MODIFIED_AT", "PROBE_CREATED_AT")
         VALUES (s.NAME, s."CONDITION", s."NOTIFY_WRITER", s."NOTIFY_WRITER_METHOD", s."NOTIFY_OTHER", s."NOTIFY_OTHER_METHOD", s."CANCEL", s."PROBE_CREATED_AT", s."PROBE_CREATED_AT");
-
     return TRUE;
 END;
 $$;
