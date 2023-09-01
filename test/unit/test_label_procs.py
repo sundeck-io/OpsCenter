@@ -189,15 +189,21 @@ def test_create_label_with_empty_string_name(conn, timestamp_string):
         run_proc(conn, sql)
     ), "Stored procedure output does not match expected result!"
 
+
 # Test that validates that we get correct error on attempt to create grouped label with existing name in same group
 def test_create_grouped_label_with_existing_name(conn, timestamp_string):
     label = generate_unique_name("label", timestamp_string)
-    sql = f"call ADMIN.CREATE_LABEL('{label}', 'group-1', 10, 'compilation_time > 5000');"
+    sql = (
+        f"call ADMIN.CREATE_LABEL('{label}', 'group-1', 10, 'compilation_time > 5000');"
+    )
     assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
 
-    sql = f"call ADMIN.CREATE_LABEL('{label}', 'group-1', 20, 'compilation_time > 5000');"
+    sql = (
+        f"call ADMIN.CREATE_LABEL('{label}', 'group-1', 20, 'compilation_time > 5000');"
+    )
     assert (
-        run_proc(conn, sql) == "Duplicate grouped label name found. Please use a distinct name."
+        run_proc(conn, sql)
+        == "Duplicate grouped label name found. Please use a distinct name."
     ), "Stored procedure output does not match expected result!"
 
 
@@ -210,8 +216,10 @@ def test_create_ungrouped_then_grouped_and_label(conn, timestamp_string):
     # grouped label has its group_name conflicting with the ungrouped label's name.
     sql = f"call ADMIN.CREATE_LABEL('{label}_1', '{label}', 20, 'compilation_time > 5000');"
     assert (
-        run_proc(conn, sql) == "Duplicate grouped label name found. Please use a distinct name."
+        run_proc(conn, sql)
+        == "Duplicate grouped label name found. Please use a distinct name."
     ), "Stored procedure output does not match expected result!"
+
 
 # Test that validates the behavior when we create ungrouped label, then grouped label
 def test_create_grouped_then_ungrouped_label(conn, timestamp_string):
