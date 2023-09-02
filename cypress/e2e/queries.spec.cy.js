@@ -9,6 +9,8 @@ describe("Queries section", () => {
 it("Menu: Queries (Top Spenders)", () => {
     cy.visit("/");
 
+    cy.wait(10000);
+
     cy.get("span")
       .contains("Queries")
       .should("be.visible")

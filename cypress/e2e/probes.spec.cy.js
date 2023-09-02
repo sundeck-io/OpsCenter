@@ -8,6 +8,8 @@ describe("Probes section", () => {
   it("Menu: Probes", () => {
     cy.visit("/");
 
+    cy.wait(10000);
+
     cy.get("span")
       .contains("Probes")
       .should("be.visible")

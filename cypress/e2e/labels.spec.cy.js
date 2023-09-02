@@ -20,6 +20,8 @@ describe("Labels section", () => {
   it("Menu: Labels. Validate that New/Create/Cancel buttons don't result in failure to load the page", () => {
     cy.visit("/");
 
+    cy.wait(10000);
+
     cy.get("span")
       .contains("Labels")
       .should("be.visible")
@@ -60,6 +62,8 @@ describe("Labels section", () => {
     const labelList= [ label_1, label_2, label_3];
 
     cy.visit("/");
+
+    cy.wait(10000);
 
     cy.get("span")
       .contains("Labels")
