@@ -18,3 +18,5 @@ snowflake-snowpark-python = { version = "^1.5.1", extras = ["pandas"] }
 
 [tool.poetry.group.dev.dependencies]
 watchdog = "^3.0.0"
+pytest = "^7.4.1"
+snowflake-connector-python = "^3.1.1"
