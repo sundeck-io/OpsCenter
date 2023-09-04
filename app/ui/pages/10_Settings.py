@@ -160,7 +160,9 @@ with tasks:
         user_limits_enabled = False
         if config.has_sundeck():
             user_limits_checkbox, user_limits_enabled = task_listing(
-                "User Limits Maintenance", "USER_LIMITS_MAINTENANCE", "every five minutes"
+                "User Limits Maintenance",
+                "USER_LIMITS_MAINTENANCE",
+                "every five minutes",
             )
         # user_limits_checkbox may be None at this point, handled in save_tasks
         form_args.append(user_limits_checkbox)
