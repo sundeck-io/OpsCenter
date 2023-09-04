@@ -52,14 +52,16 @@ BEGIN
         AS
             select
                 tools.qtag_to_map(qtag) as qtag_filter,
-                unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
-                * exclude (period_plus, record_type)
+                case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
+                case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
+                * exclude (period_plus, record_type, unloaded_direct_compute_credits)
             from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE = 'COMPLETE'
             union all
             select
                 tools.qtag_to_map(qtag) as qtag_filter,
-                unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
-                * exclude (period_plus, record_type)
+                case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
+                case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
+                * exclude (period_plus, record_type, unloaded_direct_compute_credits)
             from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE = 'COMPLETE'
             ;
     $$;
@@ -81,11 +83,15 @@ BEGIN
     as
         select
                 tools.qtag_to_map(qtag) as qtag_filter,
-        unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE = 'DAILY'
+        case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
+                case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
+            * exclude (period_plus, record_type, unloaded_direct_compute_credits) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE = 'DAILY'
         union all
         select
                 tools.qtag_to_map(qtag) as qtag_filter,
-        unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST, * exclude (period_plus, record_type) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE = 'DAILY';
+        case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
+                case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
+            * exclude (period_plus, record_type, unloaded_direct_compute_credits) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE = 'DAILY';
     $$;
     RETURN 'Success';
 END;

@@ -1,6 +1,6 @@
 
 CREATE TABLE INTERNAL.TASK_WAREHOUSE_EVENTS IF NOT EXISTS (run timestamp, success boolean, input variant, output variant);
-CREATE TABLE INTERNAL.WAREHOUSE_SIZE_MAPPING IF NOT EXISTS (WAREHOUSE_NAME varchar, WAREHOUSE_SIZE varchar);
+CREATE TABLE INTERNAL.WAREHOUSE_SIZE_MAPPING IF NOT EXISTS (WAREHOUSE_NAME varchar, WAREHOUSE_SIZE varchar, WAREHOUSE_TYPE varchar);
 
 CREATE OR REPLACE PROCEDURE internal.refresh_warehouse_events(migrate boolean) RETURNS STRING LANGUAGE SQL
     COMMENT = 'Refreshes the warehouse events materialized view. If migrate is true, then the materialized view will be migrated if necessary.'
@@ -70,7 +70,7 @@ BEGIN
         BEGIN TRANSACTION;
             truncate INTERNAL.WAREHOUSE_SIZE_MAPPING;
             SHOW WAREHOUSES;
-            insert into internal.warehouse_size_mapping select "name", "size" from TABLE(RESULT_SCAN(LAST_QUERY_ID()));
+            insert into internal.warehouse_size_mapping select "name", "size", "type" from TABLE(RESULT_SCAN(LAST_QUERY_ID()));
         COMMIT;
     END;
     SYSTEM$LOG_INFO('Finished warehouse size table refresh');
@@ -81,7 +81,8 @@ CREATE OR REPLACE FUNCTION TOOLS.APPROX_CREDITS_USED(warehouse_name varchar, sta
 RETURNS NUMBER
 AS
 $$
-    TOOLS.WAREHOUSE_CREDITS_PER_MILLI((select warehouse_size from internal.warehouse_size_mapping t where t.warehouse_name = warehouse_name))*timestampdiff(millisecond, start_time, end_time)
+    TOOLS.WAREHOUSE_CREDITS_PER_MILLI((select warehouse_size from internal.warehouse_size_mapping t where t.warehouse_name = warehouse_name),
+    coalesce((select warehouse_type from internal.warehouse_size_mapping t where t.warehouse_name = warehouse_name), 'STANDARD'))*timestampdiff(millisecond, start_time, end_time)
 $$;
 
 CREATE OR REPLACE FUNCTION TOOLS.APPROX_CREDITS_USED(warehouse_name varchar, start_time timestamp)

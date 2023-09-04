@@ -20,24 +20,54 @@ FROM
             ('6X-Large', 512)) AS t(WAREHOUSE_SIZE, CREDIT_PER_HOUR) )
 ;
 
-CREATE OR REPLACE FUNCTION INTERNAL.WAREHOUSE_MULTIPLIER(warehouse_size varchar)
+CREATE OR REPLACE FUNCTION INTERNAL.WAREHOUSE_MULTIPLIER(warehouse_size varchar, warehouse_type varchar)
 RETURNS NUMBER
 AS
 $$
 -- duplicates the above view, data must be kept in sync
 case
-    when warehouse_size = 'X-Small' then 1
-    when warehouse_size = 'Small' then 2
-    when warehouse_size = 'Medium' then 4
-    when warehouse_size = 'Large' then 8
-    when warehouse_size = 'X-Large' then 16
-    when warehouse_size = '2X-Large' then 32
-    when warehouse_size = '3X-Large' then 64
-    when warehouse_size = '4X-Large' then 128
-    when warehouse_size = '5X-Large' then 256
-    when warehouse_size = '6X-Large' then 512
+    when warehouse_size = 'X-Small' and warehouse_type = 'STANDARD' 1
+    when warehouse_size = 'Small' and warehouse_type = 'STANDARD' 2
+    when warehouse_size = 'Medium' and warehouse_type = 'STANDARD' 4
+    when warehouse_size = 'Large' and warehouse_type = 'STANDARD' 8
+    when warehouse_size = 'X-Large' and warehouse_type = 'STANDARD' 16
+    when warehouse_size = '2X-Large' and warehouse_type = 'STANDARD' 32
+    when warehouse_size = '3X-Large' and warehouse_type = 'STANDARD' 64
+    when warehouse_size = '4X-Large' and warehouse_type = 'STANDARD' 128
+    when warehouse_size = '5X-Large' and warehouse_type = 'STANDARD' 256
+    when warehouse_size = '6X-Large' and warehouse_type = 'STANDARD' 512
+    when warehouse_size = 'Medium' and warehouse_type = 'SNOWPARK-OPTIMIZED' 4*1.5
+    when warehouse_size = 'Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 8*1.5
+    when warehouse_size = 'X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 16*1.5
+    when warehouse_size = '2X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 32*1.5
+    when warehouse_size = '3X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 64*1.5
+    when warehouse_size = '4X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 128*1.5
+    when warehouse_size = '5X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 256*1.5
+    when warehouse_size = '6X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 512*1.5
     else null
 end
+$$;
+
+CREATE OR REPLACE FUNCTION INTERNAL.WAREHOUSE_CREDITS_PER_MILLI(warehouse_size varchar, warehouse_type varchar)
+RETURNS NUMBER
+AS
+$$
+    -- credits per hour / seconds in an hour / milliseconds in a second
+    zeroifnull(internal.warehouse_multiplier(warehouse_size, warehouse_type))/3600/1000
+$$;
+
+CREATE OR REPLACE FUNCTION TOOLS.WAREHOUSE_CREDITS_PER_MILLI(warehouse_size varchar, warehouse_type varchar)
+RETURNS NUMBER
+AS
+$$
+    internal.warehouse_credits_per_milli(warehouse_size, warehouse_type)
+$$;
+
+CREATE OR REPLACE FUNCTION TOOLS.WAREHOUSE_MULTIPLIER(warehouse_size varchar, warehouse_type varchar)
+RETURNS NUMBER
+AS
+$$
+    internal.warehouse_multiplier(warehouse_size, warehouse_type)
 $$;
 
 CREATE OR REPLACE FUNCTION INTERNAL.WAREHOUSE_CREDITS_PER_MILLI(warehouse_size varchar)
@@ -45,7 +75,7 @@ RETURNS NUMBER
 AS
 $$
     -- credits per hour / seconds in an hour / milliseconds in a second
-    zeroifnull(internal.warehouse_multiplier(warehouse_size))/3600/1000
+    zeroifnull(internal.warehouse_multiplier(warehouse_size, 'STANDARD'))/3600/1000
 $$;
 
 CREATE OR REPLACE FUNCTION TOOLS.WAREHOUSE_CREDITS_PER_MILLI(warehouse_size varchar)
