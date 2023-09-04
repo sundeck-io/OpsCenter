@@ -39,6 +39,13 @@ BEGIN
     return config_value;
 END;
 
+CREATE OR REPLACE PROCEDURE internal.has_config(key string) RETURNS BOOLEAN LANGUAGE SQL
+    AS
+BEGIN
+    let config_value string := (SELECT value FROM internal.config WHERE key = :key);
+    return (select :config_value is not null);
+END;
+
 create or replace function internal.get_version() returns string language sql
 as
 $$

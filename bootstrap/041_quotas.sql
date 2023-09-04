@@ -13,6 +13,21 @@ $$
     timestampadd('hour', -1, date_trunc('hour', t))
 $$;
 
+-- Assumes that the USER_LIMITS_MAINTENANCE task exists.
+CREATE OR REPLACE PROCEDURE INTERNAL.START_USER_LIMITS_TASK()
+RETURNS STRING
+LANGUAGE SQL
+AS
+BEGIN
+    alter task TASKS.USER_LIMITS_MAINTENANCE resume;
+    execute task TASKS.USER_LIMITS_MAINTENANCE;
+EXCEPTION
+    WHEN OTHER THEN
+        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Failed to start user limits task after linking to Sundeck.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+        RAISE;
+END;
+
 -- Cleanup old artifacts, accepting that a task may fail once if it happens to run
 -- in between the drop and finalize_setup() procedure's completion.
 drop procedure if exists internal.get_daily_quota_select();
+drop task if exists tasks.COST_CONTROL_MONITORING;

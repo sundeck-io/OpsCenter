@@ -269,6 +269,9 @@ BEGIN
     WHEN NOT MATCHED THEN
       INSERT (key, value)
       VALUES (source.key, source.value);
+
+    -- Start the user limits task (we know that Sundeck is linked)
+    CALL internal.start_user_limits_task();
 END;
 
 CREATE OR REPLACE PROCEDURE admin.setup_sundeck_tenant_url(url string, token string) RETURNS STRING LANGUAGE SQL AS
@@ -287,4 +290,6 @@ BEGIN
       VALUES (source.key, source.value);
 
     CALL admin.setup_external_functions('opscenter_sso_api_integration');
+    -- Start the user limits task (we know that Sundeck is linked)
+    CALL internal.start_user_limits_task();
 END;

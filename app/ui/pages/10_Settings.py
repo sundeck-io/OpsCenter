@@ -117,7 +117,7 @@ with setup_tab:
     setup.setup_block()
 
 
-def save_tasks(container, wem, qhm, pm, cost_control):
+def save_tasks(container, wem, qhm, pm, user_limits):
     with container:
         with st.spinner("Saving changes to task settings."):
             sql = f"""
@@ -126,7 +126,7 @@ def save_tasks(container, wem, qhm, pm, cost_control):
                 alter task TASKS.WAREHOUSE_EVENTS_MAINTENANCE {get_task_state(wem)};
                 alter task TASKS.QUERY_HISTORY_MAINTENANCE {get_task_state(qhm)};
                 alter task TASKS.SFUSER_MAINTENANCE {get_task_state(pm)};
-                alter task TASKS.COST_CONTROL_MONITORING {get_task_state(cost_control)};
+                alter task TASKS.USER_LIMITS_MAINTENANCE {get_task_state(user_limits)};
             end;
             $$);
             """
@@ -152,9 +152,18 @@ with tasks:
         pm, pms = task_listing(
             "Snowflake User Replication", "SFUSER_MAINTENANCE", "every day"
         )
-        consumption_checkbox, consumption_enabled = task_listing(
-            "Cost Control Maintenance", "COST_CONTROL_MONITORING", "every five minutes"
-        )
+
+        form_args = [form, wem, qhm, pm]
+
+        # Only allow modification of user limits if Sundeck is linked
+        user_limits_checkbox = None
+        user_limits_enabled = False
+        if config.has_sundeck():
+            user_limits_checkbox, user_limits_enabled = task_listing(
+                "User Limits Maintenance", "USER_LIMITS_MAINTENANCE", "every five minutes"
+            )
+        # user_limits_checkbox may be None at this point, handled in save_tasks
+        form_args.append(user_limits_checkbox)
 
         # Only enable the button once the page has been reloaded and the checkbox is inconsistent with the task state. This is because streamlit
         # state is ugly and we don't want to record state here since it is already managed in Snowflake. Note this still has a bug if users
@@ -162,12 +171,12 @@ with tasks:
         st.button(
             "Save Changes",
             on_click=save_tasks,
-            args=[form, wem, qhm, pm, consumption_checkbox],
+            args=form_args,
             disabled=(
                 wems == wem
                 and qhms == qhm
                 and pms == pm
-                and consumption_checkbox == consumption_enabled
+                and user_limits_checkbox == user_limits_enabled
             ),
         )
 
