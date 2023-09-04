@@ -300,6 +300,6 @@ with initial_probes:
         msg.warning("Resetting. Please do not navigate away from this page.")
         connection.execute("call internal.merge_predefined_probes();")
         bar.progress(50, text="Loading preconfigured labels")
-        connection.execute("call internal.merge_predefined_labels(1000);")
+        connection.execute("call internal.merge_predefined_labels();")
         bar.progress(100, text="All events refreshed.")
         msg.info("Reset Complete.")
