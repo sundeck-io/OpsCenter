@@ -26,24 +26,24 @@ AS
 $$
 -- duplicates the above view, data must be kept in sync
 case
-    when warehouse_size = 'X-Small' and warehouse_type = 'STANDARD' 1
-    when warehouse_size = 'Small' and warehouse_type = 'STANDARD' 2
-    when warehouse_size = 'Medium' and warehouse_type = 'STANDARD' 4
-    when warehouse_size = 'Large' and warehouse_type = 'STANDARD' 8
-    when warehouse_size = 'X-Large' and warehouse_type = 'STANDARD' 16
-    when warehouse_size = '2X-Large' and warehouse_type = 'STANDARD' 32
-    when warehouse_size = '3X-Large' and warehouse_type = 'STANDARD' 64
-    when warehouse_size = '4X-Large' and warehouse_type = 'STANDARD' 128
-    when warehouse_size = '5X-Large' and warehouse_type = 'STANDARD' 256
-    when warehouse_size = '6X-Large' and warehouse_type = 'STANDARD' 512
-    when warehouse_size = 'Medium' and warehouse_type = 'SNOWPARK-OPTIMIZED' 4*1.5
-    when warehouse_size = 'Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 8*1.5
-    when warehouse_size = 'X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 16*1.5
-    when warehouse_size = '2X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 32*1.5
-    when warehouse_size = '3X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 64*1.5
-    when warehouse_size = '4X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 128*1.5
-    when warehouse_size = '5X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 256*1.5
-    when warehouse_size = '6X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' 512*1.5
+    when warehouse_size = 'X-Small' and warehouse_type = 'STANDARD' then 1
+    when warehouse_size = 'Small' and warehouse_type = 'STANDARD' then 2
+    when warehouse_size = 'Medium' and warehouse_type = 'STANDARD' then 4
+    when warehouse_size = 'Large' and warehouse_type = 'STANDARD' then 8
+    when warehouse_size = 'X-Large' and warehouse_type = 'STANDARD' then 16
+    when warehouse_size = '2X-Large' and warehouse_type = 'STANDARD' then 32
+    when warehouse_size = '3X-Large' and warehouse_type = 'STANDARD' then 64
+    when warehouse_size = '4X-Large' and warehouse_type = 'STANDARD' then 128
+    when warehouse_size = '5X-Large' and warehouse_type = 'STANDARD' then 256
+    when warehouse_size = '6X-Large' and warehouse_type = 'STANDARD' then 512
+    when warehouse_size = 'Medium' and warehouse_type = 'SNOWPARK-OPTIMIZED' then 4*1.5
+    when warehouse_size = 'Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' then 8*1.5
+    when warehouse_size = 'X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' then 16*1.5
+    when warehouse_size = '2X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' then 32*1.5
+    when warehouse_size = '3X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' then 64*1.5
+    when warehouse_size = '4X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' then 128*1.5
+    when warehouse_size = '5X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' then 256*1.5
+    when warehouse_size = '6X-Large' and warehouse_type = 'SNOWPARK-OPTIMIZED' then 512*1.5
     else null
 end
 $$;

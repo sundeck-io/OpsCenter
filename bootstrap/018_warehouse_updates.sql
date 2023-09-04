@@ -2,6 +2,22 @@
 CREATE TABLE INTERNAL.TASK_WAREHOUSE_EVENTS IF NOT EXISTS (run timestamp, success boolean, input variant, output variant);
 CREATE TABLE INTERNAL.WAREHOUSE_SIZE_MAPPING IF NOT EXISTS (WAREHOUSE_NAME varchar, WAREHOUSE_SIZE varchar, WAREHOUSE_TYPE varchar);
 
+CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_WAREHOUSE_SIZE_MAPPING()
+RETURNS OBJECT
+AS
+BEGIN
+    -- Add WAREHOUSE_TYPE column
+    IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'WAREHOUSE_SIZE_MAPPING' AND COLUMN_NAME = 'WAREHOUSE_TYPE')) THEN
+        ALTER TABLE IF EXISTS INTERNAL.WAREHOUSE_SIZE_MAPPING ADD COLUMN WAREHOUSE_TYPE STRING DEFAULT 'STANDARD';
+    END IF;
+
+EXCEPTION
+    WHEN OTHER THEN
+        SYSTEM$LOG('error', 'Failed to migrate warehouse size mapping table. ' || :SQLCODE || ': ' || :SQLERRM);
+        raise;
+END;
+call internal.migrate_warehouse_size_mapping();
+
 CREATE OR REPLACE PROCEDURE internal.refresh_warehouse_events(migrate boolean) RETURNS STRING LANGUAGE SQL
     COMMENT = 'Refreshes the warehouse events materialized view. If migrate is true, then the materialized view will be migrated if necessary.'
     AS
