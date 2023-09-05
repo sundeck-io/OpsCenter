@@ -89,5 +89,5 @@ CREATE OR REPLACE FUNCTION TOOLS.WAREHOUSE_MULTIPLIER(warehouse_size varchar)
 RETURNS NUMBER
 AS
 $$
-    internal.warehouse_multiplier(warehouse_size)
+    internal.warehouse_multiplier(warehouse_size, 'STANDARD')
 $$;
