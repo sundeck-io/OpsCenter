@@ -52,14 +52,21 @@ EXCEPTION
         return 'Failure validating name & condition. Please check your syntax.' || :SQLERRM;
 END;
 
+DROP PROCEDURE IF EXISTS INTERNAL.VALIDATE_LABEL_Name(string);
+
 -- Verify label name as quoted identifier is not same as any column name in view reporting.enriched_query_history.
-CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_LABEL_Name(name string)
+CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_Name(name string, is_label boolean)
 RETURNS STRING
 AS
 BEGIN
     let statement string := 'select  "' || name || '" from reporting.enriched_query_history where false';
     execute immediate statement;
-    return 'Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name.';
+    if (is_label) then
+        return 'Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name.';
+    else
+        return 'Group name can not be same as column name in view reporting.enriched_query_history. Please use a different group name.';
+    end if;
+
 EXCEPTION
     when statement_error then
         return null;
@@ -129,15 +136,27 @@ BEGIN
       return outcome;
     end if;
 
-    outcome := (CALL INTERNAL.VALIDATE_LABEL_Name(:name));
+    if (:grp is null) then
+        outcome := (CALL INTERNAL.VALIDATE_Name(:name, true));
+    else
+        outcome := (CALL INTERNAL.VALIDATE_Name(:grp, false));
+    end if;
 
     if (outcome is not null) then
       return outcome;
     end if;
 
-    outcome := 'Duplicate label name found. Please use a distinct name.';
     BEGIN TRANSACTION;
-        let cnt number := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE name = :name);
+        let cnt number := 0;
+        if (:grp is null) then
+            -- check if the ungrouped label's name conflict with another ungrouped label, or a group with same name.
+            cnt  := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE (name = :name and group_name is null) or (group_name = :name and group_name is not null));
+            outcome := 'Duplicate label name found. Please use a distinct name.';
+        else
+            -- check if the grouped label's name conflict with another label in the same group, or an ungrouped label's name.
+            cnt  := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE (group_name = :grp and name = :name and name is not null) or (name = :grp and group_name is null));
+            outcome := 'Duplicate grouped label name found. Please use a distinct name.';
+        end if;
 
         IF (cnt = 0) THEN
           INSERT INTO internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT") VALUES (:name, :grp, :rank, current_timestamp(), :condition, current_timestamp());
@@ -212,7 +231,7 @@ BEGIN
       return outcome;
     end if;
 
-    outcome := (CALL INTERNAL.VALIDATE_LABEL_Name(:name));
+    outcome := (CALL INTERNAL.VALIDATE_Name(:name, true));
 
     if (outcome is not null) then
       return outcome;
