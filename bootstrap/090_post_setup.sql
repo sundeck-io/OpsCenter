@@ -185,7 +185,7 @@ EXCEPTION
        RAISE;
 END;
 
-CREATE OR REPLACE TASK TASKS.COST_CONTROL_MONITORING
+CREATE OR REPLACE TASK TASKS.USER_LIMITS_MAINTENANCE
     SCHEDULE = '5 minute'
     ALLOW_OVERLAPPING_EXECUTION = FALSE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
@@ -315,12 +315,19 @@ call ADMIN.UPDATE_PROBE_MONITOR_RUNNING();
 alter task TASKS.SFUSER_MAINTENANCE resume;
 alter task TASKS.WAREHOUSE_EVENTS_MAINTENANCE resume;
 alter task TASKS.QUERY_HISTORY_MAINTENANCE resume;
-alter task TASKS.COST_CONTROL_MONITORING resume;
 
 -- Kick off the maintenance tasks.
 execute task TASKS.SFUSER_MAINTENANCE;
 execute task TASKS.WAREHOUSE_EVENTS_MAINTENANCE;
 execute task TASKS.QUERY_HISTORY_MAINTENANCE;
-execute task TASKS.COST_CONTROL_MONITORING;
+
+-- Only enable and start user limits task if connected to sundeck
+let has_url boolean;
+let has_tenant_url boolean;
+call internal.has_config('url') into :has_url;
+call internal.has_config('tenant_url') into :has_tenant_url;
+if (:has_url or :has_tenant_url) then
+    call internal.start_user_limits_task();
+end if;
 
 END;
