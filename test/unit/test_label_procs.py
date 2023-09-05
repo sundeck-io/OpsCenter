@@ -83,10 +83,6 @@ test_cases = [
         "call ADMIN.CREATE_LABEL('{label}', NULL, NULL, 'compile_time > 5000');",
         "Invalid condition SQL. Please check your syntax.",
     ),
-    # (
-    #     "call ADMIN.CREATE_LABEL('QUERY_TEXT', 'group_1', 100, 'compilation_time > 5000');",
-    #     "Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name.",
-    # ),
     (
         "call ADMIN.CREATE_LABEL('QUERY_TEXT', NULL, NULL, 'compilation_time > 5000');",
         "Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name.",
@@ -221,7 +217,7 @@ def test_create_ungrouped_then_grouped_and_label(conn, timestamp_string):
     ), "Stored procedure output does not match expected result!"
 
 
-# Test that validates the behavior when we create ungrouped label, then grouped label
+# Test that validates the behavior when we create grouped label, then ungrouped label
 def test_create_grouped_then_ungrouped_label(conn, timestamp_string):
     label = generate_unique_name("label", timestamp_string)
     ## create a grouped label, with group_name = {label}
