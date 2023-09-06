@@ -129,13 +129,15 @@ select cost as "Cost", cnt as "Count", '[' || pow(10,bucket-1) || ', ' || pow(10
         **Note:** This report requires the `QUERY_HASH` column to be enabled in the `ENRICHED_QUERY_HISTORY` table.
         This column is enabled by default in Snowflake 2023.06. If you are on an earlier version, you can enable it
         by running the following command:
+
         ```
         BEGIN
           SELECT SYSTEM$ENABLE_BEHAVIOR_CHANGE_BUNDLE('2023_06');
           EXECUTE opscenter.tasks.query_history_maintenance;
           CALL opscenter.admin.finalize_setup();
         END;
-        ```"""
+        ```
+        """
         )
     else:
         st.markdown(
