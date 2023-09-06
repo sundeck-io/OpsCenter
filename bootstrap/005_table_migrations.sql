@@ -110,8 +110,8 @@ $$
 begin
     let stmt varchar;
     call internal.generate_insert_statement_cmd(:target_schema, :target_table, :source_schema, :source_table, :where_clause) into stmt;
-  execute immediate stmt;
-            let inserted number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+    execute immediate stmt;
+    let inserted number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
   return :inserted;
 end;
 $$;
