@@ -120,7 +120,7 @@ select cost as "Cost", cnt as "Count", '[' || pow(10,bucket-1) || ', ' || pow(10
         st.dataframe(df, use_container_width=True)
 
     is_enabled = connection.execute_select(
-        """select system$BEHAVIOR_CHANGE_BUNDLE_STATUS('2023_06' = 'ENABLED' and count(*) = 1
+        """select system$BEHAVIOR_CHANGE_BUNDLE_STATUS('2023_06') = 'ENABLED' and count(*) = 1
         from information_schema.columns where table_catalog=current_database() and table_name='ENRICHED_QUERY_HISTORY' and table_schema='REPORTING' and column_name='QUERY_HASH';"""
     ).values[0][0]
     if not is_enabled:
