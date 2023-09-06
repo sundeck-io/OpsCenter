@@ -43,10 +43,12 @@ BEGIN
             newest_completed := (SELECT greatest(coalesce(max(end_time), 0::TIMESTAMP), :newest_completed) FROM RAW_QH_EVT WHERE NOT INCOMPLETE);
             let run_id timestamp := (SELECT run_id FROM RAW_QH_EVT limit 1);
             TRUNCATE TABLE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE;
-            insert into INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE SELECT * FROM RAW_QH_EVT WHERE INCOMPLETE OR END_TIME = :newest_completed;
-            let new_INCOMPLETE number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
-            insert into INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY select * from RAW_QH_EVT WHERE NOT INCOMPLETE AND END_TIME <> :newest_completed;
-            let new_closed number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+            let where_clause varchar := (select 'INCOMPLETE OR END_TIME = to_timestamp_ltz(\'' || :newest_completed || '\')');
+            let new_INCOMPLETE number;
+            call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE', 'INTERNAL', 'RAW_QH_EVT', :where_clause) into :new_INCOMPLETE;
+            let where_clause_complete varchar := (select 'END_TIME <> to_timestamp_ltz(\'' || :newest_completed || '\')');
+            let new_closed number;
+            call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_QH_EVT', :where_clause_complete) into :new_closed;
             insert into INTERNAL.TASK_QUERY_HISTORY SELECT :run_id, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0))::VARIANT;
         ELSE
             insert into INTERNAL.TASK_QUERY_HISTORY SELECT :dt, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0)::VARIANT;

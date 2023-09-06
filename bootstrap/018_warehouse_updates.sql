@@ -61,10 +61,12 @@ BEGIN
             newest_completed := (SELECT greatest(coalesce(max(SESSION_END), 0::TIMESTAMP), :newest_completed) FROM RAW_WH_EVT WHERE NOT INCOMPLETE);
             let run_id timestamp := (SELECT run_id FROM RAW_WH_EVT limit 1);
             TRUNCATE TABLE INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE;
-            insert into INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE SELECT * FROM RAW_WH_EVT WHERE INCOMPLETE OR SESSION_END = :newest_completed;
-            let new_INCOMPLETE number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
-            insert into INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY select * from RAW_WH_EVT WHERE NOT INCOMPLETE AND SESSION_END <> :newest_completed;
-            let new_closed number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+            let where_clause varchar := (select 'INCOMPLETE OR session_end = to_timestamp_ltz(\'' || :newest_completed || '\')');
+            let new_INCOMPLETE number;
+            call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE', 'INTERNAL', 'RAW_WH_EVT', :where_clause) into :new_INCOMPLETE;
+            let where_clause_complete varchar := (select 'not incomplete and session_end <> to_timestamp_ltz(\'' || :newest_completed || '\')');
+            let new_closed number;
+            call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_WH_EVT', :where_clause_complete) into :new_closed;
             insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :run_id, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0))::VARIANT;
         ELSE
             insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :dt, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0)::VARIANT;

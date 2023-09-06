@@ -84,3 +84,34 @@ BEGIN
     call INTERNAL.UPDATE_LABEL_VIEW();
     return 'Success';
 END;
+
+
+create or replace procedure internal.generate_insert_statement_cmd(target_schema varchar, target_table varchar, source_schema varchar, source_table varchar, where_clause varchar)
+returns string
+as
+$$
+begin
+  let columns string := (
+      SELECT LISTAGG('"' || COLUMN_NAME || '"', ', ')
+      FROM (
+      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :source_schema AND TABLE_NAME = :source_table
+      )
+
+      );
+  let stmt string := 'INSERT INTO "' || :target_schema || '"."' || :target_table || '" (' || columns || ') SELECT ' || columns || ' FROM "' || :source_schema || '"."' || :source_table || '" where ' || :where_clause || ';';
+  return :stmt;
+end;
+$$;
+
+create or replace procedure internal.generate_insert_statement(target_schema varchar, target_table varchar, source_schema varchar, source_table varchar, where_clause varchar)
+returns number
+as
+$$
+begin
+    let stmt varchar;
+    call internal.generate_insert_statement_cmd(:target_schema, :target_table, :source_schema, :source_table, :where_clause) into stmt;
+  execute immediate stmt;
+            let inserted number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+  return :inserted;
+end;
+$$;
