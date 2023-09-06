@@ -67,7 +67,7 @@ BEGIN
     return null;
 EXCEPTION
     when statement_error then
-        return 'Invalid condition SQL. Please check your syntax.' || statement || :SQLERRM;
+        return 'Invalid condition SQL. Please check your syntax.' || :SQLERRM;
     WHEN OTHER THEN
         return 'Failure validating condition. Please check your syntax.' || :SQLERRM;
 END;
@@ -200,7 +200,7 @@ BEGIN
                      WHERE (group_name = :grp and name = :name and name is not null) or
                             (name = :grp and group_name is null) or
                             (group_name = :grp and name is null));
-            outcome := 'Duplicate label name or group name found. Please use a distinct name.';
+            outcome := 'Duplicate grouped label name found. Please use a distinct name.';
         end if;
 
         IF (cnt = 0) THEN
@@ -308,7 +308,7 @@ BEGIN
 
     let outcome text := 'Duplicate label name found. Please use a distinct name.';
 
-    outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:condition, is_dynamic));
+    outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:condition, :is_dynamic));
     if (outcome is not null) then
       return outcome;
     end if;
@@ -418,7 +418,7 @@ BEGIN
     for record in labels do
         let name string := record."NAME";
         let condition string := record."CONDITION";
-        outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:name, :condition));
+        outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:condition, false));
         IF (outcome is not null) then
             let res text := 'Predefined label  \'' || name || '\' with condition  \'' || condition || '\' is not valid';
             RETURN res;
