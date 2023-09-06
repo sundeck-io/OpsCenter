@@ -2,7 +2,7 @@ import sys
 import datetime
 import pytest
 from contextlib import contextmanager
-from common_utils import delete_list_of_labels
+from common_utils import delete_list_of_labels, delete_list_of_probes
 
 sys.path.append("../deploy")
 import helpers  # noqa E402
@@ -62,3 +62,9 @@ def timestamp_string(conn):
 
     # call a function that deletes all the labels that were created in the session
     delete_list_of_labels(conn, sql)
+
+    sql = f"select name from INTERNAL.PROBES where name like '%{ts}%'"
+    print(f"[INFO] SQL stmt to find all the probes: {sql}")
+
+    # call a function that deletes all the labels that were created in the session
+    delete_list_of_probes(conn, sql)
