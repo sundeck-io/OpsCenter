@@ -9,4 +9,10 @@ module.exports = defineConfig({
     supportFile: false,
     defaultCommandTimeout: 20000
   },
+  retries: {
+    // Configure retry attempts for `cypress run`
+    runMode: 2,
+    // Configure retry attempts for `cypress open`
+    openMode: 0
+  }
 });
