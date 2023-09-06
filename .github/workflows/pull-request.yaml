@@ -57,3 +57,6 @@ jobs:
         run: "poetry run python deploy/deploy.py"
       - name: run teardown
         run: "poetry run python deploy/pr_teardown.py -a ${OPSCENTER_APP}"
+      - name: run teardown
+        if: failure()
+        run: "poetry run python deploy/pr_teardown.py -a ${OPSCENTER_APP}"
