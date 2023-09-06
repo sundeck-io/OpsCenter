@@ -395,8 +395,8 @@ BEGIN
         SET t.GROUP_NAME = NULL, t.GROUP_RANK = NULL, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp()
     WHEN NOT MATCHED THEN
     INSERT
-        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
-        VALUES (s.name, NULL, NULL,  current_timestamp(), s.condition, current_timestamp());
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC")
+        VALUES (s.name, NULL, NULL,  current_timestamp(), s.condition, current_timestamp(), FALSE);
 
     RETURN NULL;
 EXCEPTION
