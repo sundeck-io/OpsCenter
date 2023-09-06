@@ -269,19 +269,22 @@ CREATE OR REPLACE PROCEDURE INTERNAL.POPULATE_PREDEFINED_LABELS()
     EXECUTE AS OWNER
 AS
 BEGIN
+    let query_hash_enabled boolean := (select system$behaviour_change_enabled('2023_06') = 'ENABLED');
     MERGE INTO internal.predefined_labels t
     USING (
         SELECT *
         from (values
-                ('Large Results', 'rows_produced > 50000000'),
-                ('Writes', 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\')'),
-                ('Expanding Output', '10*bytes_scanned < BYTES_WRITTEN_TO_RESULT'),
-                ('Full Scans', 'coalesce(partitions_scanned, 0) > coalesce(partitions_total, 1) * 0.95'),
-                ('Long Compilation', 'COMPILATION_TIME > 100'),
-                ('Long Queries', 'TOTAL_ELAPSED_TIME > 600000'),
-                ('Expensive Queries', 'COST>0.5'),
-                ('Accelerated Queries', 'QUERY_ACCELERATION_BYTES_SCANNED > 0')
-             )) s (name, condition)
+                ('Large Results', 'rows_produced > 50000000', TRUE),
+                ('Writes', 'query_type in (\'CREATE_TABLE_AS_SELECT\', \'INSERT\', TRUE)'),
+                ('Expanding Output', '10*bytes_scanned < BYTES_WRITTEN_TO_RESULT', TRUE),
+                ('Full Scans', 'coalesce(partitions_scanned, 0) > coalesce(partitions_total, 1) * 0.95', TRUE),
+                ('Long Compilation', 'COMPILATION_TIME > 100', TRUE),
+                ('Long Queries', 'TOTAL_ELAPSED_TIME > 600000', TRUE),
+                ('Expensive Queries', 'COST>0.5', TRUE),
+                ('Accelerated Queries', 'QUERY_ACCELERATION_BYTES_SCANNED > 0', TRUE),
+                ('Repeated Queries', 'tools.is_repeated_query(query_parameterized_hash, 1000)', :query_hash_enabled),
+                ('ad-hoc Queries', 'tools.is_ad_hoc_query(query_parameterized_hash, 10)', :query_hash_enabled)
+             ) where $3) s (name, condition, enabled)
     ON t.name = s.name
     WHEN MATCHED THEN
     UPDATE
