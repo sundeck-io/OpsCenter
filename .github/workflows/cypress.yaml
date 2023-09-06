@@ -58,3 +58,6 @@ jobs:
             cypress/screenshots/
       - name: remove SQL objects
         run: "poetry run python deploy/cypress_teardown.py -p opscenter"
+      - name: remove SQL objects in failure
+        if: failure()
+        run: "poetry run python deploy/cypress_teardown.py -p opscenter"
