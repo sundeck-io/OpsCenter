@@ -57,7 +57,7 @@ with raw as (
         value:VALUE as dbt_qtag_value, tools.model_run_time(total_elapsed_time) as run_time,
 tools.model_size(tools.model_size_rows(zeroifnull(rows_produced)), tools.model_size_bytes(bytes_written_to_result)) as size,
 tools.model_efficiency(bytes_spilled_to_local_storage, bytes_spilled_to_remote_storage) as efficiency
-    from reporting.enriched_query_history, lateral flatten(qtag)
+    from reporting.labeled_query_history, lateral flatten(qtag)
     where
         value:SOURCE = 'dbt'
         and (value:KEY = 'invocation_id' or value:KEY = 'node_id')
