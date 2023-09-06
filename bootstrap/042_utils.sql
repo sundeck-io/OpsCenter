@@ -3,7 +3,7 @@ create or replace procedure internal.enable_query_hash()
 returns boolean
 as
 begin
-    let enabled boolean := (SELECT SYSTEM$BEHAVIOR_CHANGE_BUNDLE_STATUS('2021_02') = 'ENABLED');
+    let enabled boolean := (SELECT SYSTEM$BEHAVIOR_CHANGE_BUNDLE_STATUS('2023_06') = 'ENABLED');
     if (:enabled) then
        execute immediate $$
     begin

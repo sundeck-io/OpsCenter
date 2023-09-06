@@ -269,7 +269,7 @@ CREATE OR REPLACE PROCEDURE INTERNAL.POPULATE_PREDEFINED_LABELS()
     EXECUTE AS OWNER
 AS
 BEGIN
-    let query_hash_enabled boolean := (select system$behaviour_change_enabled('2023_06') = 'ENABLED');
+    let query_hash_enabled boolean := (select system$BEHAVIOR_CHANGE_BUNDLE_STATUS('2023_06') = 'ENABLED');
     MERGE INTO internal.predefined_labels t
     USING (
         SELECT *
