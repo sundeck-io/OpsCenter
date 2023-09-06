@@ -15,7 +15,9 @@ BEGIN
             current_timestamp() as run_id,
             tools.qtag(query_text, true, true) as qtag,
             DATEDIFF('day', START_TIME, END_TIME) + 1 AS PERIOD_PLUS,
-            IFF(index = PERIOD_PLUS, 'DAILY', 'COMPLETE') AS RECORD_TYPE,
+            -- Earlier versions generated COMPLETE and DAILY but accidentally applied the incorrect RECORD_TYPE to the given row.
+            -- For new data, we generate COMPLETE_FIXED and DAILY_FIXED, and compensate in the views below.
+            IFF(index = PERIOD_PLUS, 'COMPLETE_FIXED', 'DAILY_FIXED')::VARCHAR AS RECORD_TYPE,
             IFF(index in (0, PERIOD_PLUS), start_time, dateadd('day', index, date_trunc('day', start_time))) as ST,
             IFF(index in (PERIOD_PLUS - 1, PERIOD_PLUS), end_time, least(CURRENT_TIMESTAMP(), dateadd('day', index + 1, date_trunc('day', start_time)))) as ET,
             date_trunc('day', ST) AS ST_PERIOD,
@@ -55,14 +57,15 @@ BEGIN
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
                 * exclude (period_plus, record_type, unloaded_direct_compute_credits)
-            from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE = 'COMPLETE'
+            -- We may have reversed RECORD_TYPE rows in the materialized table. Filter to the new "correct" RECORD_TYPE and the old "incorrect" RECORD_TYPE.
+            from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY')
             union all
             select
                 tools.qtag_to_map(qtag) as qtag_filter,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
                 * exclude (period_plus, record_type, unloaded_direct_compute_credits)
-            from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE = 'COMPLETE'
+            from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY')
             ;
     $$;
     RETURN 'Success';
@@ -85,13 +88,14 @@ BEGIN
                 tools.qtag_to_map(qtag) as qtag_filter,
         case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
-            * exclude (period_plus, record_type, unloaded_direct_compute_credits) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE = 'DAILY'
+            -- We may have reversed RECORD_TYPE rows in the materialized table. Filter to the new "correct" RECORD_TYPE and the old "incorrect" RECORD_TYPE.
+            * exclude (period_plus, record_type, unloaded_direct_compute_credits) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE')
         union all
         select
                 tools.qtag_to_map(qtag) as qtag_filter,
         case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
-            * exclude (period_plus, record_type, unloaded_direct_compute_credits) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE = 'DAILY';
+            * exclude (period_plus, record_type, unloaded_direct_compute_credits) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE');
     $$;
     RETURN 'Success';
 END;
