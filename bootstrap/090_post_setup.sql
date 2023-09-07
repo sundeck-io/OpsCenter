@@ -11,8 +11,8 @@ BEGIN
           c1 CURSOR FOR
               with columns as (
                 select table_schema, table_name, LISTAGG('"' || COLUMN_NAME || '" ', ', \n') WITHIN GROUP (ORDER BY ORDINAL_POSITION) as cols
-                from information_schema.columns
-                where table_catalog = current_database() and table_schema in ('ACCOUNT_USAGE', 'ORGANIZATION_USAGE')
+                from snowflake.information_schema.columns
+                where table_catalog = 'SNOWFLAKE' and table_schema in ('ACCOUNT_USAGE', 'ORGANIZATION_USAGE')
                 group by table_name, table_schema
               ), delays as (
             select $1 as table_name, $2 as delay, $3 as ts from (values ('QUERY_HISTORY', 45, 'END_TIME'), ('WAREHOUSE_EVENTS_HISTORY', 180, 'TIMESTAMP'), ('WAREHOUSE_LOAD_HISTORY', 180, 'END_TIME'), ('WAREHOUSE_METERING_HISTORY', 180, 'END_TIME'), ('USERS', 120, 'CREATED_ON'), ('SERVERLESS_TASK_HISTORY', 180, 'END_TIME'))
@@ -32,6 +32,9 @@ BEGIN
             END FOR;
         END;
     END;
+call internal.migrate_queries();
+call internal.migrate_warehouse_events();
+call internal.migrate_view();
 
 -- These can't be created until after EXECUTE MANAGED TASK is granted to application.
 CREATE OR REPLACE TASK TASKS.WAREHOUSE_EVENTS_MAINTENANCE

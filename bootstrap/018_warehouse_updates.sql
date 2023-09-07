@@ -18,6 +18,22 @@ EXCEPTION
 END;
 call internal.migrate_warehouse_size_mapping();
 
+CREATE OR REPLACE PROCEDURE internal.migrate_warehouse_events()
+returns variant
+language sql
+as
+begin
+    SYSTEM$LOG_TRACE('Migrating warehouse events data.');
+    call internal.migrate_if_necessary('INTERNAL_REPORTING', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY');
+    let migrate1 variant := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+    call internal.migrate_if_necessary('INTERNAL_REPORTING', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE');
+    let migrate2 variant := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+    -- Ensure that RECORD_TYPE is VARCHAR and not VARCHAR(8)
+    ALTER TABLE INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY MODIFY COLUMN RECORD_TYPE TYPE VARCHAR;
+    ALTER TABLE INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE MODIFY COLUMN RECORD_TYPE TYPE VARCHAR;
+    return object_construct('migrate1', migrate1, 'migrate2', migrate2);
+end;
+
 CREATE OR REPLACE PROCEDURE internal.refresh_warehouse_events(migrate boolean) RETURNS STRING LANGUAGE SQL
     COMMENT = 'Refreshes the warehouse events materialized view. If migrate is true, then the materialized view will be migrated if necessary.'
     AS
@@ -27,14 +43,10 @@ BEGIN
     let migrate1 string := null;
     let migrate2 string := null;
     if (migrate) then
-        SYSTEM$LOG_TRACE('Migrating warehouse events data.');
-        call internal.migrate_if_necessary('INTERNAL_REPORTING', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY');
-        migrate1 := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
-        call internal.migrate_if_necessary('INTERNAL_REPORTING', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE');
-        migrate2 := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
-        -- Ensure that RECORD_TYPE is VARCHAR and not VARCHAR(8)
-        ALTER TABLE INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY MODIFY COLUMN RECORD_TYPE TYPE VARCHAR;
-        ALTER TABLE INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE MODIFY COLUMN RECORD_TYPE TYPE VARCHAR;
+        let migrate_result variant;
+        call internal.migrate_warehouse_events() into migrate_result;
+        migrate1 := migrate_result:migrate1::string;
+        migrate2 := migrate_result:migrate2::string;
     end if;
 
     let input variant := null;
