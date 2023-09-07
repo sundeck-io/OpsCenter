@@ -28,11 +28,13 @@ jobs:
         with:
           python-version: '3.8'
           cache: 'pip'
-      - name: install dependencies
+      - name: Install all dependencies
         run: |
           pip install poetry
-          poetry install --with=dev
-          poetry show
+          poetry config virtualenvs.in-project true
+          poetry install
+      - name: Show dependencies
+        run: poetry show
       - name: Make unique names for this job
         id: shell-command
         run: |
@@ -70,7 +72,10 @@ jobs:
       - name: install dependencies
         run: |
           pip install poetry
+          poetry config virtualenvs.in-project true
           poetry install
+      - name: Describe installation
+        run: poetry show
       - name: Get suffix
         id: shell-command
         run:
