@@ -37,5 +37,3 @@ as
     $$;
 end if;
 end;
-
-call internal.enable_query_hash();
