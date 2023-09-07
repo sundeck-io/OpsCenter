@@ -1,6 +1,20 @@
 
 CREATE TABLE INTERNAL.TASK_QUERY_HISTORY IF NOT EXISTS (run timestamp, success boolean, input variant, output variant);
 
+CREATE OR REPLACE PROCEDURE internal.migrate_queries()
+returns variant
+language sql
+as
+begin
+    SYSTEM$LOG_TRACE('Migrating query history data.');
+    call internal.migrate_view();
+    call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY');
+    let migrate1 string := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+    call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE');
+    let migrate2 string := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+    return object_construct('migrate1', migrate1, 'migrate2', migrate2);
+end;
+
 CREATE OR REPLACE PROCEDURE internal.refresh_queries(migrate boolean) RETURNS STRING LANGUAGE SQL AS
 BEGIN
     let dt timestamp := current_timestamp();
@@ -8,15 +22,10 @@ BEGIN
     let migrate1 string := null;
     let migrate2 string := null;
     if (migrate) then
-        SYSTEM$LOG_TRACE('Migrating query history data.');
-        call internal.migrate_view();
-        call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY');
-        migrate1 := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
-        call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE');
-        migrate2 := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
-        -- Ensure that RECORD_TYPE is VARCHAR and not VARCHAR(8)
-        ALTER TABLE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY MODIFY COLUMN RECORD_TYPE TYPE VARCHAR;
-        ALTER TABLE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE MODIFY COLUMN RECORD_TYPE TYPE VARCHAR;
+        let migration_result variant;
+        call internal.migrate_queries() into :migration_result;
+        migrate1 := migration_result:migrate1::string;
+        migrate2 := migration_result:migrate2::string;
     end if;
 
     let input variant := null;

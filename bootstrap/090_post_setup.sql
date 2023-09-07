@@ -32,6 +32,9 @@ BEGIN
             END FOR;
         END;
     END;
+call internal.migrate_queries();
+call internal.migrate_warehouse_events();
+call internal.migrate_view();
 
 -- These can't be created until after EXECUTE MANAGED TASK is granted to application.
 CREATE OR REPLACE TASK TASKS.WAREHOUSE_EVENTS_MAINTENANCE
