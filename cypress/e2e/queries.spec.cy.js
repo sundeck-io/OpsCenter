@@ -17,7 +17,7 @@ describe("Queries section", () => {
 
     checkForLoading();
 
-    cy.get("span").contains("Queries").should("be.visible").click();
+    clickCheck({ clickElem: "span", contains: "Queries" });
 
     dropDownOpen("Select Report");
     dropDownElementClick("Top Spenders");

@@ -275,15 +275,16 @@ export const updateUngroupedLabelForm = (
 };
 
 export const clickCheck = (options) => {
+  cy.get(options.clickElem)
+    .should("exist")
+    .as(`clickElem-${options.clickElem}`);
   if (options.contains) {
-    cy.get(options.clickElem)
-      .should("exist")
+    cy.get(`@clickElem-${options.clickElem}`)
       .contains(options.contains)
       .should("exist")
       .click(options.forceClick ? { force: true } : undefined);
   } else {
-    cy.get(options.clickElem)
-      .should("exist")
+    cy.get(`@clickElem-${options.clickElem}`)
       .scrollIntoView()
       .should("be.visible")
       .click(options.forceClick ? { force: true } : undefined);
