@@ -1,64 +1,56 @@
-import { checkNoErrorOnThePage, dropDownOpen, dropDownElementClick, setup } from "../support/utils";
+import {
+  checkNoErrorOnThePage,
+  dropDownOpen,
+  dropDownElementClick,
+  setup,
+  checkForLoading,
+  clickCheck,
+} from "../support/utils";
 
 describe("Queries section", () => {
   before(() => {
     setup();
   });
 
-
-it("Menu: Queries (Top Spenders)", () => {
+  it("Menu: Queries (Top Spenders)", () => {
     cy.visit("/");
 
-    cy.wait(10000);
+    checkForLoading();
 
-    cy.get("span")
-      .contains("Queries")
-      .should("be.visible")
-      .click();
+    cy.get("span").contains("Queries").should("be.visible").click();
 
     dropDownOpen("Select Report");
     dropDownElementClick("Top Spenders");
-    checkNoErrorOnThePage();
 
     // List display option
     dropDownOpen("Pick View");
     dropDownElementClick("List");
-    checkNoErrorOnThePage();
 
     // Graph display option
     dropDownOpen("Pick View");
     dropDownElementClick("Graph");
-    checkNoErrorOnThePage();
 
     // Iterate over filters
 
-    const stringList= ["365", "90", "30", "7"];
+    const stringList = ["365", "90", "30", "7"];
 
-    cy.get("span")
-      .contains("Top Spenders")
-      .should("be.visible");
+    cy.get("span").contains("Top Spenders").should("be.visible");
 
     // Click on Filters
-    cy.get('div[data-testid="stMarkdownContainer"]')
-      .contains("Filters")
-      .click();
+    clickCheck({
+      clickElem: 'div[data-testid="stMarkdownContainer"]',
+      contains: "Filters",
+    });
 
     for (const str of stringList) {
-      cy.get('button[kind="secondary"]')
-        .contains(str)
-        .click();
-      checkNoErrorOnThePage();
+      clickCheck({ clickElem: 'button[kind="secondary"]', contains: str });
     }
-
   });
 
-it("Menu: Queries (dbt Summary)", () => {
+  it("Menu: Queries (dbt Summary)", () => {
     cy.visit("/");
 
-    cy.get("span")
-      .contains("Queries")
-      .should("be.visible")
-      .click();
+    cy.get("span").contains("Queries").should("be.visible").click();
 
     dropDownOpen("Select Report");
     dropDownElementClick("dbt Summary");
@@ -70,11 +62,9 @@ it("Menu: Queries (dbt Summary)", () => {
 
     // Iterate over filters
 
-    const stringList= ["365", "90", "30", "7"];
+    const stringList = ["365", "90", "30", "7"];
 
-    cy.get("span")
-      .contains("dbt Summary")
-      .should("be.visible");
+    cy.get("span").contains("dbt Summary").should("be.visible");
 
     // Click on Filters
     cy.get('div[data-testid="stMarkdownContainer"]')
@@ -82,26 +72,25 @@ it("Menu: Queries (dbt Summary)", () => {
       .click();
 
     for (const str of stringList) {
-      cy.get('button[kind="secondary"]')
-        .contains(str)
-        .click();
+      cy.get('button[kind="secondary"]').contains(str).click();
       checkNoErrorOnThePage();
     }
+  });
 
-});
-
-it("Menu: Queries (Query Activity)", () => {
+  it("Menu: Queries (Query Activity)", () => {
     cy.visit("/");
 
-    cy.get("span")
-      .contains("Queries")
-      .should("be.visible")
-      .click();
+    cy.get("span").contains("Queries").should("be.visible").click();
 
     // Loop over category dropdown list, check no error on the page
-    const categorylList= ["User", "Warehouse", "Role", "Query Type", "Execution Status"];
+    const categorylList = [
+      "User",
+      "Warehouse",
+      "Role",
+      "Query Type",
+      "Execution Status",
+    ];
     for (const category of categorylList) {
-
       dropDownOpen("Color by Category or Grouping Label");
       dropDownElementClick(category);
       checkNoErrorOnThePage();
@@ -118,11 +107,9 @@ it("Menu: Queries (Query Activity)", () => {
 
     // Iterate over filters
 
-    const stringList= ["365", "90", "30", "7"];
+    const stringList = ["365", "90", "30", "7"];
 
-    cy.get("span")
-      .contains("Query Activity")
-      .should("be.visible");
+    cy.get("span").contains("Query Activity").should("be.visible");
 
     // Click on Filters
     cy.get('div[data-testid="stMarkdownContainer"]')
@@ -130,10 +117,8 @@ it("Menu: Queries (Query Activity)", () => {
       .click();
 
     for (const str of stringList) {
-      cy.get('button[kind="secondary"]')
-        .contains(str)
-        .click();
+      cy.get('button[kind="secondary"]').contains(str).click();
       checkNoErrorOnThePage();
     }
- });
+  });
 });

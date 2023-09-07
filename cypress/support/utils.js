@@ -5,24 +5,25 @@ export function setup() {
 }
 
 export function checkNoErrorOnThePage() {
-  // TODO: Temporarily for testing, make sure page loaded
-  cy.wait(5000);
+  checkForLoading();
 
   // Validate no exception is thrown
   cy.get('div[class="stException"]').should("not.exist");
-};
+}
 
 // Check for Success notification with particular text presence
 export function checkSuccessAlert(notificationText) {
-  cy.get('div[role="alert"][data-baseweb="notification"]', { timeout: 60000 })
-    .and('contain', notificationText);
-};
+  cy.get('div[role="alert"][data-baseweb="notification"]', {
+    timeout: 60000,
+  }).and("contain", notificationText);
+}
 
 // Check for failure notification with particular text presence
 export function checkFailureAlert(notificationText) {
-  cy.get('div[role="alert"][data-baseweb="notification"]', { timeout: 60000 })
-    .and('contain', notificationText);
-};
+  cy.get('div[role="alert"][data-baseweb="notification"]', {
+    timeout: 60000,
+  }).and("contain", notificationText);
+}
 
 export const fillInProbeForm = (
   probeName,
@@ -31,14 +32,9 @@ export const fillInProbeForm = (
   cancelTheQuery,
   emailOthers
 ) => {
+  cy.get('input[aria-label="Probe Name"]').clear().type(probeName);
 
-  cy.get('input[aria-label="Probe Name"]')
-    .clear()
-    .type(probeName);
-
-  cy.get('textarea[aria-label="Condition"]')
-    .clear()
-    .type(condition);
+  cy.get('textarea[aria-label="Condition"]').clear().type(condition);
 
   if (emailTheAuthor) {
     // check({force: true}) - explanation below
@@ -62,34 +58,32 @@ export const fillInProbeForm = (
 export const buttonClick = (buttonName) => {
   cy.get('button[kind="secondary"]')
     .contains(buttonName)
-    .click({force: true});
+    .click({ force: true });
 };
 
 export const buttonOnTabClick = (buttonName) => {
   cy.get('button[kind="secondaryFormSubmit"]')
     .contains(buttonName)
-    .click({force: true});
+    .click({ force: true });
 };
 
 export const buttonCheckExists = (buttonName) => {
-  cy.get('button[kind="secondary"]')
-    .contains(buttonName)
-    .should("exist");
+  cy.get('button[kind="secondary"]').contains(buttonName).should("exist");
 };
 
-function generateUUID(){
+function generateUUID() {
   const uuid = uuidv4();
   return uuid;
 }
 
-export function generateUniqueName(prefix){
+export function generateUniqueName(prefix) {
   const uuid = generateUUID();
   const uniqueName = `${prefix}_${uuid}`;
   return uniqueName;
 }
 
 export const probeDelete = (probeName) => {
-  cy.log("Deleting probe: ",  probeName);
+  cy.log("Deleting probe: ", probeName);
 
   cy.get('div[data-testid="stMarkdownContainer"]')
     .should("exist")
@@ -97,31 +91,27 @@ export const probeDelete = (probeName) => {
     .should("exist")
     .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with probeName
     .should("exist")
-    .within(() => {  // Only searches within specific stHorizontalBlock that has probeName
+    .within(() => {
+      // Only searches within specific stHorizontalBlock that has probeName
       cy.get('div[data-testid="column"]')
         //.contains("&#x1F5D1;") // Does not work. This is unicode HTML representation of the wastebasket icon.
         .eq(-2) // Brute force solution: chose second before last column (wastebasket)
         .should("exist")
-        .click()
-    })
+        .click();
+    });
 };
 
 // If "None" - don't modify the field
-export const fillInNewUngroupedLabelForm = (
-  labelName,
-  condition
-) => {
-
-  if ( labelName != "None" ) {
-    cy.get('input[aria-label="Label Name"]')
-      .clear()
-      .type(labelName);
+export const fillInNewUngroupedLabelForm = (labelName, condition) => {
+  if (labelName != "None") {
+    cy.get('input[aria-label="Label Name"]').clear().type(labelName);
   }
 
-  if ( condition != "None" ) {
+  if (condition != "None") {
     cy.get('textarea[aria-label="Condition"]')
       .clear()
-      .type(condition).type('{command+enter}');
+      .type(condition)
+      .type("{command+enter}");
   }
 };
 
@@ -131,31 +121,16 @@ export const fillInNewGroupedLabelForm = (
   condition,
   rank
 ) => {
+  cy.get('input[aria-label="Group Name"]').clear().type(groupName);
 
-  cy.get('input[aria-label="Group Name"]')
-    .clear()
-    .type(groupName);
+  cy.get('input[aria-label="Label Name"]').clear().type(labelName);
 
-  cy.get('input[aria-label="Label Name"]')
-    .clear()
-    .type(labelName);
+  cy.get('textarea[aria-label="Condition"]').clear().type(condition);
 
-  cy.get('textarea[aria-label="Condition"]')
-    .clear()
-    .type(condition);
-
-  cy.get('input[aria-label="Rank"]')
-    .clear()
-    .type(rank);
+  cy.get('input[aria-label="Rank"]').clear().type(rank);
 };
 
-export const addNewLabelToGroup = (
-  groupName,
-  labelName,
-  condition,
-  rank
-) => {
-
+export const addNewLabelToGroup = (groupName, labelName, condition, rank) => {
   // Find tab with the group name and click on it
   cy.get('button[data-baseweb="tab"')
     .should("exist")
@@ -167,31 +142,23 @@ export const addNewLabelToGroup = (
   buttonCheckExists("Add label to group");
   buttonClick("Add label to group");
 
-  cy.get('input[aria-label="Label Name"]')
-    .clear()
-    .type(labelName);
+  cy.get('input[aria-label="Label Name"]').clear().type(labelName);
 
-  cy.get('textarea[aria-label="Condition"]')
-    .clear()
-    .type(condition);
+  cy.get('textarea[aria-label="Condition"]').clear().type(condition);
 
-  cy.get('input[aria-label="Rank"]')
-    .clear()
-    .type(rank);
+  cy.get('input[aria-label="Rank"]').clear().type(rank);
 
   buttonCheckExists("Create");
   buttonClick("Create");
 
   // Find tab with the group name and click on it
 
-   cy.get('div[data-baseweb="tab-list"]')
-     .scrollIntoView()
-     .should("be.visible")
-     .as('tabs');
+  cy.get('div[data-baseweb="tab-list"]')
+    .scrollIntoView()
+    .should("be.visible")
+    .as("tabs");
 
-  cy.get('@tabs')
-    .contains(groupName)
-    .click();
+  cy.get("@tabs").contains(groupName).click();
 
   // Validate that newly created label is found on the page
   cy.get('section[tabindex="0"]')
@@ -199,54 +166,46 @@ export const addNewLabelToGroup = (
     .should("exist")
     .contains(labelName)
     .should("exist");
-
 };
 
 // For ungrouped label, specify "Ungrouped" in the groupName argument
-export const labelDelete = (
-  groupName,
-  labelName
-) => {
-
+export const labelDelete = (groupName, labelName) => {
   cy.get('div[data-testid="stHorizontalBlock"]')
     .should("exist")
     .contains(labelName)
     .should("exist")
     .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
     .should("exist")
-    .within(() => {  // Only searches within specific stHorizontalBlock that has probeName
+    .within(() => {
+      // Only searches within specific stHorizontalBlock that has probeName
       cy.get('div[data-testid="column"]')
-        .contains('🗑️')
+        .contains("🗑️")
         .should("exist")
-        .click()
-    })
+        .click();
+    });
 };
 
 export function checkGroupLabelNotExist(groupName) {
-  cy.log("Validate that group label does not exist",  groupName);
+  cy.log("Validate that group label does not exist", groupName);
 
-    cy.visit("/");
+  cy.visit("/");
 
-    cy.get("span")
-      .contains("Labels")
-      .should("be.visible")
-      .click();
+  cy.get("span").contains("Labels").should("be.visible").click();
 
-    cy.get("span")
-      .contains("Query Labels")
-      .should("be.visible")
-      .find(groupName)
-      .should("not.exist");
+  cy.get("span")
+    .contains("Query Labels")
+    .should("be.visible")
+    .find(groupName)
+    .should("not.exist");
 
-    checkNoErrorOnThePage();
-};
+  checkNoErrorOnThePage();
+}
 
 export const fillInTheSettingsConfigForm = (
   computeCreditCost,
   serverlessCreditCost,
   storageCost
 ) => {
-
   cy.get('input[aria-label="Compute Credit Cost"]')
     .clear()
     .type(computeCreditCost);
@@ -255,49 +214,38 @@ export const fillInTheSettingsConfigForm = (
     .clear()
     .type(serverlessCreditCost);
 
-  cy.get('input[aria-label="Storage Cost (/tb)"]')
-    .clear()
-    .type(storageCost);
+  cy.get('input[aria-label="Storage Cost (/tb)"]').clear().type(storageCost);
 };
 
 export const dropDownOpen = (dropDownName) => {
-  cy.get('.row-widget.stSelectbox')
+  cy.get(".row-widget.stSelectbox")
     .contains(dropDownName)
     .should("exist")
-    .parents('.row-widget.stSelectbox')
+    .parents(".row-widget.stSelectbox")
     .should("exist")
     .within(() => {
-      cy.get('svg[title="open"]')
-        .should("exist")
-        .click({force: true});
-    })
+      clickCheck({ clickElem: 'svg[title="open"]', forceClick: true });
+    });
 };
 
 export const dropDownElementClick = (dropDownElementName) => {
-  cy.get('li[role="option"]')
-    .should("exist")
-    .contains(dropDownElementName)
-    .should("exist")
-    .click();
+  clickCheck({ clickElem: 'li[role="option"]', contains: dropDownElementName });
 };
 
-export const labelUpdateClick = (
-  groupName,
-  labelName
-) => {
-
+export const labelUpdateClick = (groupName, labelName) => {
   cy.get('div[data-testid="stHorizontalBlock"]')
     .should("exist")
     .contains(labelName)
     .should("exist")
     .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
     .should("exist")
-    .within(() => {  // Only searches within specific stHorizontalBlock that has probeName
+    .within(() => {
+      // Only searches within specific stHorizontalBlock that has probeName
       cy.get('div[data-testid="column"]')
-        .contains('✏️')
+        .contains("✏️")
         .should("exist")
-        .click()
-    })
+        .click();
+    });
 };
 
 // labelName: which label to update
@@ -309,18 +257,45 @@ export const updateUngroupedLabelForm = (
   newLabelName,
   newCondition
 ) => {
+  cy.log("Updating label: labelName", labelName);
 
-  cy.log('Updating label: labelName', labelName);
-
-  if ( newLabelName != "None" ) {
+  if (newLabelName != "None") {
     cy.get('input[aria-label="Label Name"]')
       .clear()
-      .type(newLabelName).type('{enter}');
+      .type(newLabelName)
+      .type("{enter}");
   }
 
-  if ( newCondition != "None" ) {
+  if (newCondition != "None") {
     cy.get('textarea[aria-label="Condition"]')
       .clear()
-      .type(newCondition).type('{command+enter}');
+      .type(newCondition)
+      .type("{command+enter}");
   }
+};
+
+export const clickCheck = (options) => {
+  if (options.contains) {
+    cy.get(options.clickElem)
+      .should("exist")
+      .contains(options.contains)
+      .should("exist")
+      .click(options.forceClick ? { force: true } : undefined);
+  } else {
+    cy.get(options.clickElem)
+      .should("exist")
+      .scrollIntoView()
+      .should("be.visible")
+      .click(options.forceClick ? { force: true } : undefined);
+  }
+  checkNoErrorOnThePage();
+};
+
+export const checkForLoading = () => {
+  cy.get('[data-testid="stMarkdownContainer"]')
+    .contains("Please wait...")
+    .should("not.exist", { timeout: 120000 });
+  cy.get('[data-testid="stStatusWidget"]').should("not.exist", {
+    timeout: 120000,
+  });
 };
