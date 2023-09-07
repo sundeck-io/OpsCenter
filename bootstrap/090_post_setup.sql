@@ -63,6 +63,9 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
         COMMIT;
     END;
 
+-- enable the query_hash column in the query_history view
+call INTERNAL.ENABLE_QUERY_HASH();
+
 -- Migrate the schema of the probes table if it already exists
 call INTERNAL.MIGRATE_PROBES_TABLE();
 call INTERNAL.MIGRATE_LABELS_TABLE();
