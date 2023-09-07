@@ -43,7 +43,7 @@ BEGIN
     let migrate1 string := null;
     let migrate2 string := null;
     if (migrate) then
-        let migrate_result variant variant;
+        let migrate_result variant;
         call internal.migrate_warehouse_events() into migrate_result;
         migrate1 := migrate_result:migrate1::string;
         migrate2 := migrate_result:migrate2::string;
