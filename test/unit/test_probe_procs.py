@@ -146,3 +146,9 @@ def test_error_message(conn, timestamp_string, statement, expected_error):
     assert expected_error in str(
         run_proc(conn, sql)
     ), "Stored procedure output does not match expected result!"
+
+def test_new_positive():
+    assert True
+
+def test_new_negative():
+    assert False
