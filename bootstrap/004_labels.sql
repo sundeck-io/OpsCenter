@@ -244,8 +244,8 @@ BEGIN
         SYSTEM$LOG_INFO('Predefined labels import is skipped. \n');
         RETURN FALSE;
     ELSE
-        INSERT INTO INTERNAL.LABELS (NAME, GROUP_NAME, GROUP_RANK, LABEL_CREATED_AT, CONDITION, ENABLED, LABEL_MODIFIED_AT)
-            SELECT NAME, GROUP_NAME, GROUP_RANK, LABEL_CREATED_AT, CONDITION, ENABLED, LABEL_CREATED_AT
+        INSERT INTO INTERNAL.LABELS (NAME, GROUP_NAME, GROUP_RANK, LABEL_CREATED_AT, CONDITION, ENABLED, LABEL_MODIFIED_AT, IS_DYNAMIC)
+            SELECT NAME, GROUP_NAME, GROUP_RANK, LABEL_CREATED_AT, CONDITION, ENABLED, LABEL_CREATED_AT, IS_DYNAMIC
             FROM INTERNAL.PREDEFINED_LABELS;
         CALL INTERNAL.SET_CONFIG('LABELS_INITED', 'True');
         SYSTEM$LOG_INFO('Predefined labels are imported into LABELS table. \n');
@@ -392,7 +392,8 @@ BEGIN
     ON t.name = s.name
     WHEN MATCHED THEN
     UPDATE
-        SET t.GROUP_NAME = NULL, t.GROUP_RANK = NULL, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp()
+        SET t.GROUP_NAME = NULL, t.GROUP_RANK = NULL, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp(),
+            T.IS_DYNAMIC = FALSE
     WHEN NOT MATCHED THEN
     INSERT
         ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC")
@@ -434,7 +435,7 @@ LANGUAGE SQL
 EXECUTE AS OWNER
 AS
 $$
-    insert into internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT") select name, group_name, group_rank, label_created_at, condition, label_modified_at from internal.predefined_labels where name not in (select name from internal.labels);
+    insert into internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC") select name, group_name, group_rank, label_created_at, condition, label_modified_at, IS_DYNAMIC from internal.predefined_labels where name not in (select name from internal.labels);
 $$;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_LABELS(gap_in_seconds NUMBER)
@@ -470,11 +471,11 @@ BEGIN
     ON t.name = s.name
     WHEN MATCHED THEN
     UPDATE
-        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT
+        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT, t.IS_DYNAMIC = s.IS_DYNAMIC
     WHEN NOT MATCHED THEN
     INSERT
-        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT")
-        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT);
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC")
+        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT, S.IS_DYNAMIC);
 
     return TRUE;
 END;

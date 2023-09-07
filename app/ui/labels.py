@@ -164,7 +164,7 @@ class Label:
                         "Add label to group",
                         key=f"create{x}",
                         on_click=self.session.do_create,
-                        args=[items[x]],
+                        args=[items[x], False],
                     )
 
     def on_create_click(self, name, group, rank, condition, is_dynamic):
