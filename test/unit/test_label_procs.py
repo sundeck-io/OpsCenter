@@ -31,6 +31,46 @@ def test_smoke_create_drop_label(conn, timestamp_string):
     assert run_proc(conn, sql) == "done", "Stored procedure did not return NULL value!"
 
 
+def test_smoke_create_update_drop_dynamic_group_label(conn, timestamp_string):
+    name = generate_unique_name("group", timestamp_string)
+    sql = f"call ADMIN.CREATE_LABEL(NULL, '{name}', NULL, 'query_type', true);"
+
+    # create_label returns NULL in case of successful label creation
+    assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
+
+    # make sure it was created with correct properties
+    sql = f"""select count(*) from INTERNAL.labels where
+                    name is null and
+                    group_name = '{name}' and
+                    group_rank is null and
+                    label_created_at is not null and
+                    condition = 'query_type' and
+                    enabled is null and
+                    is_dynamic
+           """
+    assert row_count(conn, sql) == 1, "Dynamic label was not found!"
+
+    # update condition expression
+    sql = f"call ADMIN.UPDATE_LABEL(NULL, NULL, '{name}', NULL, 'lower(query_type)', true);"
+    assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
+
+    # make sure the condition is updated
+    sql = f"""select count(*) from INTERNAL.labels where
+                        name is null and
+                        group_name = '{name}' and
+                        group_rank is null and
+                        label_created_at is not null and
+                        condition = 'lower(query_type)' and
+                        enabled is null and
+                        is_dynamic
+               """
+    assert row_count(conn, sql) == 1, "Dynamic label after update was not found!"
+
+    # drop label
+    sql = f"call ADMIN.DELETE_DYNAMIC_LABEL('{name}');"
+    assert run_proc(conn, sql) == "done", "Stored procedure did not return NULL value!"
+
+
 def test_smoke_update_label(conn, timestamp_string):
     label = generate_unique_name("label", timestamp_string)
     sql = f"call ADMIN.CREATE_LABEL('{label}', NULL, NULL, 'rows_produced > 100');"
@@ -110,6 +150,30 @@ test_cases = [
     (
         "call ADMIN.CREATE_LABEL('{label}', 'QUERY_TEXT', 10, 'compilation_time > 5000');",
         "Group name can not be same as column name in view reporting.enriched_query_history. Please use a different group name.",
+    ),
+    (
+        "call ADMIN.CREATE_LABEL('{label}', 'DYNAMIC_GROUP_LABEL', NULL, 'QUERY_TYPE', TRUE);",
+        "Rank or name must not be set for dynamic grouped labels.",
+    ),
+    (
+        "call ADMIN.CREATE_LABEL(NULL, 'DYNAMIC_GROUP_LABEL', 10, 'QUERY_TYPE', TRUE);",
+        "Rank or name must not be set for dynamic grouped labels.",
+    ),
+    (
+        "call ADMIN.CREATE_LABEL(NULL, NULL, 10, 'QUERY_TYPE', TRUE);",
+        "group name must be set for dynamic grouped labels.",
+    ),
+    (
+        "call ADMIN.UPDATE_LABEL('{label}', '{label}', 'DYNAMIC_GROUP_LABEL', NULL, 'QUERY_TYPE', TRUE);",
+        "Rank or name must not be set for dynamic grouped labels.",
+    ),
+    (
+        "call ADMIN.UPDATE_LABEL(NULL, NULL, 'DYNAMIC_GROUP_LABEL', 10, 'QUERY_TYPE', TRUE);",
+        "Rank or name must not be set for dynamic grouped labels.",
+    ),
+    (
+        "call ADMIN.DELETE_DYNAMIC_LABEL(NULL);",
+        "Name must not be null.",
     ),
 ]
 
