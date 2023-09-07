@@ -1,6 +1,5 @@
 import plotly.graph_objects as go
 import streamlit as st
-from plotly.subplots import make_subplots
 
 import connection
 import filters
@@ -68,39 +67,46 @@ select cost as "Cost", cnt as "Count", '[' || pow(10,bucket-1) || ', ' || pow(10
         )
 
         labels = list(df.Bucket.values)
+        bars = []
+        total_cost = sum(df.Cost.values)
+        total_count = sum(df.Count.values)
+        df.Cost = df.Cost.apply(lambda x: x / total_cost * 100)
+        df.Count = df.Count.apply(lambda x: x / total_count * 100)
+        for label in labels:
+            ls = label.replace("[", "").replace(")", "").split(",")
+            if ls[0] == "1":
+                lb = f"fewer than {ls[1]} occurrences"
+            elif ls[0] == "10000000":
+                lb = f"more than {ls[0]} occurrences"
+            else:
+                lb = f"between {ls[0]} and {ls[1]} occurrences"
+            bars.append(
+                go.Bar(
+                    name=lb,
+                    x=["Cost", "Count"],
+                    y=df[df.Bucket == label].values[0][0:2],
+                )
+            )
 
-        fig = make_subplots(
-            rows=1, cols=2, specs=[[{"type": "domain"}, {"type": "domain"}]]
-        )
-        fig.add_trace(
-            go.Pie(labels=labels, values=df.Cost.values, name="Cost per bucket"), 1, 1
-        )
-        fig.add_trace(
-            go.Pie(labels=labels, values=df.Count.values, name="Count per bucket"), 1, 2
-        )
+        fig = go.Figure(data=bars)
+        fig.update_layout(barmode="stack")
 
-        fig.update_traces(hole=0.4, hoverinfo="label+percent+name")
-
-        fig.update_layout(
-            title_text="Repeated queries per frequency bucket",
-            # Add annotations in the center of the donut pies.
-            annotations=[
-                dict(text="Cost", x=0.20, y=0.5, font_size=20, showarrow=False),
-                dict(text="Count", x=0.81, y=0.5, font_size=20, showarrow=False),
-            ],
-        )
         st.plotly_chart(fig, use_container_width=True)
 
     def top_table():
+        val = st.radio(
+            "Top 1000 repeated queries by:",
+            ["Count", "Cost", "Cost per Query"],
+        )
         sql = f"""
             with raw as (
-            select any_value(query_text) as "Query Text", sum(cost) as "Cost", count(*) as "Count", query_parameterized_hash as "Parameterized Query Hash"
+            select any_value(query_text) as "Query Text", to_varchar(sum(cost), '999,999.00') as "Cost", count(*) as "Count", to_varchar(sum(cost)/count(*), '999,999.000000') as "Cost per Query"
             from reporting.labeled_query_history where query_parameterized_hash is not null and cost >0
                 and start_time between %(start)s and %(end)s and (array_size(%(warehouse_names)s) = 0
                     OR array_contains(warehouse_name::variant, %(warehouse_names)s))
                     {addition_filter}
                     group by query_parameterized_hash
-                    order by "Count" desc
+                    order by "{val}" desc
                     ) select * from raw where length("Query Text") > 0
                     limit 100
                     """
@@ -110,11 +116,8 @@ select cost as "Cost", cnt as "Count", '[' || pow(10,bucket-1) || ', ' || pow(10
         )
         st.markdown(
             """
-        Top 100 repeated queries by count.
+        Tip: double click on the query text to see the full query.
 
-        Tips:
-        * double click on the query text to see the full query
-        * copy the query hash and run `select * from opscenter.reporting.enriched_query_history where query_parameterized_hash = '<hash>'` to see the full query history for a particular hash
         """
         )
         st.dataframe(df, use_container_width=True)
@@ -142,15 +145,12 @@ select cost as "Cost", cnt as "Count", '[' || pow(10,bucket-1) || ', ' || pow(10
         st.markdown(
             """
         The below pie charts show the distribution of repeated queries by frequency bucket. Queries are bucketed by the
-        number of times their query hash has been seen in the time period selected. For example, the bucket `[1,10)` means
-        all queries whose query hash has been seen <10 times and `[1000,10000)` means the query has has been seen between
-        1000 and 10,000 times in the given time frame. The pie charts show the percentage contribution of each bucket to
-        both total cost and to the overall query count.
+        number of times their query hash has been seen in the time period selected. The charts show the percentage
+        contribution of each bucket to both total cost and to the overall query count.
 
         These charts indicate whether the primary cost driver is a small number of very expensive queries or a large number
         of repeating inexpensive queries. The charts can be filtered by labels and by warehouses to narrow down the source
-        of these costs and improve them. For example, maybe the small repeated queries could be directed to a smaller
-        warehouse.
+        of these costs and improve them.
         """
         )
         overview()

@@ -11,14 +11,14 @@ create or replace function tools.is_repeated_query(qph varchar, size number)
 returns boolean
 immutable
 as
-qph in (select query_parameterized_hash from reporting.enriched_query_history group by query_parameterized_hash having count(query_parameterized_hash) > size)
+'qph in (select query_parameterized_hash from reporting.enriched_query_history group by query_parameterized_hash having count(query_parameterized_hash) > size)'
 ;
 
 create or replace function tools.is_ad_hoc_query(qph varchar, size number)
 returns boolean
 immutable
 as
-qph in (select query_parameterized_hash from reporting.enriched_query_history group by query_parameterized_hash having count(query_parameterized_hash) < size)
+'qph in (select query_parameterized_hash from reporting.enriched_query_history group by query_parameterized_hash having count(query_parameterized_hash) < size)'
 ;
     end;
     $$;
