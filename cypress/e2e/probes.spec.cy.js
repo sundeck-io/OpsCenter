@@ -67,7 +67,7 @@ describe("Probes section", () => {
     checkNoErrorOnThePage();
 
     cy.get("span")
-      .contains("Query Probes",{ timeout: 30000 } )
+      .contains("Query Probes", { timeout: 30000 })
       .scrollIntoView()
       .should("be.visible");
     checkNoErrorOnThePage();
