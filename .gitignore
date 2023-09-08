@@ -2,3 +2,6 @@
 .idea
 sql
 poetry.lock
+
+node_modules
+yarn.lock
