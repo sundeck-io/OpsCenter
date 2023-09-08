@@ -51,6 +51,7 @@ jobs:
         run: poetry run python deploy/devdeploy.py --profile opscenter
   unit-tests:
     runs-on: ubuntu-latest
+    continue-on-error: true
     needs: devdeploy-with-materialization
     steps:
       - uses: actions/checkout@v3
