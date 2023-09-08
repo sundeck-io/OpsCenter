@@ -50,7 +50,7 @@ describe("Queries section", () => {
   it("Menu: Queries (dbt Summary)", () => {
     cy.visit("/");
 
-    cy.get("span").contains("Queries").should("be.visible").click();
+    clickCheck({ clickElem: "span", contains: "Queries" });
 
     dropDownOpen("Select Report");
     dropDownElementClick("dbt Summary");
@@ -67,20 +67,20 @@ describe("Queries section", () => {
     cy.get("span").contains("dbt Summary").should("be.visible");
 
     // Click on Filters
-    cy.get('div[data-testid="stMarkdownContainer"]')
-      .contains("Filters")
-      .click();
+    clickCheck({
+      clickElem: 'div[data-testid="stMarkdownContainer"]',
+      contains: "Filters",
+    });
 
     for (const str of stringList) {
-      cy.get('button[kind="secondary"]').contains(str).click();
-      checkNoErrorOnThePage();
+      clickCheck({ clickElem: 'button[kind="secondary"]', contains: str });
     }
   });
 
   it("Menu: Queries (Query Activity)", () => {
     cy.visit("/");
 
-    cy.get("span").contains("Queries").should("be.visible").click();
+    clickCheck({ clickElem: "span", contains: "Queries" });
 
     // Loop over category dropdown list, check no error on the page
     const categorylList = [
@@ -93,16 +93,13 @@ describe("Queries section", () => {
     for (const category of categorylList) {
       dropDownOpen("Color by Category or Grouping Label");
       dropDownElementClick(category);
-      checkNoErrorOnThePage();
 
       // Test with Graph and List display options
       dropDownOpen("Pick View");
       dropDownElementClick("List");
-      checkNoErrorOnThePage();
 
       dropDownOpen("Pick View");
       dropDownElementClick("Graph");
-      checkNoErrorOnThePage();
     }
 
     // Iterate over filters
@@ -112,13 +109,13 @@ describe("Queries section", () => {
     cy.get("span").contains("Query Activity").should("be.visible");
 
     // Click on Filters
-    cy.get('div[data-testid="stMarkdownContainer"]')
-      .contains("Filters")
-      .click();
+    clickCheck({
+      clickElem: 'div[data-testid="stMarkdownContainer"]',
+      contains: "Filters",
+    });
 
     for (const str of stringList) {
-      cy.get('button[kind="secondary"]').contains(str).click();
-      checkNoErrorOnThePage();
+      clickCheck({ clickElem: 'button[kind="secondary"]', contains: str });
     }
   });
 });
