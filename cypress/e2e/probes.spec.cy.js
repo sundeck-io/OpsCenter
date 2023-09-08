@@ -43,6 +43,13 @@ describe("Probes section", () => {
     );
     buttonClick("Create");
     checkNoErrorOnThePage();
+
+    cy.get("span")
+      .contains("Query Probes", { timeout: 30000 })
+      .scrollIntoView()
+      .should("be.visible");
+    checkNoErrorOnThePage();
+
     probeDelete(probe_1);
 
     // Test #4: Fill the form with valid values and save (checkboxes are unchecked)
@@ -58,6 +65,13 @@ describe("Probes section", () => {
     );
     buttonClick("Create");
     checkNoErrorOnThePage();
+
+    cy.get("span")
+      .contains("Query Probes", { timeout: 30000 })
+      .scrollIntoView()
+      .should("be.visible");
+    checkNoErrorOnThePage();
+
     probeDelete(probe_2);
 
     // Among other things, "New" button should exist
