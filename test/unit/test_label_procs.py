@@ -22,7 +22,7 @@ def test_smoke_create_drop_label(conn, timestamp_string):
                  group_rank is null and
                  label_created_at is not null and
                  condition = 'rows_produced > 100' and
-                 enabled is null
+                 enabled
         """
     assert row_count(conn, sql) == 1, "Label was not found!"
 
@@ -45,7 +45,7 @@ def test_smoke_create_update_drop_dynamic_group_label(conn, timestamp_string):
                     group_rank is null and
                     label_created_at is not null and
                     condition = 'query_type' and
-                    enabled is null and
+                    enabled and
                     is_dynamic
            """
     assert row_count(conn, sql) == 1, "Dynamic label was not found!"
@@ -61,7 +61,7 @@ def test_smoke_create_update_drop_dynamic_group_label(conn, timestamp_string):
                         group_rank is null and
                         label_created_at is not null and
                         condition = 'lower(query_type)' and
-                        enabled is null and
+                        enabled  and
                         is_dynamic
                """
     assert row_count(conn, sql) == 1, "Dynamic label after update was not found!"
@@ -85,7 +85,7 @@ def test_smoke_update_label(conn, timestamp_string):
                 group_rank is null and
                 label_created_at is not null and
                 condition = 'rows_produced > 100' and
-                enabled is null
+                enabled
         """
     assert row_count(conn, sql) == 1, "Label was not found!"
 
@@ -100,7 +100,7 @@ def test_smoke_update_label(conn, timestamp_string):
                 group_rank is null and
                 label_created_at is not null and
                 condition = 'compilation_time > 3000' and
-                enabled is null
+                enabled
         """
     assert row_count(conn, sql) == 1, "Label was not found!"
 
