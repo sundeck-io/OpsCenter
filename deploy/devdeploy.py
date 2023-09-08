@@ -46,13 +46,15 @@ def _copy_opscenter_files(cur, schema: str, stage: str, deployment: str):
 def _finish_local_setup(cur, database: str, schema: str):
     print("Setting up internal state to mimic a set-up app.")
 
+    # Call FINALIZE_SETUP first to perform any migrations, then
+    # the underlying procedures to avoid waiting for async tasks to run.
     cur.execute(
         f"""
     BEGIN
+        call {database}.ADMIN.FINALIZE_SETUP();
         call {database}.internal.refresh_users();
         call {database}.internal.refresh_warehouse_events(true);
         call {database}.internal.refresh_queries(true);
-        call {database}.ADMIN.FINALIZE_SETUP();
     END;
     """
     )
