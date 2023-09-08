@@ -3,7 +3,6 @@ import session
 import config
 import reports_query_activity
 import reports_top_spenders
-import reports_query_hash
 import reports_dbt
 import reports
 
@@ -14,7 +13,6 @@ credit_cost = config.get_compute_credit_cost()
 options = {
     "Query Activity": reports_query_activity.report,
     "Top Spenders": reports_top_spenders.report,
-    "Repeated Queries": reports_query_hash.report,
     "dbt Summary": reports_dbt.report,
 }
 
