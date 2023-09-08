@@ -32,6 +32,14 @@ BEGIN
             END FOR;
         END;
     END;
+
+-- Migrate the schema of internal tables
+call INTERNAL.MIGRATE_PROBES_TABLE();
+call INTERNAL.MIGRATE_LABELS_TABLE();
+call INTERNAL.MIGRATE_PREDEFINED_PROBES_TABLE();
+call INTERNAL.MIGRATE_PREDEFINED_LABELS_TABLE();
+
+-- Re-generate the internal and public views
 call internal.migrate_queries();
 call internal.migrate_warehouse_events();
 call internal.migrate_view();
@@ -66,16 +74,6 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
 -- enable the query_hash column in the query_history view
 call INTERNAL.ENABLE_QUERY_HASH();
 
--- Migrate the schema of the probes table if it already exists
-call INTERNAL.MIGRATE_PROBES_TABLE();
-call INTERNAL.MIGRATE_LABELS_TABLE();
-
--- Migrate the schema of the predefined_probes table if it already exists
-call INTERNAL.MIGRATE_PREDEFINED_PROBES_TABLE();
-
--- Migrate the schema of predefined_labels table if it already exists
-call INTERNAL.MIGRATE_PREDEFINED_LABELS_TABLE();
-
 -- Populate the list of predefined labels
 call INTERNAL.POPULATE_PREDEFINED_LABELS();
 
@@ -89,7 +87,6 @@ call INTERNAL.INITIALIZE_LABELS();
 -- after last install/upgrade of APP
 -- parameter 7200 (seconds) is the timestamp difference when a predefined label is regarded as an old one.
 call INTERNAL.MIGRATE_PREDEFINED_LABELS(7200);
-
 
 -- Populate the list of predefined probes
 call INTERNAL.POPULATE_PREDEFINED_PROBES();
