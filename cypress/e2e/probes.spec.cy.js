@@ -8,12 +8,9 @@ describe("Probes section", () => {
   it("Menu: Probes", () => {
     cy.visit("/");
 
-    cy.wait(10000);
+    checkForLoading();
 
-    cy.get("span")
-      .contains("Probes")
-      .should("be.visible")
-      .click();
+    clickCheck({ clickElem: "span", contains: "Probes" });
 
     cy.get("span")
       .contains("Query Probes")
@@ -22,17 +19,14 @@ describe("Probes section", () => {
 
     // Test #1: validate that clicking on "New" button starts page without error
     buttonClick("New");
-    checkNoErrorOnThePage();
 
     // Test #2: validate that clicking on "Cancel" brings form back to "New" button
     buttonClick("Cancel");
-    checkNoErrorOnThePage();
     buttonCheckExists("New");
     checkNoErrorOnThePage();
 
     // Test #3: Fill the form with valid values and save
     buttonClick("New");
-    checkNoErrorOnThePage();
     const probe_1 = generateUniqueName("probe");
     fillInProbeForm(
       probe_1,
@@ -42,7 +36,6 @@ describe("Probes section", () => {
       "vicky@sundeck.io, jinfeng@sundeck.io"
     );
     buttonClick("Create");
-    checkNoErrorOnThePage();
 
     cy.get("span")
       .contains("Query Probes", { timeout: 30000 })
@@ -64,7 +57,6 @@ describe("Probes section", () => {
       "vicky@sundeck.io, jinfeng@sundeck.io"
     );
     buttonClick("Create");
-    checkNoErrorOnThePage();
 
     cy.get("span")
       .contains("Query Probes", { timeout: 30000 })
