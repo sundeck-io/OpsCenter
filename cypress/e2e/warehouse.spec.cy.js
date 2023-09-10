@@ -45,11 +45,11 @@ describe("Warehouse section", () => {
     }
   });
 
-  // Test is skipped due to a known issue: exception while iterating over ranges
-  // pandas/core/indexes/range.py", line 349, in get_loc
-  it.skip("Menu: Warehouses (Heatmap)", () => {
+  it("Menu: Warehouses (Heatmap)", () => {
 
     cy.visit("/");
+
+    checkForLoading();
 
     const stringList= ["365", "90", "30", "7"];
 
@@ -59,16 +59,11 @@ describe("Warehouse section", () => {
       .should("be.visible");
 
     // Click on Filters
-    cy.get('div[data-testid="stMarkdownContainer"]')
-      .contains("Filters")
-      .click();
+    clickCheck({ clickElem: 'div[data-testid="stMarkdownContainer"]', contains: "Filters" });
 
     for (const str of stringList) {
-      cy.get('button[kind="secondary"]')
-        .contains(str)
-        .click();
+      clickCheck({ clickElem: 'button[kind="secondary"]', contains: str });
 
-      checkNoErrorOnThePage();
     }
   });
 
