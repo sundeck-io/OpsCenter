@@ -50,6 +50,9 @@ def _clear_stage(cur):
     cur.execute(f"REMOVE {FULL_STAGE} pattern='.*';")
 
 
+testing_pages = {"06_WarehouseSchedule.py"}
+
+
 def _sync_local_to_stage(cur):
     print("Syncing local files to stage.")
 
@@ -73,6 +76,7 @@ def _sync_local_to_stage(cur):
 
         # Skip over files/directories that start with a period
         files = [f for f in files if not f.startswith(".")]
+        files = [f for f in files if f not in testing_pages]
         dirs[:] = [d for d in dirs if not d.startswith(".")]
         dirs[:] = [d for d in dirs if not d == "__pycache__"]
 
