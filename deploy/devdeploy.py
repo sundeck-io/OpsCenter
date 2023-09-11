@@ -1,5 +1,6 @@
 import getopt
 import time
+import os
 import helpers
 import re
 import sys
@@ -28,6 +29,22 @@ def _copy_dependencies(cur, schema: str, stage: str):
         stage_file_path = f"@{schema}.{stage}/python"
         put_cmd = f"PUT 'file://{local_file_path}' '{stage_file_path}' overwrite=true auto_compress=false"
         cur.execute(put_cmd)
+    target_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "app", "crud")
+    )
+    for root, dirs, files in os.walk(target_dir):
+
+        # Skip over files/directories that start with a period
+        files = [f for f in files if not f.startswith(".")]
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        dirs[:] = [d for d in dirs if not d == "__pycache__"]
+
+        for file in files:
+            local_file_path = os.path.join(root, file)
+            stage_file_path = f"@{schema}.{stage}/crud"
+            put_cmd = f"PUT 'file://{local_file_path}' '{stage_file_path}' overwrite=true auto_compress=false"
+            print(put_cmd)
+            cur.execute(put_cmd)
 
 
 def _copy_opscenter_files(cur, schema: str, stage: str, deployment: str):
