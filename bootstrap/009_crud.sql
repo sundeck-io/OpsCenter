@@ -8,5 +8,5 @@ PACKAGES = ('snowflake-snowpark-python')
 imports=('{{stage}}/crud/__init__.py')
 AS
 $$
-from crud.__init__ import create_entity
+from __init__ import create_entity
 $$;
