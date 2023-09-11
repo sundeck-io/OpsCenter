@@ -60,9 +60,7 @@ export const buttonClick = (buttonName) => {
 };
 
 export const buttonOnTabClick = (buttonName) => {
-  cy.get('button[kind="secondaryFormSubmit"]')
-    .contains(buttonName)
-    .click({ force: true });
+  clickCheck({ clickElem: 'button[kind="secondaryFormSubmit"]', contains: buttonName, forceClick: true });
 };
 
 export const buttonCheckExists = (buttonName) => {
@@ -310,9 +308,7 @@ export const clickCheck = (options) => {
 
 export const checkForLoading = () => {
   cy.get('[data-testid="stMarkdownContainer"]')
-    .contains("Please wait...")
-    .should("not.exist", { timeout: 120000 });
-  cy.get('[data-testid="stStatusWidget"]').should("not.exist", {
-    timeout: 120000,
-  });
+    .contains("Please wait...", { timeout: 360000 })
+    .should("not.exist");
+  cy.get('[data-testid="stStatusWidget"]', { timeout: 360000 }).should("not.exist");
 };
