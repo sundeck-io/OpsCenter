@@ -64,12 +64,7 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
     ALLOW_OVERLAPPING_EXECUTION = FALSE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
-    BEGIN
-        BEGIN TRANSACTION;
-        truncate table internal.sfusers;
-        insert into internal.sfusers select name, email from snowflake.account_usage.users;
-        COMMIT;
-    END;
+    CALL INTERNAL.refresh_users();
 
 -- enable the query_hash column in the query_history view
 call INTERNAL.ENABLE_QUERY_HASH();
