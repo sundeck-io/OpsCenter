@@ -48,6 +48,25 @@ BEGIN
           truncate table INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY;
         end if;
 
+        -- Detect when the 'complete' and 'incomplete' materializations have differently-ordered columns (which would break all views which UNION those tables together).
+        let mismatched_schema boolean := (
+            select count(cc.column_name) > 0
+            from information_schema.columns cc
+            inner join information_schema.columns ci on cc.ordinal_position = ci.ordinal_position
+            where
+                cc.table_schema = 'INTERNAL_REPORTING_MV' and
+                cc.table_name = 'QUERY_HISTORY_COMPLETE_AND_DAILY' and
+                ci.table_schema = 'INTERNAL_REPORTING_MV' and
+                ci.table_name = 'QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE' and
+                (cc.column_name <> ci.column_name OR cc.data_type <> ci.data_type));
+        if (mismatched_schema) then
+            SYSTEM$LOG_INFO('Schema mismatch detected between QUERY_HISTORY_COMPLETE_AND_DAILY and QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE, recreating INCOMPLETE table');
+            -- Drop the current instance of this table and recreate it with the same schema as the other table.
+            CREATE OR REPLACE TABLE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE LIKE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY COPY GRANTS;
+            -- Re-create the views on top of these materializations
+            call internal.migrate_view();
+        end if;
+
         DROP TABLE IF EXISTS RAW_QH_EVT ;
         CREATE TABLE RAW_QH_EVT AS SELECT * FROM INTERNAL_REPORTING.QUERY_HISTORY_COMPLETE_AND_DAILY WHERE filterts >= :oldest_running AND end_time >= :newest_completed;
         let new_records number := (select count(*) from RAW_QH_EVT);

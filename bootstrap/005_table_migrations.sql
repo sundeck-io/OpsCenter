@@ -25,22 +25,24 @@ BEGIN
       RAISE TABLE_NOT_EXISTS;
   END IF;
 
+  -- Super important that the columns to add are consistently generated, else we may generate conflicting schemas between two tables created from the same view (the internal_reporting_mv query history tables)
   let columns_to_add string := (
-      SELECT LISTAGG('"' || COLUMN_NAME || '" ' || DATA_TYPE, ', ')
+      SELECT LISTAGG('"' || COLUMN_NAME || '" ' || DATA_TYPE, ', ') WITHIN GROUP (ORDER BY ORDINAL_POSITION)
       FROM (
-      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
+      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
       MINUS
-      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
+      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
       )
 
       );
 
+  -- Include ordinal_position to fix tables which have the correct columns but are in an unexpected order
   let columns_to_drop string := (
       SELECT LISTAGG('"' || COLUMN_NAME || '" ' , ', ')
       FROM (
-      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
+      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
       MINUS
-      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
+      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
       )
 
       );
@@ -50,14 +52,15 @@ BEGIN
   let alter_table_add_column string := '';
   let alter_table_drop_column string := '';
 
-  if (columns_to_add <> '') then
-    alter_table_add_column := ' ADD ' || columns_to_add;
-    execute immediate alter_statement || alter_table_add_column;
-  end if;
-
+  -- Drop columns first, in case we are re-creating the same columns but in a different order.
   if (columns_to_drop <> '') then
     alter_table_drop_column := ' DROP ' || columns_to_drop;
     execute immediate alter_statement || alter_table_drop_column;
+  end if;
+
+  if (columns_to_add <> '') then
+    alter_table_add_column := ' ADD ' || columns_to_add;
+    execute immediate alter_statement || alter_table_add_column;
   end if;
 
   if (columns_to_add <> '' OR columns_to_drop <> '') then
@@ -86,18 +89,26 @@ BEGIN
 END;
 
 
+create or replace function internal.generate_column_list(source_schema varchar, source_table varchar)
+returns string
+as
+$$
+      -- Ordering the LISTAGG by ORDINAL_POSITION is not strictly necessary, but should eliminate confusion when LISTAGG would
+      -- otherwise generate a random ordering of columns each time it is called.
+      SELECT LISTAGG('"' || COLUMN_NAME || '"', ', ') WITHIN GROUP (ORDER BY ORDINAL_POSITION)
+      FROM (
+      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = source_schema AND TABLE_NAME = source_table
+      )
+$$;
+
+
 create or replace procedure internal.generate_insert_statement_cmd(target_schema varchar, target_table varchar, source_schema varchar, source_table varchar, where_clause varchar)
 returns string
 as
 $$
 begin
-  let columns string := (
-      SELECT LISTAGG('"' || COLUMN_NAME || '"', ', ')
-      FROM (
-      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :source_schema AND TABLE_NAME = :source_table
-      )
+  let columns string := (select internal.generate_column_list(:source_schema, :source_table));
 
-      );
   let stmt string := 'INSERT INTO "' || :target_schema || '"."' || :target_table || '" (' || columns || ') SELECT ' || columns || ' FROM "' || :source_schema || '"."' || :source_table || '" where ' || :where_clause || ';';
   return :stmt;
 end;
@@ -110,6 +121,7 @@ $$
 begin
     let stmt varchar;
     call internal.generate_insert_statement_cmd(:target_schema, :target_table, :source_schema, :source_table, :where_clause) into stmt;
+    SYSTEM$LOG_INFO('Running INSERT with generated query: ' || :stmt);
     execute immediate stmt;
     let inserted number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
   return :inserted;
