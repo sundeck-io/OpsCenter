@@ -165,7 +165,6 @@ export const addNewLabelToGroup = (groupName, labelName, condition, rank) => {
     .should("be.visible")
     .as("tabs");
 
-  // cy.get("@tabs").contains(groupName).click();
   clickCheck({ clickElem: "@tabs", contains: groupName });
 
   // Validate that newly created label is found on the page
@@ -187,7 +186,6 @@ export const labelDelete = (groupName, labelName) => {
     .should("be.visible")
     .as("tabs");
 
-  // cy.get("@tabs").contains(groupName).click();
   clickCheck({ clickElem: "@tabs", contains: groupName, forceClick: true });
 
   cy.get('div[data-testid="stHorizontalBlock"]')
@@ -246,17 +244,11 @@ export const dropDownOpen = (dropDownName) => {
     .parents(".row-widget.stSelectbox")
     .should("exist")
     .within(() => {
-      cy.get('div[data-baseweb="select"]').should("exist").click();
+      clickCheck({ clickElem: 'div[data-baseweb="select"]', forceClick: true });
     });
 };
 
 export const dropDownElementClick = (dropDownElementName) => {
-  // cy.get('li[role="option"]')
-  //   .should("exist")
-  //   .contains(dropDownElementName)
-  //   .as(dropDownElementName);
-  // cy.get(`@${dropDownElementName}`).should("exist").click();
-  // checkNoErrorOnThePage();
   clickCheck({ clickElem: 'li[role="option"]', contains: dropDownElementName });
 };
 
