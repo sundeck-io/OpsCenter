@@ -63,7 +63,7 @@ def transaction(session):
         raise
 
 
-def create_entity(session, entity_type, entity):
+def create_entity(session, entity_type, entity, validation_proc):
     with transaction(session) as txn:
         try:
             t = _TYPES.get(entity_type)
