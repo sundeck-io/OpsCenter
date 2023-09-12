@@ -1,11 +1,12 @@
-import { checkNoErrorOnThePage,
-         checkSuccessAlert,
-         fillInTheSettingsConfigForm,
-         buttonOnTabClick,
-         buttonClick,
-         checkForLoading,
-         clickCheck,
-         setup,
+import {
+  checkNoErrorOnThePage,
+  checkSuccessAlert,
+  fillInTheSettingsConfigForm,
+  buttonOnTabClick,
+  buttonClick,
+  checkForLoading,
+  clickCheck,
+  setup,
 } from "../support/utils";
 
 describe("Settings section", () => {
@@ -18,19 +19,18 @@ describe("Settings section", () => {
   });
 
   it("Menu: Settings. Tab: Config. Validate that we can set and save credits values.", () => {
-
     cy.visit("/");
     checkForLoading();
 
     clickCheck({ clickElem: "span", contains: "Settings" });
 
     clickCheck({ clickElem: 'button[role="tab"]', contains: "Config" });
-    fillInTheSettingsConfigForm(10.00, 20.00, 30.00);
+    fillInTheSettingsConfigForm(10.0, 20.0, 30.0);
     buttonOnTabClick("Save");
     checkSuccessAlert("Saved");
   });
 
-  it("Menu: Settings. Tab: Reset. Validate that we can click 'Reload' button and no exception is thrown .", () => {
+  it.only("Menu: Settings. Tab: Reset. Validate that we can click 'Reload' button and no exception is thrown .", () => {
     cy.visit("/");
     checkForLoading();
 
@@ -45,16 +45,13 @@ describe("Settings section", () => {
 
   describe("Menu: Settings. Tab: Initial Setup", () => {
     it.skip("First step should be marked as completed", () => {
-      cy.get("span")
-        .contains("Settings")
-        .should("be.visible")
-        .click();
+      cy.get("span").contains("Settings").should("be.visible").click();
 
       cy.get('button[role="tab"]')
         .should("exist")
         .contains("Initial Setup")
         .should("exist")
-        .click()
+        .click();
 
       cy.get("p")
         .contains("Step 1: Grant Snowflake Privileges [Completed]")
@@ -62,23 +59,22 @@ describe("Settings section", () => {
     });
 
     it.skip("Sundeck link should be present and contain correct information", () => {
-      cy.get("span")
-        .contains("Settings")
-        .should("be.visible")
-        .click();
+      cy.get("span").contains("Settings").should("be.visible").click();
 
       cy.get('button[role="tab"]')
         .should("exist")
         .contains("Initial Setup")
         .should("exist")
-        .click()
+        .click();
 
       cy.get("a")
         .contains("right click here")
         .should("exist")
         .then(($a) => {
           const href = $a.prop("href");
-          expect(href.startsWith("https://sundeck.io/try?source=opscenter&state=")).to.be.true;
+          expect(
+            href.startsWith("https://sundeck.io/try?source=opscenter&state=")
+          ).to.be.true;
 
           const url = new URL(href);
           const state = url.searchParams.get("state");

@@ -56,11 +56,19 @@ export const fillInProbeForm = (
 };
 
 export const buttonClick = (buttonName) => {
-  clickCheck({ clickElem: 'button[kind="secondary"]', contains: buttonName, forceClick: true });
+  clickCheck({
+    clickElem: 'button[kind="secondary"]',
+    contains: buttonName,
+    forceClick: true,
+  });
 };
 
 export const buttonOnTabClick = (buttonName) => {
-  clickCheck({ clickElem: 'button[kind="secondaryFormSubmit"]', contains: buttonName, forceClick: true });
+  clickCheck({
+    clickElem: 'button[kind="secondaryFormSubmit"]',
+    contains: buttonName,
+    forceClick: true,
+  });
 };
 
 export const buttonCheckExists = (buttonName) => {
@@ -128,7 +136,6 @@ export const fillInNewGroupedLabelForm = (
 };
 
 export const addNewLabelToGroup = (groupName, labelName, condition, rank) => {
-
   // Find tab with the group name and click on it
   cy.get('button[data-baseweb="tab"')
     .should("exist")
@@ -137,7 +144,7 @@ export const addNewLabelToGroup = (groupName, labelName, condition, rank) => {
     .contains(groupName)
     .as("labelGroupTab");
 
-  clickCheck({ clickElem: '@labelGroupTab' });
+  clickCheck({ clickElem: "@labelGroupTab" });
 
   buttonCheckExists("Add label to group");
   buttonClick("Add label to group");
@@ -159,7 +166,7 @@ export const addNewLabelToGroup = (groupName, labelName, condition, rank) => {
     .as("tabs");
 
   // cy.get("@tabs").contains(groupName).click();
-  clickCheck({ clickElem: '@tabs', contains: groupName });
+  clickCheck({ clickElem: "@tabs", contains: groupName });
 
   // Validate that newly created label is found on the page
   cy.get('section[tabindex="0"]')
@@ -171,7 +178,8 @@ export const addNewLabelToGroup = (groupName, labelName, condition, rank) => {
 
 // For ungrouped label, specify "Ungrouped" in the groupName argument
 export const labelDelete = (groupName, labelName) => {
-  cy.log("*** labelDelete (begin): groupName:labelName", groupName,labelName);
+  cy.log("*** labelDelete (begin): groupName:labelName", groupName, labelName);
+  checkForLoading();
 
   // Find tab with the group name and click on it
   cy.get('div[data-baseweb="tab-list"]')
@@ -180,7 +188,7 @@ export const labelDelete = (groupName, labelName) => {
     .as("tabs");
 
   // cy.get("@tabs").contains(groupName).click();
-  clickCheck({ clickElem: '@tabs', contains: groupName, forceClick: true });
+  clickCheck({ clickElem: "@tabs", contains: groupName, forceClick: true });
 
   cy.get('div[data-testid="stHorizontalBlock"]')
     .should("exist")
@@ -238,11 +246,17 @@ export const dropDownOpen = (dropDownName) => {
     .parents(".row-widget.stSelectbox")
     .should("exist")
     .within(() => {
-      clickCheck({ clickElem: 'svg[title="open"]', forceClick: true });
+      cy.get('div[data-baseweb="select"]').should("exist").click();
     });
 };
 
 export const dropDownElementClick = (dropDownElementName) => {
+  // cy.get('li[role="option"]')
+  //   .should("exist")
+  //   .contains(dropDownElementName)
+  //   .as(dropDownElementName);
+  // cy.get(`@${dropDownElementName}`).should("exist").click();
+  // checkNoErrorOnThePage();
   clickCheck({ clickElem: 'li[role="option"]', contains: dropDownElementName });
 };
 
@@ -295,8 +309,10 @@ export const clickCheck = (options) => {
   if (options.contains) {
     cy.get(`@clickElem-${options.clickElem}`)
       .contains(options.contains)
-      .should("exist")
-      .click(options.forceClick ? { force: true } : undefined);
+      .as(`clickElem-${options.contains}`);
+    cy.get(`@clickElem-${options.contains}`).click(
+      options.forceClick ? { force: true } : undefined
+    );
   } else {
     cy.get(`@clickElem-${options.clickElem}`)
       .scrollIntoView()
@@ -307,8 +323,33 @@ export const clickCheck = (options) => {
 };
 
 export const checkForLoading = () => {
-  cy.get('[data-testid="stMarkdownContainer"]')
-    .contains("Please wait...", { timeout: 360000 })
+  // In initial load, the page will say "Please wait...".We need to wait for that
+  // to disappear before we check for the running spinner to disappear as well.
+  // After the initial load, this will be a split second since it will not exist
+  // and move on.
+  cy.get('[data-testid="stMarkdownContainer"]', {
+    timeout: 240000,
+  })
+    .contains("Please wait...")
     .should("not.exist");
-  cy.get('[data-testid="stStatusWidget"]', { timeout: 360000 }).should("not.exist");
+
+  // presently, the for loop needs to be outside the then() to work
+  for (let i = 0; i < 5; i++) {
+    cy.get('[data-testid="stStatusWidget"]', { log: false })
+      // the .should() here is error buffering so we don't get an error if this doesn't exist
+      .should(($el) => {
+        return $el; // not actually necessary, but is when is returned regardless so put here for readability
+      })
+      .then(($el) => {
+        if ($el.length === 0) {
+          cy.log("No loading spinner found, waiting 500ms and trying again");
+          cy.wait(500, { log: false });
+        }
+      });
+  }
+
+  // if we still have a loading spinner, wait for it to disappear
+  cy.get('[data-testid="stStatusWidget"]', {
+    timeout: 440000,
+  }).should("not.exist");
 };
