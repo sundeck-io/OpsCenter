@@ -7,7 +7,6 @@ language sql
 as
 begin
     SYSTEM$LOG_TRACE('Migrating query history data.');
-    call internal.migrate_view();
     call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY');
     let migrate1 string := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
     call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE');
@@ -15,6 +14,8 @@ begin
     -- Ensure that RECORD_TYPE is VARCHAR and not VARCHAR(8)
     ALTER TABLE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY MODIFY COLUMN RECORD_TYPE TYPE VARCHAR;
     ALTER TABLE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE MODIFY COLUMN RECORD_TYPE TYPE VARCHAR;
+    -- Re-create the user facing views after we fix the materialized views
+    call internal.migrate_view();
     return object_construct('migrate1', migrate1, 'migrate2', migrate2);
 end;
 
@@ -46,25 +47,6 @@ BEGIN
         if (oldest_running = 0::timestamp) then
           -- we should ensure that there are no records in the table if this is the first run. This allows a separate process to insert a "reset" message in the log which will cause us to start over again.
           truncate table INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY;
-        end if;
-
-        -- Detect when the 'complete' and 'incomplete' materializations have differently-ordered columns (which would break all views which UNION those tables together).
-        let mismatched_schema boolean := (
-            select count(cc.column_name) > 0
-            from information_schema.columns cc
-            inner join information_schema.columns ci on cc.ordinal_position = ci.ordinal_position
-            where
-                cc.table_schema = 'INTERNAL_REPORTING_MV' and
-                cc.table_name = 'QUERY_HISTORY_COMPLETE_AND_DAILY' and
-                ci.table_schema = 'INTERNAL_REPORTING_MV' and
-                ci.table_name = 'QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE' and
-                (cc.column_name <> ci.column_name OR cc.data_type <> ci.data_type));
-        if (mismatched_schema) then
-            SYSTEM$LOG_INFO('Schema mismatch detected between QUERY_HISTORY_COMPLETE_AND_DAILY and QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE, recreating INCOMPLETE table');
-            -- Drop the current instance of this table and recreate it with the same schema as the other table.
-            CREATE OR REPLACE TABLE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE LIKE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY COPY GRANTS;
-            -- Re-create the views on top of these materializations
-            call internal.migrate_view();
         end if;
 
         DROP TABLE IF EXISTS RAW_QH_EVT ;
