@@ -19,6 +19,9 @@ BEGIN
         UPDATE INTERNAL.LABELS SET IS_DYNAMIC = FALSE WHERE IS_DYNAMIC IS NULL;
     END IF;
 
+    -- Set ENABLED=TRUE for all labels, until we have a use-case where labels can be disabled.
+    update internal.labels set enabled = true where enabled is null;
+
     -- Recreate the view to avoid number of column mis-match. Should be cheap and only run on install/upgrade, so it's OK
     -- if we run this unnecessarily.
     CREATE OR REPLACE VIEW CATALOG.LABELS COPY GRANTS AS SELECT * FROM INTERNAL.LABELS;
@@ -43,6 +46,9 @@ BEGIN
         ALTER TABLE INTERNAL.PREDEFINED_LABELS ADD COLUMN IS_DYNAMIC BOOLEAN;
         UPDATE INTERNAL.PREDEFINED_LABELS SET IS_DYNAMIC = FALSE WHERE IS_DYNAMIC IS NULL;
     END IF;
+
+    -- Set ENABLED=TRUE for all labels, until we have a use-case where labels can be disabled.
+    update internal.predefined_labels set enabled = true where enabled is null;
 
 EXCEPTION
     WHEN OTHER THEN
@@ -204,8 +210,8 @@ BEGIN
         end if;
 
         IF (cnt = 0) THEN
-          INSERT INTO internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC")
-          VALUES (:name, :grp, :rank, current_timestamp(), :condition, current_timestamp(), :is_dynamic);
+          INSERT INTO internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
+          VALUES (:name, :grp, :rank, current_timestamp(), :condition, current_timestamp(), :is_dynamic, TRUE);
           outcome := null;
         END IF;
 
@@ -365,7 +371,7 @@ BEGIN
     return outcome;
 END;
 
-CREATE VIEW CATALOG.LABELS IF NOT EXISTS AS SELECT * FROM INTERNAL.LABELS;
+CREATE OR REPLACE VIEW CATALOG.LABELS AS SELECT * exclude (enabled) FROM INTERNAL.LABELS;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.POPULATE_PREDEFINED_LABELS()
     RETURNS text
@@ -393,11 +399,11 @@ BEGIN
     WHEN MATCHED THEN
     UPDATE
         SET t.GROUP_NAME = NULL, t.GROUP_RANK = NULL, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp(),
-            T.IS_DYNAMIC = FALSE
+            T.IS_DYNAMIC = FALSE, T.ENABLED = TRUE
     WHEN NOT MATCHED THEN
     INSERT
-        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC")
-        VALUES (s.name, NULL, NULL,  current_timestamp(), s.condition, current_timestamp(), FALSE);
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
+        VALUES (s.name, NULL, NULL,  current_timestamp(), s.condition, current_timestamp(), FALSE, TRUE);
 
     RETURN NULL;
 EXCEPTION
@@ -471,11 +477,11 @@ BEGIN
     ON t.name = s.name
     WHEN MATCHED THEN
     UPDATE
-        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT, t.IS_DYNAMIC = s.IS_DYNAMIC
+        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT, t.IS_DYNAMIC = s.IS_DYNAMIC, t.ENABLED = s.ENABLED
     WHEN NOT MATCHED THEN
     INSERT
-        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC")
-        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT, S.IS_DYNAMIC);
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
+        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT, S.IS_DYNAMIC, S.ENABLED);
 
     return TRUE;
 END;
