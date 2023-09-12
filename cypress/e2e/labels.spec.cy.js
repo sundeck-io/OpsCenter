@@ -10,7 +10,9 @@ import { checkNoErrorOnThePage,
          updateUngroupedLabelForm,
          checkGroupLabelNotExist,
          checkFailureAlert,
-         fillInNewUngroupedLabelForm } from "../support/utils";
+         fillInNewUngroupedLabelForm,
+         checkForLoading,
+         clickCheck } from "../support/utils";
 
 describe("Labels section", () => {
   before(() => {
@@ -20,12 +22,9 @@ describe("Labels section", () => {
   it("Menu: Labels. Validate that New/Create/Cancel buttons don't result in failure to load the page", () => {
     cy.visit("/");
 
-    cy.wait(10000);
+    checkForLoading();
 
-    cy.get("span")
-      .contains("Labels")
-      .should("be.visible")
-      .click();
+    clickCheck({ clickElem: "span", contains: "Labels" });
 
     cy.get("span")
       .contains("Query Labels")
@@ -34,23 +33,17 @@ describe("Labels section", () => {
 
     // Test #1: validate that clicking on "New" button starts page without error
     buttonClick("New");
-    checkNoErrorOnThePage();
 
     // Test #2: validate that clicking on "Cancel" brings form back to "New" button
     buttonClick("Cancel");
-    checkNoErrorOnThePage();
     buttonCheckExists("New");
-    checkNoErrorOnThePage();
 
     // Test #3: validate that clicking on "New (in group)" button starts page without error
     buttonClick("New (in group)");
-    checkNoErrorOnThePage();
 
     // Test #4: validate that clicking on "Cancel" brings form back to "New" button
     buttonClick("Cancel");
-    checkNoErrorOnThePage();
     buttonCheckExists("New (in group)");
-    checkNoErrorOnThePage();
   });
 
   it("Menu: Labels. Create/Delete grouped labels", () => {
@@ -63,12 +56,9 @@ describe("Labels section", () => {
 
     cy.visit("/");
 
-    cy.wait(10000);
+    checkForLoading();
 
-    cy.get("span")
-      .contains("Labels")
-      .should("be.visible")
-      .click();
+    clickCheck({ clickElem: "span", contains: "Labels" });
 
     cy.get("span")
       .contains("Query Labels")
@@ -78,7 +68,6 @@ describe("Labels section", () => {
 
     // Test #1: Fill the form for Grouped label with valid values and save
     buttonClick("New (in group)");
-    checkNoErrorOnThePage();
     fillInNewGroupedLabelForm(
       groupName,
       label_1,
@@ -86,8 +75,6 @@ describe("Labels section", () => {
       100
      );
     buttonClick("Create");
-    checkNoErrorOnThePage();
-    //groupedLabelDelete(label_1);
 
     // Test #2: Add two more labels to grouped label
     addNewLabelToGroup(
@@ -103,6 +90,14 @@ describe("Labels section", () => {
       "bytes_spilled_to_local_storage > 0",
       300
     );
+
+    // Before deleting labels, make sure we are on "Queries" page
+    // and it is fully loaded
+    cy.get("span")
+      .contains("Query Labels", { timeout: 30000 })
+      .scrollIntoView()
+      .should("be.visible");
+    checkNoErrorOnThePage();
 
     // Delete all the labels that were created in this test
     for (const label of labelList) {

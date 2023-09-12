@@ -56,19 +56,16 @@ export const fillInProbeForm = (
 };
 
 export const buttonClick = (buttonName) => {
-  cy.get('button[kind="secondary"]')
-    .contains(buttonName)
-    .click({ force: true });
+  clickCheck({ clickElem: 'button[kind="secondary"]', contains: buttonName, forceClick: true });
 };
 
 export const buttonOnTabClick = (buttonName) => {
-  cy.get('button[kind="secondaryFormSubmit"]')
-    .contains(buttonName)
-    .click({ force: true });
+  clickCheck({ clickElem: 'button[kind="secondaryFormSubmit"]', contains: buttonName, forceClick: true });
 };
 
 export const buttonCheckExists = (buttonName) => {
   cy.get('button[kind="secondary"]').contains(buttonName).should("exist");
+  checkNoErrorOnThePage();
 };
 
 function generateUUID() {
@@ -131,13 +128,16 @@ export const fillInNewGroupedLabelForm = (
 };
 
 export const addNewLabelToGroup = (groupName, labelName, condition, rank) => {
+
   // Find tab with the group name and click on it
   cy.get('button[data-baseweb="tab"')
     .should("exist")
     .find('div[data-testid="stMarkdownContainer"]')
     .should("exist")
     .contains(groupName)
-    .click();
+    .as("labelGroupTab");
+
+  clickCheck({ clickElem: '@labelGroupTab' });
 
   buttonCheckExists("Add label to group");
   buttonClick("Add label to group");
@@ -158,7 +158,8 @@ export const addNewLabelToGroup = (groupName, labelName, condition, rank) => {
     .should("be.visible")
     .as("tabs");
 
-  cy.get("@tabs").contains(groupName).click();
+  // cy.get("@tabs").contains(groupName).click();
+  clickCheck({ clickElem: '@tabs', contains: groupName });
 
   // Validate that newly created label is found on the page
   cy.get('section[tabindex="0"]')
@@ -170,6 +171,17 @@ export const addNewLabelToGroup = (groupName, labelName, condition, rank) => {
 
 // For ungrouped label, specify "Ungrouped" in the groupName argument
 export const labelDelete = (groupName, labelName) => {
+  cy.log("*** labelDelete (begin): groupName:labelName", groupName,labelName);
+
+  // Find tab with the group name and click on it
+  cy.get('div[data-baseweb="tab-list"]')
+    .scrollIntoView()
+    .should("be.visible")
+    .as("tabs");
+
+  // cy.get("@tabs").contains(groupName).click();
+  clickCheck({ clickElem: '@tabs', contains: groupName, forceClick: true });
+
   cy.get('div[data-testid="stHorizontalBlock"]')
     .should("exist")
     .contains(labelName)
@@ -181,8 +193,10 @@ export const labelDelete = (groupName, labelName) => {
       cy.get('div[data-testid="column"]')
         .contains("🗑️")
         .should("exist")
-        .click();
+        .click({ force: true });
     });
+
+  cy.log("*** labelDelete (end): groupName", labelName);
 };
 
 export function checkGroupLabelNotExist(groupName) {
@@ -294,9 +308,7 @@ export const clickCheck = (options) => {
 
 export const checkForLoading = () => {
   cy.get('[data-testid="stMarkdownContainer"]')
-    .contains("Please wait...")
-    .should("not.exist", { timeout: 120000 });
-  cy.get('[data-testid="stStatusWidget"]').should("not.exist", {
-    timeout: 120000,
-  });
+    .contains("Please wait...", { timeout: 360000 })
+    .should("not.exist");
+  cy.get('[data-testid="stStatusWidget"]', { timeout: 360000 }).should("not.exist");
 };

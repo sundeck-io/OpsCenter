@@ -1,4 +1,8 @@
-import { checkNoErrorOnThePage, setup } from "../support/utils";
+import { checkNoErrorOnThePage,
+         setup,
+         checkForLoading,
+         clickCheck, }
+from "../support/utils";
 
 describe("Warehouse section", () => {
   before(() => {
@@ -9,14 +13,11 @@ describe("Warehouse section", () => {
 
     cy.visit("/");
 
-    cy.wait(10000);
+    checkForLoading();
 
     const stringList= ["365", "90", "30", "7"];
 
-    cy.get("span")
-      .contains("Warehouses")
-      .should("be.visible")
-      .click();
+    clickCheck({ clickElem: "span", contains: "Warehouses" });
 
     // Check that text "Warehouse Heatmap" is visible
     cy.get("span")
@@ -29,31 +30,26 @@ describe("Warehouse section", () => {
         .should("be.visible")
         .click();
 
-    cy.get('li[role="option"]')
-        .should("be.visible")
+    clickCheck({ clickElem: 'li[role="option"]', contains: "Warehouse Activity" });
+
+    // Check that text "Warehouse Activity" is visible
+    cy.get("span")
         .contains("Warehouse Activity")
-        .should("be.visible")
-        .click();
+        .should("be.visible");
 
     // Click on Filters
-    cy.get('div[data-testid="stMarkdownContainer"]')
-      .contains("Filters")
-      .click();
+    clickCheck({ clickElem: 'div[data-testid="stMarkdownContainer', contains: "Filters" });
 
     for (const str of stringList) {
-      cy.get('button[kind="secondary"]')
-        .contains(str)
-        .click();
-
-      checkNoErrorOnThePage();
+      clickCheck({ clickElem: 'button[kind="secondary"]', contains: str });
     }
   });
 
-  // Test is skipped due to a known issue: exception while iterating over ranges
-  // pandas/core/indexes/range.py", line 349, in get_loc
-  it.skip("Menu: Warehouses (Heatmap)", () => {
+  it("Menu: Warehouses (Heatmap)", () => {
 
     cy.visit("/");
+
+    checkForLoading();
 
     const stringList= ["365", "90", "30", "7"];
 
@@ -63,16 +59,11 @@ describe("Warehouse section", () => {
       .should("be.visible");
 
     // Click on Filters
-    cy.get('div[data-testid="stMarkdownContainer"]')
-      .contains("Filters")
-      .click();
+    clickCheck({ clickElem: 'div[data-testid="stMarkdownContainer"]', contains: "Filters" });
 
     for (const str of stringList) {
-      cy.get('button[kind="secondary"]')
-        .contains(str)
-        .click();
+      clickCheck({ clickElem: 'button[kind="secondary"]', contains: str });
 
-      checkNoErrorOnThePage();
     }
   });
 
