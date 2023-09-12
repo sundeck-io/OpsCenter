@@ -28,13 +28,19 @@ BEGIN
   let ctas_query string := '';
   let alter_query string := '';
   begin
-      -- Are the list of columns+datatype for the view and table the same?
-      let has_missing_columns boolean := (select count(*) > 0 from (
+      -- Does the view have more columns than the table?
+      let table_missing_columns boolean := (select count(*) > 0 from (
           select column_name, data_type from information_schema.columns where table_schema = :view_schema and table_name = :view_name
           minus
           select column_name, data_type from information_schema.columns where table_schema = :table_schema and table_name = :table_name
       ));
-      -- Are the list of columns+datatype+ordinal_position for the view and table the same?
+      -- Does the table have more columns than the view?
+      let view_missing_columns boolean := (select count(*) > 0 from (
+          select column_name, data_type from information_schema.columns where table_schema = :table_schema and table_name = :table_name
+          minus
+          select column_name, data_type from information_schema.columns where table_schema = :view_schema and table_name = :view_name
+      ));
+      -- Are the list of columns (with ordinal position considered) the same for the view and the table?
       let has_misordered_columns boolean := (select count(*) > 0 from (
           select column_name, data_type, ordinal_position from information_schema.columns where table_schema = :view_schema and table_name = :view_name
           minus
@@ -42,9 +48,13 @@ BEGIN
       ));
 
       -- In the unlikely event that the app has materialized the table with columns in the wrong order (as defined by ORDINAL_POSITION on the view) due
-      -- to an earlier bug in OpsCenter, we need to recreate the tables in order for this migration logic to continue to function in the future. Snowflake
-      -- does not support column reordering, so rewriting the data is the only other alternative that doesn't introduce long-term debt.
-      if (:has_misordered_columns AND not :has_missing_columns) THEN
+      -- to an earlier bug in OpsCenter, we need to recreate the tables in order for this migration logic to continue to function in the future.
+      -- Snowflake does not support column reordering, so rewriting the data is the only alternative that doesn't introduce long-term debt maintaining
+      -- a view to "correct" the data.
+      --
+      -- We try to detect this by asserting that the set of columns (name+type) for both the table and the view are the same but the ordering of those
+      -- columns is different. Once we are sure that the set of columns is the same, we can naively check the order of those columns.
+      if (:has_misordered_columns AND NOT :table_missing_columns AND NOT :view_missing_columns) THEN
           let column_spec string := (select internal.generate_column_def(:view_schema, :view_name));
           let view_columns string := (select internal.generate_column_names(:view_schema, :view_name));
           let swap_table_name string := :table_name || '_SWAP';
