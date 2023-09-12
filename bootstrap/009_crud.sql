@@ -1,10 +1,10 @@
 
-CREATE OR REPLACE PROCEDURE ADMIN.CREATE_ENTITY(entity object, table_name text, validation_proc text)
+CREATE OR REPLACE PROCEDURE ADMIN.CREATE_ENTITY(table_name text, entity object, validation_proc text)
 RETURNS text
 LANGUAGE python
 RUNTIME_VERSION = "3.10"
 HANDLER = 'create_entity'
-PACKAGES = ('snowflake-snowpark-python')
+PACKAGES = ('snowflake-snowpark-python', 'pydantic')
 imports=('{{stage}}/crud/__init__.py')
 AS
 $$
