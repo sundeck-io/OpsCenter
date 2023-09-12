@@ -1,6 +1,6 @@
 from snowflake.snowpark import Row
 from contextlib import contextmanager
-from pydandic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, field_validator, FieldValidationInfo
 from typing import Optional, ClassVar, get_args, get_origin, Union
 import datetime
 
@@ -42,6 +42,12 @@ class Label(BaseModel):
     def write(self, session):
         df = session.create_dataframe([Row(**dict(self))])
         df.write.mode("append").save_as_table(self.table_name)
+
+    @field_validator('name')
+    @classmethod
+    def name_is_unique_among_other_labels(cls, name: str, info: FieldValidationInfo) -> str:
+        return name
+
 
 
 _TYPES = {
