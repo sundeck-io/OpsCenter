@@ -17,11 +17,11 @@ class Label(BaseModel):
     table_name: ClassVar[str] = "LABELS"
     name: str
     group_name: Optional[str] = None
-    group_rank: int
-    label_created_at: datetime.datetime
+    group_rank: Optional[int] = None
+    created_at: datetime.datetime
     condition: str
     enabled: bool
-    label_modified_at: datetime.datetime
+    modified_at: datetime.datetime
     is_dynamic: bool
 
     def create(self, session):
@@ -46,8 +46,33 @@ class Label(BaseModel):
     @field_validator('name')
     @classmethod
     def name_is_unique_among_other_labels(cls, name: str, info: FieldValidationInfo) -> str:
+        assert isinstance(name, str)
+        if not name:
+            raise ValueError("Name cannot be empty")
+        # TODO Pull Session from context, check label table
+
         return name
 
+    @field_validator('condition')
+    @classmethod
+    def condition_is_valid(cls, condition: str, info: FieldValidationInfo) -> str:
+        assert isinstance(condition, str)
+        if not condition:
+            raise ValueError("Condition cannot be empty")
+        # TODO Pull Session from context, check condition
+        return condition
+
+    @field_validator('created_at', 'modified_at')
+    @classmethod
+    def verify_time_fields(cls, time: datetime.datetime, info: FieldValidationInfo) -> datetime.datetime:
+        assert isinstance(time, datetime.datetime)
+        return time
+
+    @field_validator('enabled', 'is_dynamic')
+    @classmethod
+    def enabled_or_dynamic(cls, b: bool, info: FieldValidationInfo) -> bool:
+        assert isinstance(b, bool)
+        return b
 
 
 _TYPES = {
