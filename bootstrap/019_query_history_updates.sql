@@ -7,14 +7,16 @@ language sql
 as
 begin
     SYSTEM$LOG_TRACE('Migrating query history data.');
-    call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY');
-    let migrate1 string := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
-    call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE');
-    let migrate2 string := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+    -- Create internal_reporting views to detect any updates from snowflake
+    call internal.migrate_view();
+    let migrate1 string := '';
+    call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY') into :migrate1;
+    let migrate2 string := '';
+    call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE') into :migrate2;
     -- Ensure that RECORD_TYPE is VARCHAR and not VARCHAR(8)
     ALTER TABLE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY MODIFY COLUMN RECORD_TYPE TYPE VARCHAR;
     ALTER TABLE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE MODIFY COLUMN RECORD_TYPE TYPE VARCHAR;
-    -- Re-create the user facing views after we fix the materialized views
+    -- Re-create the user facing views to update the reporting views after we fix the materialized views
     call internal.migrate_view();
     return object_construct('migrate1', migrate1, 'migrate2', migrate2);
 end;

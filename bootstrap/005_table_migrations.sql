@@ -25,64 +25,6 @@ BEGIN
       RAISE TABLE_NOT_EXISTS;
   END IF;
 
-  let ctas_query string := '';
-  let alter_query string := '';
-  begin
-      -- Does the view have more columns than the table?
-      let table_missing_columns boolean := (select count(*) > 0 from (
-          select column_name, data_type from information_schema.columns where table_schema = :view_schema and table_name = :view_name
-          minus
-          select column_name, data_type from information_schema.columns where table_schema = :table_schema and table_name = :table_name
-      ));
-      -- Does the table have more columns than the view?
-      let view_missing_columns boolean := (select count(*) > 0 from (
-          select column_name, data_type from information_schema.columns where table_schema = :table_schema and table_name = :table_name
-          minus
-          select column_name, data_type from information_schema.columns where table_schema = :view_schema and table_name = :view_name
-      ));
-      -- Are the list of columns (with ordinal position considered) the same for the view and the table?
-      let has_misordered_columns boolean := (select count(*) > 0 from (
-          select column_name, data_type, ordinal_position from information_schema.columns where table_schema = :view_schema and table_name = :view_name
-          minus
-          select column_name, data_type, ordinal_position from information_schema.columns where table_schema = :table_schema and table_name = :table_name
-      ));
-
-      -- In the unlikely event that the app has materialized the table with columns in the wrong order (as defined by ORDINAL_POSITION on the view) due
-      -- to an earlier bug in OpsCenter, we need to recreate the tables in order for this migration logic to continue to function in the future.
-      -- Snowflake does not support column reordering, so rewriting the data is the only alternative that doesn't introduce long-term debt maintaining
-      -- a view to "correct" the data.
-      --
-      -- We try to detect this by asserting that the set of columns (name+type) for both the table and the view are the same but the ordering of those
-      -- columns is different. Once we are sure that the set of columns is the same, we can naively check the order of those columns.
-      if (:has_misordered_columns AND NOT :table_missing_columns AND NOT :view_missing_columns) THEN
-          let column_spec string := (select internal.generate_column_def(:view_schema, :view_name));
-          let view_columns string := (select internal.generate_column_names(:view_schema, :view_name));
-          let swap_table_name string := :table_name || '_SWAP';
-
-          begin
-              begin transaction;
-              execute immediate 'DROP TABLE IF EXISTS "' || :table_schema || '"."' || :swap_table_name || '"';
-              -- CREATE TABLE "$schema"."$table_SWAP"($cols) AS SELECT $cols FROM "$schema"."$table"
-              ctas_query := 'CREATE TABLE "' || :table_schema || '"."' || :swap_table_name || '" ( ' || :column_spec || ') AS SELECT ' || :view_columns || ' FROM "' || :table_schema || '"."' || :table_name || '"';
-              execute immediate :ctas_query;
-              -- ALTER TABLE "$schema"."$table" SWAP WITH "$schema"."$table_SWAP"
-              alter_query := 'ALTER TABLE "' || :table_schema || '"."' || :table_name || '" SWAP WITH "' || :table_schema || '"."' || :swap_table_name || '"';
-              execute immediate :alter_query;
-              -- DROP TABLE "$schema"."$table_SWAP"
-              execute immediate 'DROP TABLE "' || :table_schema || '"."' || :swap_table_name || '"';
-              commit;
-          exception
-            when other then
-              SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Failed to migrate misordered table via swap', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-              ROLLBACK;
-              RAISE;
-          end;
-
-          SYSTEM$LOG_INFO('Table swap executed for ' || :view_schema || '.' || :view_name || ' and ' || :table_schema || '.' || :table_name);
-          SYSTEM$ADD_EVENT('table swap migration', {'ctas_query': :ctas_query, 'alter_query': :alter_query });
-      end if;
-  end;
-
   -- Super important that the columns to add are consistently generated, else we may generate conflicting schemas between two tables created from the same view (the internal_reporting_mv query history tables)
   let columns_to_add string := (
       SELECT LISTAGG('"' || COLUMN_NAME || '" ' || DATA_TYPE, ', ') WITHIN GROUP (ORDER BY ORDINAL_POSITION)
@@ -110,26 +52,23 @@ BEGIN
   let alter_table_add_column string := '';
   let alter_table_drop_column string := '';
 
-  -- Drop columns first, in case we are re-creating the same columns but in a different order.
-  if (columns_to_drop <> '') then
-    alter_table_drop_column := ' DROP ' || columns_to_drop;
-    execute immediate alter_statement || alter_table_drop_column;
-  end if;
-
   if (columns_to_add <> '') then
     alter_table_add_column := ' ADD ' || columns_to_add;
     execute immediate alter_statement || alter_table_add_column;
   end if;
 
+  if (columns_to_drop <> '') then
+    alter_table_drop_column := ' DROP ' || columns_to_drop;
+    execute immediate alter_statement || alter_table_drop_column;
+  end if;
+
   if (columns_to_add <> '' OR columns_to_drop <> '') then
       SYSTEM$LOG_INFO('Migration executed for ' || :view_schema || '.' || :view_name || ' and ' || :table_schema || '.' || :table_name);
       SYSTEM$ADD_EVENT('table altered', {'alter_statement': alter_statement || alter_table_add_column || alter_table_drop_column });
-      let ctas_msg string := ' CTAS from swap migration ' || ctas_query;
-      let alter_msg string := ' ALTER from swap migration ' || alter_query;
-      RETURN alter_table_add_column || alter_table_drop_column || ctas_msg || alter_msg;
+      RETURN alter_table_add_column || alter_table_drop_column;
   else
     SYSTEM$LOG_INFO('No migration need for ' || :view_schema || '.' || :view_name || ' and ' || :table_schema || '.' || :table_name);
-    RETURN null;
+    RETURN 'no migration necessary';
   end if;
 END;
 
