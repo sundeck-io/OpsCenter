@@ -115,10 +115,10 @@ def setup_block():
             )
 
         with option2:
-            sundeck_signup_with_email(account, user, region, db)
+            sundeck_signup_with_email(account, user, region, db, sd_deployment)
 
 
-def sundeck_signup_with_email(account, user, region, db):
+def sundeck_signup_with_email(account, user, region, db, sd_deployment):
 
     st.markdown(
         f"""
@@ -144,6 +144,8 @@ def sundeck_signup_with_email(account, user, region, db):
             "INTERNAL.SETUP_SUNDECK_TOKEN", url, sndk_token
         )
         api_integration_name = "OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS"
+        if sd_deployment != "prod":
+            api_integration_name = f"OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS_{db.upper()}"
         req = perms.request_aws_api_integration(
             "opscenter_api_integration",
             API_GATEWAY_ALL,
@@ -209,6 +211,11 @@ def sundeck_signup_with_snowflake_sso(
     )
 
     api_integration_name = "OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS_SSO"
+    if sd_deployment != "prod":
+        api_integration_name = (
+            f"OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS_SSO_{app_name.upper()}"
+        )
+
     if st.button("Enable Sundeck API Integration", key="create_api_integration"):
         req = perms.request_aws_api_integration(
             "opscenter_sso_api_integration",
