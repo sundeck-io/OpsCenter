@@ -244,7 +244,7 @@ export const dropDownOpen = (dropDownName) => {
     .parents(".row-widget.stSelectbox")
     .should("exist")
     .within(() => {
-      clickCheck({ clickElem: 'div[data-baseweb="select"]', forceClick: true });
+      cy.get('svg[title="open"]').should("exist").click();
     });
 };
 
