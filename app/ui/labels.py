@@ -2,6 +2,7 @@ import streamlit as st
 from connection import Connection
 import session as general_session
 from session import Mode
+from labels import Label as ModelLabel
 
 
 class Label:
@@ -174,9 +175,17 @@ class Label:
                 "labels",
                 "create",
             )
-            outcome = self.snowflake.call(
-                "ADMIN.CREATE_LABEL", name, group, rank, condition, is_dynamic
+            obj = ModelLabel.model_validate(
+                {
+                    "name": name,
+                    "condition": condition,
+                    "group_rank": rank,
+                    "group_name": group,
+                    "is_dynamic": is_dynamic,
+                },
+                context={"session": self.snowflake},
             )
+            outcome = obj.create(self.snowflake)
 
             if outcome is None:
                 self.session.set_toast("New label created.")
