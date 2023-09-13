@@ -16,6 +16,8 @@ from base import BaseOpsCenterModel
 # same again for probes
 # hook up to stored procs for (CRUD and validation)
 # more tests
+# ensure create, prepopulate, validate get called at the right times in bootstrap
+# endure these files get put in a package in a stage and in the streamlit package
 class Label(BaseOpsCenterModel):
     table_name: ClassVar[str] = "LABELS"
     name: Optional[str] = None
