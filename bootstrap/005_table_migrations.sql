@@ -25,7 +25,9 @@ BEGIN
       RAISE TABLE_NOT_EXISTS;
   END IF;
 
-  -- Super important that the columns to add are consistently generated, else we may generate conflicting schemas between two tables created from the same view (the internal_reporting_mv query history tables)
+  -- Super important that the columns to add are generated in the same order as the view. This ordering is pivotal for
+	-- the migration algorithm to successfully function and make sure the multiple materialized views in
+	-- INTERNAL_REPORTING_MV have the same schema (and can be UNION'ed together).
   let columns_to_add string := (
       SELECT LISTAGG('"' || COLUMN_NAME || '" ' || DATA_TYPE, ', ') WITHIN GROUP (ORDER BY ORDINAL_POSITION)
       FROM (
@@ -36,13 +38,13 @@ BEGIN
 
       );
 
-  -- Include ordinal_position to fix tables which have the correct columns but are in an unexpected order
+  -- Any columns which exist in the table but not in the view should be dropped, regardless of the ordinal_position.
   let columns_to_drop string := (
       SELECT LISTAGG('"' || COLUMN_NAME || '" ' , ', ')
       FROM (
-      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
+      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
       MINUS
-      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
+      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
       )
 
       );
@@ -86,19 +88,6 @@ BEGIN
     call INTERNAL.UPDATE_LABEL_VIEW();
     return 'Success';
 END;
-
-create or replace function internal.generate_column_def(source_schema varchar, source_table varchar)
-returns string
-as
-$$
-      -- Ordering the LISTAGG by ORDINAL_POSITION is not strictly necessary, but should eliminate confusion when LISTAGG would
-      -- otherwise generate a random ordering of columns each time it is called.
-      SELECT LISTAGG('"' || COLUMN_NAME || '" ' || DATA_TYPE, ', ') WITHIN GROUP (ORDER BY ORDINAL_POSITION)
-      FROM (
-      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = source_schema AND TABLE_NAME = source_table
-      )
-$$;
-
 
 create or replace function internal.generate_column_names(source_schema varchar, source_table varchar)
 returns string
