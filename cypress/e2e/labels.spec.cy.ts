@@ -1,18 +1,20 @@
-import { checkNoErrorOnThePage,
-         setup,
-         buttonClick,
-         buttonCheckExists,
-         generateUniqueName,
-         fillInNewGroupedLabelForm,
-         addNewLabelToGroup,
-         labelDelete,
-         labelUpdateClick,
-         updateUngroupedLabelForm,
-         checkGroupLabelNotExist,
-         checkFailureAlert,
-         fillInNewUngroupedLabelForm,
-         checkForLoading,
-         clickCheck } from "../support/utils";
+import {
+  checkNoErrorOnThePage,
+  setup,
+  buttonClick,
+  buttonCheckExists,
+  generateUniqueName,
+  fillInNewGroupedLabelForm,
+  addNewLabelToGroup,
+  labelDelete,
+  labelUpdateClick,
+  updateUngroupedLabelForm,
+  checkGroupLabelNotExist,
+  checkFailureAlert,
+  fillInNewUngroupedLabelForm,
+  checkForLoading,
+  clickCheck,
+} from "../support/utils";
 
 describe("Labels section", () => {
   before(() => {
@@ -26,9 +28,7 @@ describe("Labels section", () => {
 
     clickCheck({ clickElem: "span", contains: "Labels" });
 
-    cy.get("span")
-      .contains("Query Labels")
-      .should("be.visible");
+    cy.get("span").contains("Query Labels").should("be.visible");
     checkNoErrorOnThePage();
 
     // Test #1: validate that clicking on "New" button starts page without error
@@ -47,12 +47,11 @@ describe("Labels section", () => {
   });
 
   it("Menu: Labels. Create/Delete grouped labels", () => {
-
     const groupName = generateUniqueName("Workload");
     const label_1 = generateUniqueName("label");
     const label_2 = generateUniqueName("label");
     const label_3 = generateUniqueName("label");
-    const labelList= [ label_1, label_2, label_3];
+    const labelList = [label_1, label_2, label_3];
 
     cy.visit("/");
 
@@ -60,36 +59,33 @@ describe("Labels section", () => {
 
     clickCheck({ clickElem: "span", contains: "Labels" });
 
-    cy.get("span")
-      .contains("Query Labels")
-      .should("be.visible");
+    cy.get("span").contains("Query Labels").should("be.visible");
     checkNoErrorOnThePage();
-
 
     // Test #1: Fill the form for Grouped label with valid values and save
     buttonClick("New (in group)");
-    fillInNewGroupedLabelForm(
+    fillInNewGroupedLabelForm({
       groupName,
-      label_1,
-      "compilation_time > 5000",
-      100
-     );
+      labelName: label_1,
+      condition: "compilation_time > 5000",
+      rank: 100,
+    });
     buttonClick("Create");
 
     // Test #2: Add two more labels to grouped label
-    addNewLabelToGroup(
+    addNewLabelToGroup({
       groupName,
-      label_2,
-      "query_type = 'select'",
-      200
-    );
+      labelName: label_2,
+      condition: "query_type = 'select'",
+      rank: 200,
+    });
 
-    addNewLabelToGroup(
+    addNewLabelToGroup({
       groupName,
-      label_3,
-      "bytes_spilled_to_local_storage > 0",
-      300
-    );
+      labelName: label_3,
+      condition: "bytes_spilled_to_local_storage > 0",
+      rank: 300,
+    });
 
     // Before deleting labels, make sure we are on "Queries" page
     // and it is fully loaded
@@ -101,44 +97,36 @@ describe("Labels section", () => {
 
     // Delete all the labels that were created in this test
     for (const label of labelList) {
-      labelDelete(
+      labelDelete({
         groupName,
-        label
-      );
+        labelName: label,
+      });
     }
 
-   // Issue #80: function is not doing the right thing
-   // checkGroupLabelNotExist(groupName);
-   checkNoErrorOnThePage();
-
-
+    // Issue #80: function is not doing the right thing
+    // checkGroupLabelNotExist(groupName);
+    checkNoErrorOnThePage();
   }); // end group labels test
 
   it.skip("Menu: Labels. Create/Delete ungrouped labels", () => {
-
     const label_1 = generateUniqueName("label");
     const label_2 = generateUniqueName("label");
-    const labelList= [ label_1, label_2 ];
+    const labelList = [label_1, label_2];
 
     cy.visit("/");
 
-    cy.get("span")
-      .contains("Labels")
-      .should("be.visible")
-      .click();
+    cy.get("span").contains("Labels").should("be.visible").click();
 
-    cy.get("span")
-      .contains("Query Labels")
-      .should("be.visible");
+    cy.get("span").contains("Query Labels").should("be.visible");
     checkNoErrorOnThePage();
 
     // Fill the form for Ungrouped label with valid values and save
     buttonClick("New");
     checkNoErrorOnThePage();
-    fillInNewUngroupedLabelForm(
-      label_1,
-      "compilation_time > 5000"
-     );
+    fillInNewUngroupedLabelForm({
+      labelName: label_1,
+      condition: "compilation_time > 5000",
+    });
 
     buttonClick("Create");
     checkNoErrorOnThePage();
@@ -146,50 +134,39 @@ describe("Labels section", () => {
     // Add one more ungrouped label
     buttonClick("New");
     checkNoErrorOnThePage();
-    fillInNewUngroupedLabelForm(
-      label_2,
-      "compilation_time > 5000"
-     );
+    fillInNewUngroupedLabelForm({
+      labelName: label_2,
+      condition: "compilation_time > 5000",
+    });
 
     buttonClick("Create");
     checkNoErrorOnThePage();
 
     // Delete all the labels that were created in this test
     for (const label of labelList) {
-      labelDelete(
-        "Ungrouped",
-        label
-      );
+      labelDelete({ groupName: "Ungrouped", labelName: label });
     }
-
   }); // end ungrouped labels test
 
-
   it.skip("Menu: Labels. Update ungrouped label: positive test cases", () => {
-
     const label_1 = generateUniqueName("label");
     const label_2 = generateUniqueName("label");
-    const labelList= [ label_2 ];
+    const labelList = [label_2];
 
     cy.visit("/");
 
-    cy.get("span")
-      .contains("Labels")
-      .should("be.visible")
-      .click();
+    cy.get("span").contains("Labels").should("be.visible").click();
 
-    cy.get("span")
-      .contains("Query Labels")
-      .should("be.visible");
+    cy.get("span").contains("Query Labels").should("be.visible");
     checkNoErrorOnThePage();
 
     // Fill the form for ungrouped label with valid values and save
     buttonClick("New");
     checkNoErrorOnThePage();
-    fillInNewUngroupedLabelForm(
-      label_1,
-      "query_type = 'delete'"
-     );
+    fillInNewUngroupedLabelForm({
+      labelName: label_1,
+      condition: "query_type = 'delete'",
+    });
 
     // create label_1
     buttonClick("Create");
@@ -197,27 +174,27 @@ describe("Labels section", () => {
 
     // Test #1 update label: change name from label_1 to label_2
     // Should run successfully because there is no other label with name label_2
-    labelUpdateClick("Ungrouped", label_1);
+    labelUpdateClick(label_1);
 
-    updateUngroupedLabelForm(
-      label_1,
-      label_2,
-      "None"
-     );
+    updateUngroupedLabelForm({
+      labelName: label_1,
+      newLabelName: label_2,
+      newCondition: "None",
+    });
 
     // save updated label name: should succeed
     buttonClick("Update");
     checkNoErrorOnThePage();
 
     // Test #2 update label: change label_2 condition to another valid condition
-    labelUpdateClick("Ungrouped", label_2);
+    labelUpdateClick(label_2);
 
     // update only label condition for label_2
-    updateUngroupedLabelForm(
-      label_2,
-      "None",
-      "query_type = 'call'"
-     );
+    updateUngroupedLabelForm({
+      labelName: label_2,
+      newLabelName: "None",
+      newCondition: "query_type = 'call'",
+    });
 
     // save updated label name: should succeed
     buttonClick("Update");
@@ -225,38 +202,34 @@ describe("Labels section", () => {
 
     // Test #3: change both label name and condition
 
-    labelUpdateClick("Ungrouped", label_2); // clicks on the pencil for label with the name label_2
+    labelUpdateClick(label_2); // clicks on the pencil for label with the name label_2
 
-    updateUngroupedLabelForm(
-      label_2,
-      label_1,
-      "compilation_time > 10000"
-     );
+    updateUngroupedLabelForm({
+      labelName: label_2,
+      newLabelName: label_1,
+      newCondition: "compilation_time > 10000",
+    });
 
     // save updated label name: should succeed
     buttonClick("Update");
     checkNoErrorOnThePage();
 
-    labelDelete("Ungrouped", label_1);
-
+    labelDelete({
+      groupName: "Ungrouped",
+      labelName: label_1,
+    });
   });
 
   it.skip("Menu: Labels. Update ungrouped label: negative cases (error conditions)", () => {
-
     const label_1 = generateUniqueName("label");
     const label_2 = generateUniqueName("label");
-    const labelList= [ label_1, label_2 ];
+    const labelList = [label_1, label_2];
 
     cy.visit("/");
 
-    cy.get("span")
-      .contains("Labels")
-      .should("be.visible")
-      .click();
+    cy.get("span").contains("Labels").should("be.visible").click();
 
-    cy.get("span")
-      .contains("Query Labels")
-      .should("be.visible");
+    cy.get("span").contains("Query Labels").should("be.visible");
     checkNoErrorOnThePage();
 
     // Test #1: update label name with the ungrouped label name that already exists
@@ -266,10 +239,10 @@ describe("Labels section", () => {
     // Fill the form for ungrouped label with valid values and save
     buttonClick("New");
     checkNoErrorOnThePage();
-    fillInNewUngroupedLabelForm(
-      label_1,
-      "query_type = 'delete'"
-     );
+    fillInNewUngroupedLabelForm({
+      labelName: label_1,
+      condition: "query_type = 'delete'",
+    });
 
     // create label_1
     buttonClick("Create");
@@ -278,10 +251,10 @@ describe("Labels section", () => {
     // Fill the form for ungrouped label with valid values and save
     buttonClick("New");
     checkNoErrorOnThePage();
-    fillInNewUngroupedLabelForm(
-      label_2,
-      "query_type = 'truncate'"
-     );
+    fillInNewUngroupedLabelForm({
+      labelName: label_2,
+      condition: "query_type = 'truncate'",
+    });
 
     // create label_2
     buttonClick("Create");
@@ -290,23 +263,27 @@ describe("Labels section", () => {
     // Test #1 update label: change name of label_1 to label_2
     // Should fail with the error that label with this name already exists
 
-    labelUpdateClick("Ungrouped", label_1);
+    labelUpdateClick(label_1);
 
-    updateUngroupedLabelForm(
-      label_1,
-      label_2,
-      "None"
-     );
+    updateUngroupedLabelForm({
+      labelName: label_1,
+      newLabelName: label_2,
+      newCondition: "None",
+    });
 
     // save updated label name: should fail as label already exists.
     buttonClick("Update");
     checkNoErrorOnThePage();
-    checkFailureAlert("A label with this name already exists. Please choose a distinct name.");
+    checkFailureAlert(
+      "A label with this name already exists. Please choose a distinct name."
+    );
 
     // Click on the update button again and confirm that we still got the same error.
     buttonClick("Update");
     checkNoErrorOnThePage();
-    checkFailureAlert("A label with this name already exists. Please choose a distinct name.");
+    checkFailureAlert(
+      "A label with this name already exists. Please choose a distinct name."
+    );
 
     // Should bring us back to the label list
     buttonClick("Cancel");
@@ -316,24 +293,28 @@ describe("Labels section", () => {
     cy.wait(5000);
 
     // Test #2 update label: change label_1 condition to an invalid condition
-    labelUpdateClick("Ungrouped", label_1);
+    labelUpdateClick(label_1);
 
     // update only label condition for label_1
-    updateUngroupedLabelForm(
-      label_1,
-      "None",
-      "compile_time > 5000"
-     );
+    updateUngroupedLabelForm({
+      labelName: label_1,
+      newLabelName: "None",
+      newCondition: "compile_time > 5000",
+    });
 
     // save updated label name: should fail
     buttonClick("Update");
     checkNoErrorOnThePage();
-    checkFailureAlert("Invalid condition SQL. Please check your syntax.SQL compilation error: error line 2 at position 0\ninvalid identifier 'COMPILE_TIME'");
+    checkFailureAlert(
+      "Invalid condition SQL. Please check your syntax.SQL compilation error: error line 2 at position 0\ninvalid identifier 'COMPILE_TIME'"
+    );
 
     // Click on the update button again and confirm that we still got the same error.
     buttonClick("Update");
     checkNoErrorOnThePage();
-    checkFailureAlert("Invalid condition SQL. Please check your syntax.SQL compilation error: error line 2 at position 0\ninvalid identifier 'COMPILE_TIME'");
+    checkFailureAlert(
+      "Invalid condition SQL. Please check your syntax.SQL compilation error: error line 2 at position 0\ninvalid identifier 'COMPILE_TIME'"
+    );
 
     // Should bring us to the label list
     buttonClick("Cancel");
@@ -344,41 +325,33 @@ describe("Labels section", () => {
 
     // Delete all the labels that were created in this test
     for (const label of labelList) {
-      labelDelete(
-        "Ungrouped",
-        label
-      );
+      labelDelete({
+        groupName: "Ungrouped",
+        labelName: label,
+      });
     }
-
   });
 
   it.skip("Menu: Labels. Create label with already existing label name: negative cases (error conditions)", () => {
-
     const label_1 = generateUniqueName("label");
     const group_1 = generateUniqueName("group");
 
     cy.visit("/");
 
-    cy.get("span")
-      .contains("Labels")
-      .should("be.visible")
-      .click();
+    cy.get("span").contains("Labels").should("be.visible").click();
 
-    cy.get("span")
-      .contains("Query Labels")
-      .should("be.visible");
+    cy.get("span").contains("Query Labels").should("be.visible");
     checkNoErrorOnThePage();
-
 
     // Setup test: create ungrouped label
 
     // Fill the form for ungrouped label with valid values and save
     buttonClick("New");
     checkNoErrorOnThePage();
-    fillInNewUngroupedLabelForm(
-      label_1,
-      "query_type = 'insert'"
-     );
+    fillInNewUngroupedLabelForm({
+      labelName: label_1,
+      condition: "query_type = 'delete'",
+    });
 
     // create label_1
     buttonClick("Create");
@@ -389,13 +362,15 @@ describe("Labels section", () => {
 
     buttonClick("New");
     checkNoErrorOnThePage();
-    fillInNewUngroupedLabelForm(
-      label_1,
-      "query_type = 'insert-should-fail'"
-     );
+    fillInNewUngroupedLabelForm({
+      labelName: label_1,
+      condition: "query_type = 'insert-should-fail'",
+    });
 
     buttonClick("Create");
-    checkFailureAlert("Duplicate label name found. Please use a distinct name.");
+    checkFailureAlert(
+      "Duplicate label name found. Please use a distinct name."
+    );
 
     // Should bring us to the label list
     buttonClick("Cancel");
@@ -409,15 +384,17 @@ describe("Labels section", () => {
 
     buttonClick("New (in group)");
     checkNoErrorOnThePage();
-    fillInNewGroupedLabelForm(
-      group_1,
-      label_1,
-      "compilation_time > 5000",
-      100
-     );
+    fillInNewGroupedLabelForm({
+      groupName: group_1,
+      labelName: label_1,
+      condition: "compilation_time > 5000",
+      rank: 100,
+    });
 
     buttonClick("Create");
-    checkFailureAlert("Duplicate label name found. Please use a distinct name.");
+    checkFailureAlert(
+      "Duplicate label name found. Please use a distinct name."
+    );
 
     // Should bring us to the label list
     buttonClick("Cancel");
@@ -427,6 +404,9 @@ describe("Labels section", () => {
     cy.wait(5000);
 
     // Cleanup: delete all the labels that were created in this test
-      labelDelete( "Ungrouped", label_1 );
+    labelDelete({
+      groupName: "Ungrouped",
+      labelName: label_1,
+    });
   });
 });

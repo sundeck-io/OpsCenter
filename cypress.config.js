@@ -11,6 +11,8 @@ module.exports = defineConfig({
     watchForFileChanges: false,
     experimentalStudio: true,
     experimentalRunAllSpecs: true,
+    viewportHeight: 1080,
+    viewportWidth: 1920,
   },
   retries: {
     // Configure retry attempts for `cypress run`

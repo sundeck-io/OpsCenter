@@ -12,26 +12,28 @@ export function checkNoErrorOnThePage() {
 }
 
 // Check for Success notification with particular text presence
-export function checkSuccessAlert(notificationText) {
+export function checkSuccessAlert(notificationText: string) {
   cy.get('div[role="alert"][data-baseweb="notification"]', {
     timeout: 60000,
   }).and("contain", notificationText);
 }
 
 // Check for failure notification with particular text presence
-export function checkFailureAlert(notificationText) {
+export function checkFailureAlert(notificationText: string) {
   cy.get('div[role="alert"][data-baseweb="notification"]', {
     timeout: 60000,
   }).and("contain", notificationText);
 }
 
-export const fillInProbeForm = (
-  probeName,
-  condition,
-  emailTheAuthor,
-  cancelTheQuery,
-  emailOthers
-) => {
+export const fillInProbeForm = (options: {
+  probeName: string;
+  condition: string;
+  emailTheAuthor: boolean;
+  cancelTheQuery: boolean;
+  emailOthers: string;
+}) => {
+  const { probeName, condition, emailTheAuthor, cancelTheQuery, emailOthers } =
+    options;
   cy.get('input[aria-label="Probe Name"]').clear().type(probeName);
 
   cy.get('textarea[aria-label="Condition"]').clear().type(condition);
@@ -55,7 +57,7 @@ export const fillInProbeForm = (
     .type(emailOthers);
 };
 
-export const buttonClick = (buttonName) => {
+export const buttonClick = (buttonName: string) => {
   clickCheck({
     clickElem: 'button[kind="secondary"]',
     contains: buttonName,
@@ -63,7 +65,7 @@ export const buttonClick = (buttonName) => {
   });
 };
 
-export const buttonOnTabClick = (buttonName) => {
+export const buttonOnTabClick = (buttonName: string) => {
   clickCheck({
     clickElem: 'button[kind="secondaryFormSubmit"]',
     contains: buttonName,
@@ -71,7 +73,7 @@ export const buttonOnTabClick = (buttonName) => {
   });
 };
 
-export const buttonCheckExists = (buttonName) => {
+export const buttonCheckExists = (buttonName: string) => {
   cy.get('button[kind="secondary"]').contains(buttonName).should("exist");
   checkNoErrorOnThePage();
 };
@@ -81,13 +83,13 @@ function generateUUID() {
   return uuid;
 }
 
-export function generateUniqueName(prefix) {
+export function generateUniqueName(prefix: string) {
   const uuid = generateUUID();
   const uniqueName = `${prefix}_${uuid}`;
   return uniqueName;
 }
 
-export const probeDelete = (probeName) => {
+export const probeDelete = (probeName: string) => {
   cy.log("Deleting probe: ", probeName);
 
   cy.get('div[data-testid="stMarkdownContainer"]')
@@ -107,7 +109,11 @@ export const probeDelete = (probeName) => {
 };
 
 // If "None" - don't modify the field
-export const fillInNewUngroupedLabelForm = (labelName, condition) => {
+export const fillInNewUngroupedLabelForm = (options: {
+  labelName: string;
+  condition: string;
+}) => {
+  const { labelName, condition } = options;
   if (labelName != "None") {
     cy.get('input[aria-label="Label Name"]').clear().type(labelName);
   }
@@ -120,12 +126,13 @@ export const fillInNewUngroupedLabelForm = (labelName, condition) => {
   }
 };
 
-export const fillInNewGroupedLabelForm = (
-  groupName,
-  labelName,
-  condition,
-  rank
-) => {
+export const fillInNewGroupedLabelForm = (options: {
+  groupName: string;
+  labelName: string;
+  condition: string;
+  rank: number;
+}) => {
+  const { groupName, labelName, condition, rank } = options;
   cy.get('input[aria-label="Group Name"]').clear().type(groupName);
 
   cy.get('input[aria-label="Label Name"]').clear().type(labelName);
@@ -135,7 +142,13 @@ export const fillInNewGroupedLabelForm = (
   cy.get('input[aria-label="Rank"]').clear().type(rank);
 };
 
-export const addNewLabelToGroup = (groupName, labelName, condition, rank) => {
+export const addNewLabelToGroup = (options: {
+  groupName: string;
+  labelName: string;
+  condition: string;
+  rank: number;
+}) => {
+  const { groupName, labelName, condition, rank } = options;
   // Find tab with the group name and click on it
   cy.get('button[data-baseweb="tab"')
     .should("exist")
@@ -176,7 +189,11 @@ export const addNewLabelToGroup = (groupName, labelName, condition, rank) => {
 };
 
 // For ungrouped label, specify "Ungrouped" in the groupName argument
-export const labelDelete = (groupName, labelName) => {
+export const labelDelete = (options: {
+  groupName: string;
+  labelName: string;
+}) => {
+  const { groupName, labelName } = options;
   cy.log("*** labelDelete (begin): groupName:labelName", groupName, labelName);
   checkForLoading();
 
@@ -205,7 +222,7 @@ export const labelDelete = (groupName, labelName) => {
   cy.log("*** labelDelete (end): groupName", labelName);
 };
 
-export function checkGroupLabelNotExist(groupName) {
+export function checkGroupLabelNotExist(groupName: string) {
   cy.log("Validate that group label does not exist", groupName);
 
   cy.visit("/");
@@ -221,11 +238,12 @@ export function checkGroupLabelNotExist(groupName) {
   checkNoErrorOnThePage();
 }
 
-export const fillInTheSettingsConfigForm = (
-  computeCreditCost,
-  serverlessCreditCost,
-  storageCost
-) => {
+export const fillInTheSettingsConfigForm = (options: {
+  computeCreditCost: string;
+  serverlessCreditCost: string;
+  storageCost: string;
+}) => {
+  const { computeCreditCost, serverlessCreditCost, storageCost } = options;
   cy.get('input[aria-label="Compute Credit Cost"]')
     .clear()
     .type(computeCreditCost);
@@ -237,7 +255,7 @@ export const fillInTheSettingsConfigForm = (
   cy.get('input[aria-label="Storage Cost (/tb)"]').clear().type(storageCost);
 };
 
-export const dropDownOpen = (dropDownName) => {
+export const dropDownOpen = (dropDownName: string) => {
   cy.get(".row-widget.stSelectbox")
     .contains(dropDownName)
     .should("exist")
@@ -248,11 +266,12 @@ export const dropDownOpen = (dropDownName) => {
     });
 };
 
-export const dropDownElementClick = (dropDownElementName) => {
+export const dropDownElementClick = (dropDownElementName: string) => {
   clickCheck({ clickElem: 'li[role="option"]', contains: dropDownElementName });
 };
 
-export const labelUpdateClick = (groupName, labelName) => {
+export const labelUpdateClick = (labelName: string) => {
+  cy.log("Updating label: labelName", labelName);
   cy.get('div[data-testid="stHorizontalBlock"]')
     .should("exist")
     .contains(labelName)
@@ -272,11 +291,12 @@ export const labelUpdateClick = (groupName, labelName) => {
 // newLabelName: values for the new label name
 // newCondition: values for the new condition
 // If "None" - don't modify the field
-export const updateUngroupedLabelForm = (
-  labelName,
-  newLabelName,
-  newCondition
-) => {
+export const updateUngroupedLabelForm = (options: {
+  labelName: string;
+  newLabelName: string;
+  newCondition: string;
+}) => {
+  const { labelName, newLabelName, newCondition } = options;
   cy.log("Updating label: labelName", labelName);
 
   if (newLabelName != "None") {
@@ -294,7 +314,11 @@ export const updateUngroupedLabelForm = (
   }
 };
 
-export const clickCheck = (options) => {
+export const clickCheck = (options: {
+  clickElem: string;
+  contains?: string;
+  forceClick?: boolean;
+}) => {
   cy.get(options.clickElem)
     .should("exist")
     .as(`clickElem-${options.clickElem}`);
