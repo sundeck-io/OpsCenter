@@ -66,7 +66,7 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
     AS
     CALL INTERNAL.refresh_users();
 
--- enable the query_hash column in the query_history view
+-- create the query_hash functions in TOOLS
 call INTERNAL.ENABLE_QUERY_HASH();
 
 -- Populate the list of predefined labels

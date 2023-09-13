@@ -7,8 +7,8 @@ language sql
 as
 begin
     SYSTEM$LOG_TRACE('Migrating query history data.');
-    -- Update the internal_reporting views to reflect any updates from snowflake's views.
-    call internal.migrate_view();
+    -- Update _only_ the internal_reporting views to reflect any updates from snowflake's views.
+    call INTERNAL.create_view_QUERY_HISTORY_COMPLETE_AND_DAILY();
     let migrate1 string := '';
     call internal.migrate_if_necessary('INTERNAL_REPORTING', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY') into :migrate1;
     let migrate2 string := '';
