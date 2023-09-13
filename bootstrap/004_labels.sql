@@ -153,73 +153,17 @@ END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text, is_dynamic boolean)
     RETURNS text
-    LANGUAGE SQL
+    language python
+    runtime_version = "3.1-"
+    handler = 'create_label'
+    packages = ('snowflake-snowpark-python')
+    imports=('{{stage}}/crud/crud.zip', '{{stage}}/crud/pydantic.zip')
     EXECUTE AS OWNER
 AS
 $$
-BEGIN
-    if (:is_dynamic = true) then
-        if (:grp is null) then
-            return 'group name must be set for dynamic grouped labels.';
-        elseif (:name is not null or :rank is not null) then
-            return 'Rank or name must not be set for dynamic grouped labels.';
-        end if;
-    else
-        if (:name is null) then
-          return 'Name must not be null.';
-        elseif (grp is null and rank is not null) then
-          return 'Rank must only be set if Group name is also provided.';
-        elseif (grp is not null and rank is null) then
-          return 'Rank must provided if you are creating a grouped label.';
-        end if;
-    end if;
-
-    let outcome text := 'Failure validating name & condition. Please check your syntax.';
-    outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:condition, :is_dynamic));
-
-    if (outcome is not null) then
-      return outcome;
-    end if;
-
-    if (:grp is null) then
-        outcome := (CALL INTERNAL.VALIDATE_Name(:name, true));
-    else
-        outcome := (CALL INTERNAL.VALIDATE_Name(:grp, false));
-    end if;
-
-    if (outcome is not null) then
-      return outcome;
-    end if;
-
-    BEGIN TRANSACTION;
-        let cnt number := 0;
-        if (:grp is null) then
-            -- check if the ungrouped label's name conflict with another ungrouped label, or a group with same name.
-            cnt  := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE (name = :name and group_name is null) or (group_name = :name and group_name is not null));
-            outcome := 'Duplicate label name found. Please use a distinct name.';
-        else
-            -- check if the grouped label's name conflict with :
-            --  1) another label in the same group,
-            --  2) or an ungrouped label's name.
-            --  3) another dynamic group name
-            cnt  := (SELECT COUNT(*) AS cnt FROM internal.labels
-                     WHERE (group_name = :grp and name = :name and name is not null) or
-                            (name = :grp and group_name is null) or
-                            (group_name = :grp and name is null));
-            outcome := 'Duplicate grouped label name found. Please use a distinct name.';
-        end if;
-
-        IF (cnt = 0) THEN
-          INSERT INTO internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
-          VALUES (:name, :grp, :rank, current_timestamp(), :condition, current_timestamp(), :is_dynamic, TRUE);
-          outcome := null;
-        END IF;
-
-    COMMIT;
-    CALL INTERNAL.UPDATE_LABEL_VIEW();
-    return outcome;
-
-END;
+from crud import create_entity
+def create_label(session, name, grp, rank, condition, is_dynamic):
+    return create_entity(session, 'LABEL', {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic})
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text)
