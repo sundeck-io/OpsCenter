@@ -110,12 +110,13 @@ BEGIN
     CALL INTERNAL.SET_CONFIG('WAREHOUSE_EVENTS_MAINTENANCE', CURRENT_TIMESTAMP()::string);
 END;
 
-CREATE OR REPLACE FUNCTION TOOLS.APPROX_CREDITS_USED(warehouse_name varchar, start_time timestamp, end_time timestamp)
+CREATE OR REPLACE FUNCTION TOOLS.APPROX_CREDITS_USED(wh_name varchar, start_time timestamp, end_time timestamp)
 RETURNS NUMBER
 AS
 $$
-    TOOLS.WAREHOUSE_CREDITS_PER_MILLI((select warehouse_size from internal.warehouse_size_mapping t where t.warehouse_name = warehouse_name),
-    coalesce((select warehouse_type from internal.warehouse_size_mapping t where t.warehouse_name = warehouse_name), 'STANDARD'))*timestampdiff(millisecond, start_time, end_time)
+    TOOLS.WAREHOUSE_CREDITS_PER_MILLI(
+        (select any_value(warehouse_size) from internal.warehouse_size_mapping t where t.warehouse_name = wh_name),
+        coalesce((select any_value(warehouse_type) from internal.warehouse_size_mapping t where t.warehouse_name = wh_name), 'STANDARD'))*timestampdiff(millisecond, start_time, end_time)
 $$;
 
 CREATE OR REPLACE FUNCTION TOOLS.APPROX_CREDITS_USED(warehouse_name varchar, start_time timestamp)
