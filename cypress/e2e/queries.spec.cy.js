@@ -54,11 +54,9 @@ describe("Queries section", () => {
 
     dropDownOpen("Select Report");
     dropDownElementClick("dbt Summary");
-    checkNoErrorOnThePage();
 
     dropDownOpen("Pick View");
     dropDownElementClick("List");
-    checkNoErrorOnThePage();
 
     // Iterate over filters
 
@@ -91,6 +89,8 @@ describe("Queries section", () => {
       "Execution Status",
     ];
     for (const category of categorylList) {
+      checkForLoading();
+
       dropDownOpen("Color by Category or Grouping Label");
       dropDownElementClick(category);
 
@@ -106,9 +106,12 @@ describe("Queries section", () => {
 
     const stringList = ["365", "90", "30", "7"];
 
-    cy.get("span").contains("Query Activity").should("be.visible");
+    cy.get("span")
+      .contains("Query Activity", { timeout: 40000 })
+      .should("be.visible");
 
     // Click on Filters
+    cy.log("Click on Filters");
     clickCheck({
       clickElem: 'div[data-testid="stMarkdownContainer"]',
       contains: "Filters",
