@@ -11,7 +11,7 @@ def report(
     cost_per_credit,
 ):
     _ = connection.execute(
-        "CALL INTERNAL.REPORT_PAGE_VIEW('Query Report Reoccuring Queries')"
+        "CALL INTERNAL.REPORT_PAGE_VIEW('Query Report Reoccurring Queries')"
     )
 
     labels = connection.execute_with_cache(
@@ -58,7 +58,7 @@ group by all
 ), buckets as (
 select *, cnt > 100 as "IsRepeated" from agg
 )
-select sum(cost) as "Cost", sum(cnt) as "Count", case when "IsRepeated" then 'Reoccuring' else 'ad-hoc' end as "Bucket" from buckets group by all
+select sum(cost) as "Cost", sum(cnt) as "Count", case when "IsRepeated" then 'Reoccurring' else 'ad-hoc' end as "Bucket" from buckets group by all
         """
 
     def overview():
@@ -129,10 +129,10 @@ select sum(cost) as "Cost", sum(cnt) as "Count", case when "IsRepeated" then 'Re
     else:
         st.markdown(
             """
-        The below charts show the ratio of reoccuring queries to ad-hoc queries. Reoccuring queries are defined as
+        The below charts show the ratio of reoccuring queries to ad-hoc queries. Reoccurring queries are defined as
         queries that have been run more than 100 times per week in the selected time range. Two ratios are shown: the
-        contribution to cost for ad-hoc and reoccuring queries and the percentage of overall query count which is
-        reoccuring or not.
+        contribution to cost for ad-hoc and reoccurring queries and the percentage of overall query count which is
+        reoccurring or not.
         """
         )
         overview()
