@@ -7,7 +7,7 @@ begin
     if (:enabled) then
        execute immediate $$
     begin
-create or replace function tools.is_repeated_query(qph varchar, size number)
+create or replace function tools.is_reoccuring_query(qph varchar, size number)
 returns boolean
 immutable
 as
@@ -25,7 +25,7 @@ as
 else
     execute immediate $$
     begin
-create or replace function tools.is_repeated_query(qph varchar, size number)
+create or replace function tools.is_reoccuring_query(qph varchar, size number)
 returns boolean
 as
 'false';

@@ -392,7 +392,7 @@ BEGIN
                 ('Long Queries', 'TOTAL_ELAPSED_TIME > 600000', TRUE),
                 ('Expensive Queries', 'COST>0.5', TRUE),
                 ('Accelerated Queries', 'QUERY_ACCELERATION_BYTES_SCANNED > 0', TRUE),
-                ('Repeated Queries', 'tools.is_repeated_query(query_parameterized_hash, 1000)', :query_hash_enabled),
+                ('Reoccuring Queries', 'tools.is_reoccuring_query(query_parameterized_hash, 1000)', :query_hash_enabled),
                 ('ad-hoc Queries', 'tools.is_ad_hoc_query(query_parameterized_hash, 10)', :query_hash_enabled)
              ) where $3) s (name, condition, enabled)
     ON t.name = s.name
