@@ -18,7 +18,7 @@ st.markdown(
 )
 
 options = {
-    "Repeated Queries": reports_query_hash.report,
+    "Reoccurring Queries": reports_query_hash.report,
 }
 
 reports.display(options)

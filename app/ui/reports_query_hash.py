@@ -1,3 +1,4 @@
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -10,7 +11,7 @@ def report(
     cost_per_credit,
 ):
     _ = connection.execute(
-        "CALL INTERNAL.REPORT_PAGE_VIEW('Query Report Repeated Queries')"
+        "CALL INTERNAL.REPORT_PAGE_VIEW('Query Report Reoccurring Queries')"
     )
 
     labels = connection.execute_with_cache(
@@ -48,16 +49,16 @@ def report(
 
     sql = f"""
         with agg as (
-select sum(cost) as cost, count(*) as cnt, any_value(query_text) as query, query_parameterized_hash
+select sum(cost) as cost, count(*) as cnt, query_parameterized_hash, year(end_time) || week(end_time) as end_time
 from reporting.labeled_query_history where query_parameterized_hash is not null and cost >0
         and start_time between %(start)s and %(end)s and (array_size(%(warehouse_names)s) = 0
             OR array_contains(warehouse_name::variant, %(warehouse_names)s))
         {addition_filter}
-group by query_parameterized_hash
+group by all
 ), buckets as (
-select sum(cost) as cost, sum(cnt) as cnt, width_bucket(log(10, cnt), 0, 7, 7) as bucket from agg group by all
+select *, cnt > 100 as "IsRepeated" from agg
 )
-select cost as "Cost", cnt as "Count", '[' || pow(10,bucket-1) || ', ' || pow(10,bucket) || ')' as "Bucket" from buckets order by "Bucket" desc
+select sum(cost) as "Cost", sum(cnt) as "Count", case when "IsRepeated" then 'Reoccurring' else 'ad-hoc' end as "Bucket" from buckets group by all
         """
 
     def overview():
@@ -66,30 +67,14 @@ select cost as "Cost", cnt as "Count", '[' || pow(10,bucket-1) || ', ' || pow(10
             {"start": bf.start, "end": bf.end, "warehouse_names": bf.warehouse_names},
         )
 
-        labels = list(df.Bucket.values)
-        bars = []
-        total_cost = sum(df.Cost.values)
-        total_count = sum(df.Count.values)
-        df.Cost = df.Cost.apply(lambda x: x / total_cost * 100)
-        df.Count = df.Count.apply(lambda x: x / total_count * 100)
-        for label in labels:
-            ls = label.replace("[", "").replace(")", "").split(",")
-            if ls[0] == "1":
-                lb = f"fewer than {ls[1]} occurrences"
-            elif ls[0] == "10000000":
-                lb = f"more than {ls[0]} occurrences"
-            else:
-                lb = f"between {ls[0]} and {ls[1]} occurrences"
-            bars.append(
-                go.Bar(
-                    name=lb,
-                    x=["Cost", "Count"],
-                    y=df[df.Bucket == label].values[0][0:2],
-                )
-            )
-
-        fig = go.Figure(data=bars)
-        fig.update_layout(barmode="stack")
+        fig = make_subplots(
+            rows=1,
+            cols=2,
+            subplot_titles=["Cost", "Count"],
+            specs=[[{"type": "domain"}, {"type": "domain"}]],
+        )
+        fig.add_trace(go.Pie(labels=df.Bucket, values=df.Cost, name="Cost"), 1, 1)
+        fig.add_trace(go.Pie(labels=df.Bucket, values=df.Count, name="Count"), 1, 2)
 
         st.plotly_chart(fig, use_container_width=True)
 
@@ -106,8 +91,8 @@ select cost as "Cost", cnt as "Count", '[' || pow(10,bucket-1) || ', ' || pow(10
                     OR array_contains(warehouse_name::variant, %(warehouse_names)s))
                     {addition_filter}
                     group by query_parameterized_hash
-                    order by "{val}" desc
                     ) select * from raw where length("Query Text") > 0
+                    order by "{val}" desc
                     limit 100
                     """
         df = connection.execute_select(
@@ -144,13 +129,10 @@ select cost as "Cost", cnt as "Count", '[' || pow(10,bucket-1) || ', ' || pow(10
     else:
         st.markdown(
             """
-        The below pie charts show the distribution of repeated queries by frequency bucket. Queries are bucketed by the
-        number of times their query hash has been seen in the time period selected. The charts show the percentage
-        contribution of each bucket to both total cost and to the overall query count.
-
-        These charts indicate whether the primary cost driver is a small number of very expensive queries or a large number
-        of repeating inexpensive queries. The charts can be filtered by labels and by warehouses to narrow down the source
-        of these costs and improve them.
+        The below charts show the ratio of reoccuring queries to ad-hoc queries. Reoccurring queries are defined as
+        queries that have been run more than 100 times per week in the selected time range. Two ratios are shown: the
+        contribution to cost for ad-hoc and reoccurring queries and the percentage of overall query count which is
+        reoccurring or not.
         """
         )
         overview()
