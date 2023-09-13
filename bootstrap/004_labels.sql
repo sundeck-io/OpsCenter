@@ -379,6 +379,8 @@ CREATE OR REPLACE PROCEDURE INTERNAL.POPULATE_PREDEFINED_LABELS()
     EXECUTE AS OWNER
 AS
 BEGIN
+    begin transaction;
+    truncate table internal.predefined_labels;
     let query_hash_enabled boolean := (select system$BEHAVIOR_CHANGE_BUNDLE_STATUS('2023_06') = 'ENABLED');
     MERGE INTO internal.predefined_labels t
     USING (
@@ -405,6 +407,7 @@ BEGIN
         ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
         VALUES (s.name, NULL, NULL,  current_timestamp(), s.condition, current_timestamp(), FALSE, TRUE);
 
+    commit;
     RETURN NULL;
 EXCEPTION
   WHEN OTHER THEN
