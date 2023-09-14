@@ -68,7 +68,10 @@ class Label(BaseOpsCenterModel):
         return obj
 
     @model_validator(mode="after")
-    def validate_all_pre(self) -> "Label":
+    def validate_label_obj(self) -> "Label":
+        """
+        Validates that the attributes on this Label appear valid by inspecting only the Label itself.
+        """
         if self.is_dynamic:
             assert not self.name, "Dynamic labels cannot have a name"
             assert not self.group_rank, "Dynamic labels cannot have a group rank"
@@ -86,7 +89,10 @@ class Label(BaseOpsCenterModel):
         return self
 
     @model_validator(mode="after")
-    def validate_all_post(self, info: ValidationInfo) -> "Label":
+    def validate_label_against_db(self, info: ValidationInfo) -> "Label":
+        """
+        Validates this Label against the database to check things like name uniqueness and condition validity.
+        """
         ctx = info.context
         assert ctx, "Context must be present"
         print(ctx)
@@ -109,7 +115,7 @@ class Label(BaseOpsCenterModel):
 
     @field_validator("name")
     @classmethod
-    def name_is_unique_among_other_labels(
+    def name_is_a_string(
         cls, name: str, info: FieldValidationInfo
     ) -> str:
         assert isinstance(name, str)
@@ -124,7 +130,6 @@ class Label(BaseOpsCenterModel):
         assert isinstance(condition, str)
         if not condition:
             raise ValueError("Condition cannot be empty")
-        # TODO Pull Session from context, check condition
         return condition
 
     @field_validator("created_at", "modified_at")

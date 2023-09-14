@@ -21,3 +21,9 @@ pydantic = "^2.3.0"
 watchdog = "^3.0.0"
 pytest = "^7.4.1"
 snowflake-connector-python = "^3.1.1"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+  # Suppress the deprecation warnings that are coming from Snowflake and Snowpark dependencies
+	"ignore::DeprecationWarning",
+]
