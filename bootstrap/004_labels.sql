@@ -393,7 +393,8 @@ BEGIN
                 ('Expensive Queries', 'COST>0.5', TRUE),
                 ('Accelerated Queries', 'QUERY_ACCELERATION_BYTES_SCANNED > 0', TRUE),
                 ('Reoccurring Queries', 'tools.is_reoccurring_query(query_parameterized_hash, 1000)', :query_hash_enabled),
-                ('ad-hoc Queries', 'tools.is_ad_hoc_query(query_parameterized_hash, 10)', :query_hash_enabled)
+                ('ad-hoc Queries', 'tools.is_ad_hoc_query(query_parameterized_hash, 10)', :query_hash_enabled),
+                ('dbt Queries', 'array_contains(\'dbt\'::variant, tools.qtag_sources(qtag_filter))', TRUE)
              ) where $3) s (name, condition, enabled)
     ON t.name = s.name
     WHEN MATCHED THEN
@@ -404,6 +405,24 @@ BEGIN
     INSERT
         ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
         VALUES (s.name, NULL, NULL,  current_timestamp(), s.condition, current_timestamp(), FALSE, TRUE);
+
+    -- populate for dynamic labels
+    MERGE INTO internal.predefined_labels t
+    USING (
+        SELECT *
+        from (values
+            ('dbt Models', 'tools.qtag_value(qtag_filter, \'dbt\', \'node_id\')'),
+            ('qtag Sources', 'tools.qtag_sources(qtag_filter)[0]'),
+             )) s (group_name, condition)
+    ON t.group_name = s.group_name
+    WHEN MATCHED THEN
+    UPDATE
+        SET t.GROUP_NAME = group_name, t.GROUP_RANK = NULL, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp(),
+            T.IS_DYNAMIC = TRUE, T.ENABLED = TRUE
+    WHEN NOT MATCHED THEN
+    INSERT
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
+        VALUES (NULL, group_name, NULL,  current_timestamp(), s.condition, current_timestamp(), TRUE, TRUE);
 
     RETURN NULL;
 EXCEPTION
