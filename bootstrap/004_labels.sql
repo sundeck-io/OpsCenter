@@ -417,12 +417,12 @@ BEGIN
     ON t.group_name = s.group_name
     WHEN MATCHED THEN
     UPDATE
-        SET t.GROUP_NAME = group_name, t.GROUP_RANK = NULL, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp(),
+        SET t.GROUP_NAME = s.group_name, t.GROUP_RANK = NULL, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = current_timestamp(),
             T.IS_DYNAMIC = TRUE, T.ENABLED = TRUE
     WHEN NOT MATCHED THEN
     INSERT
         ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
-        VALUES (NULL, group_name, NULL,  current_timestamp(), s.condition, current_timestamp(), TRUE, TRUE);
+        VALUES (NULL, s.group_name, NULL,  current_timestamp(), s.condition, current_timestamp(), TRUE, TRUE);
 
     RETURN NULL;
 EXCEPTION
