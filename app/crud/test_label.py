@@ -1,7 +1,8 @@
 import pytest
-from labels import Label
 from datetime import datetime
-from session import session_ctx
+
+from .labels import Label
+from .session import session_ctx
 
 
 class Session:
@@ -36,23 +37,39 @@ def _get_label(name="label1") -> dict:
 
 
 def test_label(session):
-    _ = Label.parse_obj(_get_label())
-    # todo validate session.sql was called
+    l = _get_label()
+    _ = Label.parse_obj(l)
+
+    assert len(session._sql) == 2, f"Expected 2 sql statements"
+    assert session._sql[0].lower() == _expected_condition_check_query(l.get('condition')), \
+        "Unexpected label condition query"
+    assert session._sql[1].lower() == _expected_name_check_query(l.get('name')), "Unexpected label name query"
 
 
 def test_none_label(session):
+    l = _get_label(name=None)
     with pytest.raises(ValueError):
-        _ = Label.parse_obj(_get_label(name=None))
-    # todo validate session.sql was called
+        _ = Label.parse_obj(l)
+
+    assert len(session._sql) == 2, "Expected no sql statements for a None name"
+    assert session._sql[0].lower() == _expected_condition_check_query(l.get('condition')), \
+        "Unexpected label condition query"
+    assert session._sql[1].lower() == _expected_name_check_query(l.get('name')), "Unexpected label name query"
 
 
 def test_empty_label(session):
+    l = _get_label(name="")
     with pytest.raises(ValueError):
-        _ = Label.parse_obj(_get_label(name=""))
-    # todo validate session.sql was called
+        _ = Label.parse_obj(l)
+
+    assert len(session._sql) == 2, "Expected no sql statements for a None name"
+    assert session._sql[0].lower() == _expected_condition_check_query(l.get('condition')), \
+        "Unexpected label condition query"
+    # An empty name is overriden to be the default value None.
+    assert session._sql[1].lower() == _expected_name_check_query('none'), "Unexpected label name query"
 
 
-def test_create(session):
+def test_create_table(session):
     Label.create(session)
     assert len(session._sql) == 2, "Expected 2 sql statement, got {}".format(
         len(session._sql)
@@ -67,3 +84,10 @@ def test_create(session):
         session._sql[1].lower()
         == "create or replace view catalog.labels as select * from internal.labels"
     ), "Expected create view statement, got {}".format(session._sql[1])
+
+
+def _expected_condition_check_query(condition: str) -> str:
+    return f"select case when {condition} then 1 else 0 end from reporting.enriched_query_history where false".lower()
+
+def _expected_name_check_query(name: str) -> str:
+    return f'select "{name}" from reporting.enriched_query_history where false'.lower()

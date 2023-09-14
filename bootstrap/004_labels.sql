@@ -157,12 +157,12 @@ CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number,
     language python
     runtime_version = "3.10"
     handler = 'create_label'
-    packages = ('snowflake-snowpark-python')
+    packages = ('snowflake-snowpark-python', 'pydantic')
     imports=('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
 $$
-from crud.common import create_entity
+from crud import create_entity
 def create_label(session, name, grp, rank, condition, is_dynamic):
     return create_entity(session, 'LABEL', {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic})
 $$;

@@ -5,8 +5,8 @@ from pydantic import (
 )
 from typing import Optional, ClassVar
 import datetime
-from base import BaseOpsCenterModel
-from session import session_ctx
+from .base import BaseOpsCenterModel
+from .session import session_ctx
 
 ## TODO
 # test validation stuff
@@ -83,7 +83,6 @@ class Label(BaseOpsCenterModel):
                     values.get('group_rank')
                 ), "Labels with a group name must have a group rank"
             else:
-                print(values)
                 assert (
                     not values.get('group_rank')
                 ), "Labels without a group name cannot have a group rank"
@@ -96,7 +95,6 @@ class Label(BaseOpsCenterModel):
         """
         Validates this Label against the database to check things like name uniqueness and condition validity.
         """
-        print(f"values before db validation: {values}")
         session = session_ctx.get('session')
         assert session, 'Session must be present'
         condition = values.get('condition')

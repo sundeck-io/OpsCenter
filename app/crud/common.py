@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from pydantic import ValidationError
-import labels
-from session import session_ctx
+from .labels import Label, PredefinedLabel
+from .session import session_ctx
 
 ## TODO
 # test validation stuff
@@ -10,7 +10,7 @@ from session import session_ctx
 # same again for probes
 # hook up to stored procs for (CRUD and validation)
 # more tests
-_TYPES = {"LABEL": labels.Label, "PREDEFINED_LABEL": labels.PredefinedLabel}
+_TYPES = {"LABEL": Label, "PREDEFINED_LABEL": PredefinedLabel}
 
 @contextmanager
 def transaction(session):
