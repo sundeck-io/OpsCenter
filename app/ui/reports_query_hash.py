@@ -80,12 +80,14 @@ select sum(cost) as "Cost", sum(cnt) as "Count", case when "IsRepeated" then 'Re
 
     def top_table():
         val = st.radio(
-            "Top 1000 repeated queries by:",
+            "Top 100 repeated queries by:",
             ["Count", "Cost", "Cost per Query"],
         )
         sql = f"""
             with raw as (
-            select any_value(query_text) as "Query Text", to_varchar(sum(cost), '999,999.00') as "Cost", count(*) as "Count", to_varchar(sum(cost)/count(*), '999,999.000000') as "Cost per Query"
+            select any_value(query_text) as "Query Text", any_value(query_id) as "Query Id",
+            to_varchar(sum(cost), '999,999.00') as "Cost", count(*) as "Count",
+            to_varchar(sum(cost)/count(*), '999,999.000000') as "Cost per Query"
             from reporting.labeled_query_history where query_parameterized_hash is not null and cost >0
                 and start_time between %(start)s and %(end)s and (array_size(%(warehouse_names)s) = 0
                     OR array_contains(warehouse_name::variant, %(warehouse_names)s))
@@ -105,7 +107,14 @@ select sum(cost) as "Cost", sum(cnt) as "Count", case when "IsRepeated" then 'Re
 
         """
         )
-        st.dataframe(df, use_container_width=True)
+        df["Query Text"] = df.apply(
+            lambda row: f"{row['Query Id']}: {row['Query Text'][:10000]}"
+            if len(row["Query Text"]) > 10000
+            else row["Query Text"],
+            axis=1,
+        )
+        print(len(df.to_json()))
+        st.dataframe(df.drop(columns="Query Id"), use_container_width=True)
 
     is_enabled = connection.execute_select(
         """select system$BEHAVIOR_CHANGE_BUNDLE_STATUS('2023_06') = 'ENABLED' and count(*) = 1
