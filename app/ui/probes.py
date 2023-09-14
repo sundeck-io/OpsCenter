@@ -93,7 +93,7 @@ class Probe:
             )
 
             columns[3].checkbox(
-                label="cancel query",
+                label="",
                 label_visibility="hidden",
                 value=row["CANCEL"],
                 disabled=True,
