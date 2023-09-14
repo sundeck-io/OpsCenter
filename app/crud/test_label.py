@@ -1,6 +1,7 @@
 import pytest
 from labels import Label
 from datetime import datetime
+from session import session_ctx
 
 
 class Session:
@@ -15,9 +16,12 @@ class Session:
         return self
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def session():
-    return Session()
+    session = Session()
+    token = session_ctx.set(session)
+    yield session
+    session_ctx.reset(token)
 
 
 def _get_label(name="label1") -> dict:
@@ -32,19 +36,19 @@ def _get_label(name="label1") -> dict:
 
 
 def test_label(session):
-    _ = Label.model_validate(_get_label(), context={"session": session})
+    _ = Label.parse_obj(_get_label())
     # todo validate session.sql was called
 
 
 def test_none_label(session):
     with pytest.raises(ValueError):
-        _ = Label.model_validate(_get_label(name=None), context={"session": session})
+        _ = Label.parse_obj(_get_label(name=None))
     # todo validate session.sql was called
 
 
 def test_empty_label(session):
     with pytest.raises(ValueError):
-        _ = Label.model_validate(_get_label(name=""), context={"session": session})
+        _ = Label.parse_obj(_get_label(name=""))
     # todo validate session.sql was called
 
 

@@ -24,10 +24,11 @@ def _setup_database(cur, database: str, schema: str, stage: str):
 
 def _copy_dependencies(cur, schema: str, stage: str):
     print(f"Copying dependencies to @{schema}.{stage}.")
-    for file in ["sqlglot.zip"]:
+    for file in ["sqlglot.zip", "crud.zip"]:
         local_file_path = f"app/python/{file}"
         stage_file_path = f"@{schema}.{stage}/python"
         put_cmd = f"PUT 'file://{local_file_path}' '{stage_file_path}' overwrite=true auto_compress=false"
+        print(put_cmd)
         cur.execute(put_cmd)
     target_dir = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "app", "crud")

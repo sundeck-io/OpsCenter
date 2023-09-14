@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from pydantic import ValidationError
 import labels
+from session import session_ctx
 
 ## TODO
 # test validation stuff
@@ -11,10 +12,10 @@ import labels
 # more tests
 _TYPES = {"LABEL": labels.Label, "PREDEFINED_LABEL": labels.PredefinedLabel}
 
-
 @contextmanager
 def transaction(session):
     txn_open = False
+    token = session_ctx.set(session)
     try:
         session.sql("BEGIN").collect()
         txn_open = True
@@ -24,6 +25,8 @@ def transaction(session):
         if txn_open:
             session.sql("ROLLBACK").collect()
         raise
+    finally:
+        session_ctx.reset(token)
 
 
 def create_entity(session, entity_type, entity):
@@ -32,7 +35,7 @@ def create_entity(session, entity_type, entity):
             t = _TYPES.get(entity_type)
             if not t:
                 raise ValueError(f"Unknown entity type: {entity_type}")
-            obj = t.model_validate(entity, context={"session": txn})
+            obj = t.parse_obj(entity)
             obj.write(txn)
         except ValidationError as e:
             errs = []

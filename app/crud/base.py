@@ -16,7 +16,7 @@ class BaseOpsCenterModel(BaseModel):
     @classmethod
     def cols_dict(cls) -> Dict[str, str]:
         cols = dict()
-        for field, info in cls.model_fields.items():
+        for field, info in cls.__fields__.items():
             if isinstance(type, type(info.annotation)):
                 info_type = handle_type(info.annotation)
             else:

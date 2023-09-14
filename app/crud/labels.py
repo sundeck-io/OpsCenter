@@ -1,13 +1,12 @@
 from snowflake.snowpark import Row
 from pydantic import (
-    field_validator,
-    FieldValidationInfo,
-    model_validator,
-    ValidationInfo,
+    validator,
+    root_validator,
 )
 from typing import Optional, ClassVar
 import datetime
 from base import BaseOpsCenterModel
+from session import session_ctx
 
 ## TODO
 # test validation stuff
@@ -67,56 +66,63 @@ class Label(BaseOpsCenterModel):
         session.call("internal.update_label_view();")
         return obj
 
-    @model_validator(mode="after")
-    def validate_label_obj(self) -> "Label":
+    @root_validator()
+    @classmethod
+    def validate_label_obj(cls, values) -> "Label":
         """
         Validates that the attributes on this Label appear valid by inspecting only the Label itself.
         """
-        if self.is_dynamic:
-            assert not self.name, "Dynamic labels cannot have a name"
-            assert not self.group_rank, "Dynamic labels cannot have a group rank"
-            assert self.group_name, "Dynamic labels must have a group name"
+        if values.get('is_dynamic'):
+            assert not values.get('name'), "Dynamic labels cannot have a name"
+            assert not values.get('group_rank'), "Dynamic labels cannot have a group rank"
+            assert values.get('group_name'), "Dynamic labels must have a group name"
         else:
-            assert self.name, "Labels must have a name"
-            if self.group_name:
+            assert values.get('name'), "Labels must have a name"
+            if values.get('group_name'):
                 assert (
-                    self.group_rank
+                    values.get('group_rank')
                 ), "Labels with a group name must have a group rank"
             else:
+                print(values)
                 assert (
-                    not self.group_rank
+                    not values.get('group_rank')
                 ), "Labels without a group name cannot have a group rank"
-        return self
+        assert values.get('condition'), 'Condition must be provided'
+        return values
 
-    @model_validator(mode="after")
-    def validate_label_against_db(self, info: ValidationInfo) -> "Label":
+    @root_validator
+    @classmethod
+    def validate_label_against_db(cls, values) -> "Label":
         """
         Validates this Label against the database to check things like name uniqueness and condition validity.
         """
-        ctx = info.context
-        assert ctx, "Context must be present"
-        print(ctx)
-        assert ctx.get("session"), "Session must be present"
-        session = ctx["session"]
-        if self.is_dynamic:
-            stmt = f"select substring({self.condition}, 0, 0) from reporting.enriched_query_history where false"
+        print(f"values before db validation: {values}")
+        session = session_ctx.get('session')
+        assert session, 'Session must be present'
+        condition = values.get('condition')
+        assert condition, 'A Label must have a Condition'
+        if values.get('is_dynamic'):
+            stmt = f"select substring({condition}, 0, 0) from reporting.enriched_query_history where false"
         else:
-            stmt = f"select case when {self.condition} then 1 else 0 end from reporting.enriched_query_history where false"
+            stmt = f"select case when {condition} then 1 else 0 end from reporting.enriched_query_history where false"
         session.sql(stmt).collect()
         ## todo below should fail
-        if self.group_name:
+        if values.get('group_name'):
+            group_name = values.get('group_name')
             session.sql(
-                f'select "{self.group_name}" from reporting.enriched_query_history where false'
+                f'select "{group_name}" from reporting.enriched_query_history where false'
             ).collect()
         else:
+            name = values.get('name')
             session.sql(
-                f'select "{self.name}" from reporting.enriched_query_history where false'
+                f'select "{name}" from reporting.enriched_query_history where false'
             ).collect()
+        return values
 
-    @field_validator("name")
+    @validator("name")
     @classmethod
     def name_is_a_string(
-        cls, name: str, info: FieldValidationInfo
+        cls, name: str
     ) -> str:
         assert isinstance(name, str)
         if not name:
@@ -124,25 +130,25 @@ class Label(BaseOpsCenterModel):
 
         return name
 
-    @field_validator("condition")
+    @validator("condition")
     @classmethod
-    def condition_is_valid(cls, condition: str, info: FieldValidationInfo) -> str:
+    def condition_is_valid(cls, condition: str) -> str:
         assert isinstance(condition, str)
         if not condition:
             raise ValueError("Condition cannot be empty")
         return condition
 
-    @field_validator("created_at", "modified_at")
+    @validator("created_at", "modified_at")
     @classmethod
     def verify_time_fields(
-        cls, time: datetime.datetime, info: FieldValidationInfo
+        cls, time: datetime.datetime
     ) -> datetime.datetime:
         assert isinstance(time, datetime.datetime)
         return time
 
-    @field_validator("enabled", "is_dynamic")
+    @validator("enabled", "is_dynamic")
     @classmethod
-    def enabled_or_dynamic(cls, b: bool, info: FieldValidationInfo) -> bool:
+    def enabled_or_dynamic(cls, b: bool) -> bool:
         assert isinstance(b, bool)
         return b
 
