@@ -1,5 +1,4 @@
 import {
-  checkNoErrorOnThePage,
   dropDownOpen,
   dropDownElementClick,
   setup,

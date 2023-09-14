@@ -1,13 +1,14 @@
-import { checkNoErrorOnThePage,
-         setup,
-         fillInProbeForm,
-         buttonClick,
-         buttonCheckExists,
-         generateUniqueName,
-         probeDelete,
-         checkForLoading,
-         clickCheck }
-from "../support/utils";
+import {
+  checkNoErrorOnThePage,
+  setup,
+  fillInProbeForm,
+  buttonClick,
+  buttonCheckExists,
+  generateUniqueName,
+  probeDelete,
+  checkForLoading,
+  clickCheck,
+} from "../support/utils";
 
 describe("Probes section", () => {
   before(() => {
@@ -21,9 +22,7 @@ describe("Probes section", () => {
 
     clickCheck({ clickElem: "span", contains: "Probes" });
 
-    cy.get("span")
-      .contains("Query Probes")
-      .should("be.visible");
+    cy.get("span").contains("Query Probes").should("be.visible");
     checkNoErrorOnThePage();
 
     // Test #1: validate that clicking on "New" button starts page without error
@@ -37,13 +36,13 @@ describe("Probes section", () => {
     // Test #3: Fill the form with valid values and save
     buttonClick("New");
     const probe_1 = generateUniqueName("probe");
-    fillInProbeForm(
-      probe_1,
-      "query_text='%tpch_sf100%'",
-      true,
-      true,
-      "vicky@sundeck.io, jinfeng@sundeck.io"
-    );
+    fillInProbeForm({
+      probeName: probe_1,
+      condition: "query_text='%tpch_sf100%'",
+      emailTheAuthor: true,
+      cancelTheQuery: true,
+      emailOthers: "vicky@sundeck.io, jinfeng@sundeck.io",
+    });
     buttonClick("Create");
 
     cy.get("span")
@@ -58,13 +57,13 @@ describe("Probes section", () => {
     buttonClick("New");
     checkNoErrorOnThePage();
     const probe_2 = generateUniqueName("probe");
-    fillInProbeForm(
-      probe_2,
-      "query_text='%tpch_sf1%'",
-      false,
-      false,
-      "vicky@sundeck.io, jinfeng@sundeck.io"
-    );
+    fillInProbeForm({
+      probeName: probe_2,
+      condition: "query_text='%tpch_sf1%'",
+      emailTheAuthor: false,
+      cancelTheQuery: false,
+      emailOthers: "vicky@sundeck.io, jinfeng@sundeck.io",
+    });
     buttonClick("Create");
 
     cy.get("span")

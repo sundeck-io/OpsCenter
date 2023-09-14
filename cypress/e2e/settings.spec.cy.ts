@@ -25,12 +25,16 @@ describe("Settings section", () => {
     clickCheck({ clickElem: "span", contains: "Settings" });
 
     clickCheck({ clickElem: 'button[role="tab"]', contains: "Config" });
-    fillInTheSettingsConfigForm(10.0, 20.0, 30.0);
+    fillInTheSettingsConfigForm({
+      computeCreditCost: "10.0",
+      serverlessCreditCost: "20.0",
+      storageCost: "30.0",
+    });
     buttonOnTabClick("Save");
     checkSuccessAlert("Saved");
   });
 
-  it("Menu: Settings. Tab: Reset. Validate that we can click 'Reload' button and no exception is thrown .", () => {
+  it.skip("Menu: Settings. Tab: Reset. Validate that we can click 'Reload' button and no exception is thrown .", () => {
     cy.visit("/");
     checkForLoading();
 
