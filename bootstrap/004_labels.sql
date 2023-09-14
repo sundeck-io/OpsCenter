@@ -412,7 +412,7 @@ BEGIN
         SELECT *
         from (values
             ('dbt Models', 'tools.qtag_value(qtag_filter, \'dbt\', \'node_id\')'),
-            ('qtag Sources', 'tools.qtag_sources(qtag_filter)[0]'),
+            ('qtag Sources', 'tools.qtag_sources(qtag_filter)[0]')
              )) s (group_name, condition)
     ON t.group_name = s.group_name
     WHEN MATCHED THEN
