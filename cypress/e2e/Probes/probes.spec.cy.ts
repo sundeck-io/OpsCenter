@@ -1,14 +1,13 @@
+import { checkNoErrorOnThePage } from "../../support/alertUtils";
 import {
-  checkNoErrorOnThePage,
-  setup,
-  fillInProbeForm,
+  clickCheck,
   buttonClick,
   buttonCheckExists,
-  generateUniqueName,
-  probeDelete,
-  checkForLoading,
-  clickCheck,
-} from "../support/utils";
+} from "../../support/clickUtils";
+import { generateUniqueName } from "../../support/formUtils";
+import { checkForLoading } from "../../support/loadingUtils";
+import { setup } from "../../support/setupUtils";
+import { fillInProbeForm, probeDelete } from "./utils/probesUtils";
 
 describe("Probes section", () => {
   before(() => {

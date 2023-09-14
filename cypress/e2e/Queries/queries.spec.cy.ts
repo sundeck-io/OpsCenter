@@ -1,10 +1,7 @@
-import {
-  dropDownOpen,
-  dropDownElementClick,
-  setup,
-  checkForLoading,
-  clickCheck,
-} from "../support/utils";
+import { clickCheck, dropDownElementClick } from "../../support/clickUtils";
+import { dropDownOpen } from "../../support/formUtils";
+import { checkForLoading } from "../../support/loadingUtils";
+import { setup } from "../../support/setupUtils";
 
 describe("Queries section", () => {
   before(() => {

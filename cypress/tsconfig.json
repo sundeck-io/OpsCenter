@@ -4,6 +4,7 @@
       "es2020",
       "dom"
     ],
+    "moduleResolution": "node",
     "target": "es2020",
     "types": [
       "cypress",

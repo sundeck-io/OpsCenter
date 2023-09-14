@@ -1,13 +1,15 @@
+import { setup } from "../../support/setupUtils";
 import {
   checkNoErrorOnThePage,
   checkSuccessAlert,
-  fillInTheSettingsConfigForm,
+} from "../../support/alertUtils";
+import {
+  clickCheck,
   buttonOnTabClick,
   buttonClick,
-  checkForLoading,
-  clickCheck,
-  setup,
-} from "../support/utils";
+} from "../../support/clickUtils";
+import { checkForLoading } from "../../support/loadingUtils";
+import { fillInTheSettingsConfigForm } from "./utils/settingsUtils";
 
 describe("Settings section", () => {
   before(() => {

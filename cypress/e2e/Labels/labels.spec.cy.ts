@@ -1,27 +1,30 @@
 import {
+  checkFailureAlert,
   checkNoErrorOnThePage,
-  setup,
+} from "../../support/alertUtils";
+import {
+  clickCheck,
   buttonClick,
   buttonCheckExists,
-  generateUniqueName,
+} from "../../support/clickUtils";
+import { generateUniqueName } from "../../support/formUtils";
+import { checkForLoading } from "../../support/loadingUtils";
+import { setup } from "../../support/setupUtils";
+import {
   fillInNewGroupedLabelForm,
   addNewLabelToGroup,
   labelDelete,
+  fillInNewUngroupedLabelForm,
   labelUpdateClick,
   updateUngroupedLabelForm,
-  checkGroupLabelNotExist,
-  checkFailureAlert,
-  fillInNewUngroupedLabelForm,
-  checkForLoading,
-  clickCheck,
-} from "../support/utils";
+} from "./utils/labelsUtils";
 
 describe("Labels section", () => {
   before(() => {
     setup();
   });
 
-  it("Menu: Labels. Validate that New/Create/Cancel buttons don't result in failure to load the page", () => {
+  beforeEach(() => {
     cy.visit("/");
 
     checkForLoading();
@@ -30,7 +33,24 @@ describe("Labels section", () => {
 
     cy.get("span").contains("Query Labels").should("be.visible");
     checkNoErrorOnThePage();
+  });
 
+  it("Menu: Labels. Validate that New buttons button doesn't in failure to load the page", () => {
+    buttonClick("New");
+
+    // Test #2: validate that clicking on "Cancel" brings form back to "New" button
+    buttonClick("Cancel");
+    buttonCheckExists("New");
+
+    // Test #3: validate that clicking on "New (in group)" button starts page without error
+    buttonClick("New (in group)");
+
+    // Test #4: validate that clicking on "Cancel" brings form back to "New" button
+    buttonClick("Cancel");
+    buttonCheckExists("New (in group)");
+  });
+
+  it("Menu: Labels. Validate that Create buttons button doesn't in failure to load the page", () => {
     // Test #1: validate that clicking on "New" button starts page without error
     buttonClick("New");
 
@@ -46,6 +66,21 @@ describe("Labels section", () => {
     buttonCheckExists("New (in group)");
   });
 
+  it("Menu: Labels. Validate that Cancel button doesn't result in failure to load the page", () => {
+    // Test #1: validate that clicking on "New" button starts page without error
+    buttonClick("New");
+
+    // Test #2: validate that clicking on "Cancel" brings form back to "New" button
+    buttonClick("Cancel");
+    buttonCheckExists("New");
+
+    // Test #3: validate that clicking on "New (in group)" button starts page without error
+    buttonClick("New (in group)");
+
+    // Test #4: validate that clicking on "Cancel" brings form back to "New" button
+    buttonClick("Cancel");
+    buttonCheckExists("New (in group)");
+  });
   it("Menu: Labels. Create/Delete grouped labels", () => {
     const groupName = generateUniqueName("Workload");
     const label_1 = generateUniqueName("label");
@@ -53,22 +88,13 @@ describe("Labels section", () => {
     const label_3 = generateUniqueName("label");
     const labelList = [label_1, label_2, label_3];
 
-    cy.visit("/");
-
-    checkForLoading();
-
-    clickCheck({ clickElem: "span", contains: "Labels" });
-
-    cy.get("span").contains("Query Labels").should("be.visible");
-    checkNoErrorOnThePage();
-
     // Test #1: Fill the form for Grouped label with valid values and save
     buttonClick("New (in group)");
     fillInNewGroupedLabelForm({
       groupName,
       labelName: label_1,
       condition: "compilation_time > 5000",
-      rank: 100,
+      rank: "100",
     });
     buttonClick("Create");
 
@@ -77,14 +103,14 @@ describe("Labels section", () => {
       groupName,
       labelName: label_2,
       condition: "query_type = 'select'",
-      rank: 200,
+      rank: "200",
     });
 
     addNewLabelToGroup({
       groupName,
       labelName: label_3,
       condition: "bytes_spilled_to_local_storage > 0",
-      rank: 300,
+      rank: "300",
     });
 
     // Before deleting labels, make sure we are on "Queries" page
@@ -112,13 +138,6 @@ describe("Labels section", () => {
     const label_1 = generateUniqueName("label");
     const label_2 = generateUniqueName("label");
     const labelList = [label_1, label_2];
-
-    cy.visit("/");
-
-    cy.get("span").contains("Labels").should("be.visible").click();
-
-    cy.get("span").contains("Query Labels").should("be.visible");
-    checkNoErrorOnThePage();
 
     // Fill the form for Ungrouped label with valid values and save
     buttonClick("New");
@@ -152,13 +171,6 @@ describe("Labels section", () => {
     const label_1 = generateUniqueName("label");
     const label_2 = generateUniqueName("label");
     const labelList = [label_2];
-
-    cy.visit("/");
-
-    cy.get("span").contains("Labels").should("be.visible").click();
-
-    cy.get("span").contains("Query Labels").should("be.visible");
-    checkNoErrorOnThePage();
 
     // Fill the form for ungrouped label with valid values and save
     buttonClick("New");
@@ -224,13 +236,6 @@ describe("Labels section", () => {
     const label_1 = generateUniqueName("label");
     const label_2 = generateUniqueName("label");
     const labelList = [label_1, label_2];
-
-    cy.visit("/");
-
-    cy.get("span").contains("Labels").should("be.visible").click();
-
-    cy.get("span").contains("Query Labels").should("be.visible");
-    checkNoErrorOnThePage();
 
     // Test #1: update label name with the ungrouped label name that already exists
 
@@ -336,13 +341,6 @@ describe("Labels section", () => {
     const label_1 = generateUniqueName("label");
     const group_1 = generateUniqueName("group");
 
-    cy.visit("/");
-
-    cy.get("span").contains("Labels").should("be.visible").click();
-
-    cy.get("span").contains("Query Labels").should("be.visible");
-    checkNoErrorOnThePage();
-
     // Setup test: create ungrouped label
 
     // Fill the form for ungrouped label with valid values and save
@@ -388,7 +386,7 @@ describe("Labels section", () => {
       groupName: group_1,
       labelName: label_1,
       condition: "compilation_time > 5000",
-      rank: 100,
+      rank: "100",
     });
 
     buttonClick("Create");
