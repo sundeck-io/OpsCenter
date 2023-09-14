@@ -151,6 +151,20 @@ jobs:
           pip install poetry
           poetry config virtualenvs.in-project true
           poetry install
+      - name: Make unique names for this job
+        id: shell-command
+        run: |
+          SUFFIX=$(echo ${GITHUB_HEAD_REF} | sed "s/\./_/g" | sed "s/-/_/g" | sed "s\/\_\g")_${GITHUB_RUN_ID}
+          echo "OPSCENTER_DATABASE=OPSCENTER_PR_$SUFFIX" >> $GITHUB_ENV
+      - name: Make snowsql config
+        env:
+          # Also uses OPSCENTER_DATABASE from above
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+        run: |
+          mkdir $HOME/.snowsql
+          envsubst < deploy/opscenter.config > $HOME/.snowsql/config
       - name: remove SQL objects
         run: "poetry run python deploy/cypress_teardown.py -p opscenter"
   test-deploy:
