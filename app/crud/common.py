@@ -52,7 +52,7 @@ def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
             t = _TYPES.get(entity_type)
             if not t:
                 raise ValueError(f"Unknown entity type: {entity_type}")
-            obj = t(name=old_name)
+            obj = t.construct(name=old_name)
             obj.update(txn, new_obj)
         except ValidationError as e:
             errs = []
@@ -61,3 +61,12 @@ def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
                     errs.append(e.args[0])
             outcome = "\n".join(errs)
             return outcome
+
+
+def delete_entity(session, entity_type: str, name: str):
+    with transaction(session) as txn:
+        t = _TYPES.get(entity_type)
+        if not t:
+            raise ValueError(f"Unknown entity type: {entity_type}")
+        obj = t.construct(name=name)
+        obj.delete(txn)

@@ -249,10 +249,11 @@ class Label:
                 "labels",
                 "delete",
             )
-            if is_dynamic is False:
-                self.snowflake.call("ADMIN.DELETE_LABEL", name)
-            else:
-                self.snowflake.call("ADMIN.DELETE_DYNAMIC_LABEL", name)
+            with snowpark_session(self.snowflake) as sf:
+                # Make the old label, bypassing validation
+                label_to_del = ModelLabel.construct(name=name)
+                label_to_del.delete(sf)
+
             self.session.set_toast("Label deleted.")
             self.session.do_list()
 

@@ -50,7 +50,8 @@ class BaseOpsCenterModel(BaseModel):
 
     def delete(self, session):
         session.sql(
-            f"DELETE FROM INTERNAL.{self.table_name} WHERE {self.get_id_col()} = '{self.get_id()}'"
+            f"DELETE FROM INTERNAL.{self.table_name} WHERE {self.get_id_col()} = ?",
+            params=(self.get_id(),),
         ).collect()
 
     def update(self, session, obj) -> "BaseOpsCenterModel":
