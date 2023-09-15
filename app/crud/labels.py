@@ -121,6 +121,7 @@ class Label(BaseOpsCenterModel):
 
         try:
             session.sql(name_check).collect()
+            assert False, 'Label name conflicts with a QUERY_HISTORY columns. Please choose a different name.'
         except snowflake.snowpark.exceptions.SnowparkSQLException as e:
             if 'invalid identifier' in e.message:
                 pass
