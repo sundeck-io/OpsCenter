@@ -72,11 +72,15 @@ class Label(BaseOpsCenterModel):
         """
         Validates that the attributes on this Label appear valid by inspecting only the Label itself.
         """
+        name = values.get('name')
         if values.get('is_dynamic'):
-            assert not values.get('name'), "Dynamic labels cannot have a name"
+            assert not name, "Dynamic labels cannot have a name"
             assert not values.get('group_rank'), "Dynamic labels cannot have a group rank"
             assert values.get('group_name'), "Dynamic labels must have a group name"
         else:
+            assert isinstance(name, str), 'Label name should be a string'
+            assert name, "Labels must have a name."
+
             if values.get('group_name'):
                 assert (
                     values.get('group_rank')
@@ -107,7 +111,7 @@ class Label(BaseOpsCenterModel):
             except snowflake.snowpark.exceptions.SnowparkSQLException as e:
                 assert False, f'Invalid label condition: "{e.message}"'
 
-        ## todo below should fail
+        # Check that the label [group] name does not conflict with any columns already in this view
         if values.get('group_name'):
             group_name = values.get('group_name')
             name_check = f'select "{group_name}" from reporting.enriched_query_history where false'
@@ -124,21 +128,10 @@ class Label(BaseOpsCenterModel):
                 assert False, 'Invalid label name.'
         return values
 
-    @validator("name")
-    @classmethod
-    def name_is_a_string(
-        cls, name: str
-    ) -> str:
-        assert isinstance(name, str)
-        if not name:
-            raise ValueError("Labels must have a name.")
-
-        return name
-
     @validator("condition")
     @classmethod
     def condition_is_valid(cls, condition: str) -> str:
-        assert isinstance(condition, str)
+        assert isinstance(condition, str), 'Label condition should be a string'
         if not condition:
             raise ValueError('Labels must have a Condition (a SQL expression which evaluates to a boolean).')
         return condition
