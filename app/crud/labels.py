@@ -78,6 +78,7 @@ class Label(BaseOpsCenterModel):
             assert not values.get('group_rank'), "Dynamic labels cannot have a group rank"
             assert values.get('group_name'), "Dynamic labels must have a group name"
         elif values.get('group_name'):
+            assert not name, "Grouped labels should not used the name field"
             assert (
                 values.get('group_rank')
             ), "Labels with a group name must have a group rank"

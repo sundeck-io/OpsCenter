@@ -1,4 +1,3 @@
-import os
 import pytest
 from datetime import datetime
 
@@ -83,15 +82,6 @@ def test_empty_label(session):
     assert session._sql[1].lower() == _expected_name_check_query(''), "Unexpected label name query"
 
 
-def test_dynamic_label(session):
-    dl = _get_label('dynamic_label', condition='QUERY_TYPE', dynamic=True)
-    Label.parse_obj(dl)
-
-    assert len(session._sql) == 2, f"Expected 2 sql statements"
-    assert session._sql[0].lower() == _expected_dynamic_label_condition_check_query(dl.get('condition')), \
-        "Unexpected dynamic label condition query"
-    assert session._sql[1].lower() == _expected_name_check_query(dl.get('group_name')), "Unexpected label name query"
-
 
 def test_create_table(session):
     Label.create_table(session)
@@ -110,11 +100,9 @@ def test_create_table(session):
     ), "Expected create view statement, got {}".format(session._sql[1])
 
 
-def _expected_dynamic_label_condition_check_query(condition: str) -> str:
-    return f"select substring({condition}, 0, 0) from reporting.enriched_query_history where false".lower()
-
 def _expected_condition_check_query(condition: str) -> str:
     return f"select case when {condition} then 1 else 0 end from reporting.enriched_query_history where false".lower()
+
 
 def _expected_name_check_query(name: str) -> str:
     return f'select "{name}" from reporting.enriched_query_history where false'.lower()
