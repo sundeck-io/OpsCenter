@@ -234,7 +234,7 @@ class Label:
                     _ = old_label.update(sf, new_label)
                     outcome = None
             except pydantic.ValidationError as ve:
-                outcome = error_to_markdown("Error updating Lable.", ve)
+                outcome = error_to_markdown("Error updating Label.", ve)
 
             if outcome is None:
                 self.session.set_toast("Label updated.")

@@ -31,8 +31,9 @@ def session():
     session_ctx.reset(token)
 
 
-def _get_label(name="label1", group_rank=None, condition="user_name = 'josh@sundeck.io'", dynamic=False) -> dict:
+def _get_label(name="label1", group_name=None, group_rank=None, condition="user_name = 'josh@sundeck.io'", dynamic=False) -> dict:
     d = dict(
+        name=name,
         condition=condition,
         label_modified_at=datetime.now(),
         label_created_at=datetime.now(),
@@ -40,12 +41,12 @@ def _get_label(name="label1", group_rank=None, condition="user_name = 'josh@sund
         is_dynamic=dynamic,
     )
     if dynamic:
+        del d['name']
         d['group_name'] = name
-    elif group_rank:
-        d['group_name'] = name
+    elif group_name and group_rank:
+        d['group_name'] = group_name
         d['group_rank'] = group_rank
-    else:
-        d['name'] = name
+
     return d
 
 

@@ -44,3 +44,20 @@ def create_entity(session, entity_type, entity):
                     errs.append(e.args[0])
             outcome = "\n".join(errs)
             return outcome
+
+
+def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
+    with transaction(session) as txn:
+        try:
+            t = _TYPES.get(entity_type)
+            if not t:
+                raise ValueError(f"Unknown entity type: {entity_type}")
+            obj = t(name=old_name)
+            obj.update(txn, new_obj)
+        except ValidationError as e:
+            errs = []
+            for e in e.errors():
+                if e["type"] == "assertion_error" or e["type"] == "value_error":
+                    errs.append(e.args[0])
+            outcome = "\n".join(errs)
+            return outcome

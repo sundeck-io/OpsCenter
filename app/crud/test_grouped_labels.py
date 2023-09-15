@@ -12,8 +12,12 @@ def session():
     session_ctx.reset(token)
 
 
+def _get_grouped_label(group_name: str='mygroup', group_rank: int=25, **kwargs) -> dict:
+    return _get_label(group_name=group_name, group_rank=group_rank, **kwargs)
+
+
 def test_grouped_label(session):
-    l = _get_label(group_rank=25)
+    l = _get_grouped_label()
     _ = Label.parse_obj(l)
 
     assert len(session._sql) == 2, f"Expected 2 sql statements"
@@ -25,14 +29,14 @@ def test_grouped_label(session):
 def test_condition_required(session):
     # Condition is required
     with pytest.raises(ValueError):
-        l = _get_label(group_rank=25, condition="")
+        l = _get_grouped_label(condition="")
         _ = Label.parse_obj(l)
 
 
 def test_cannot_be_dynamic(session):
     # Group label cannot be dynamic
     with pytest.raises(ValueError):
-        l = _get_label(group_rank=25)
+        l = _get_grouped_label()
         l['is_dynamic'] = True
         _ = Label.parse_obj(l)
 
@@ -40,7 +44,7 @@ def test_cannot_be_dynamic(session):
 def test_needs_created_at(session):
     # Created_at is required
     with pytest.raises(ValueError):
-        l = _get_label(group_rank=25)
+        l = _get_grouped_label()
         del l['label_created_at']
         _ = Label.parse_obj(l)
 
@@ -48,22 +52,14 @@ def test_needs_created_at(session):
 def test_needs_modified_at(session):
     # Modified_at is required
     with pytest.raises(ValueError):
-        l = _get_label(group_rank=25)
+        l = _get_grouped_label()
         del l['label_modified_at']
-        _ = Label.parse_obj(l)
-
-
-def test_cannot_have_name_when_grouped(session):
-    # Name is not allowed for grouped labels, should be group_name
-    with pytest.raises(ValueError):
-        l = _get_label(group_rank=25)
-        l['name'] = 'asdf'
         _ = Label.parse_obj(l)
 
 
 def test_needs_group_rank(session):
     # Remove group_rank
     with pytest.raises(ValueError):
-        l = _get_label(group_rank=25)
+        l = _get_grouped_label()
         del l['group_rank']
         _ = Label.parse_obj(l)

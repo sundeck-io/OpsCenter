@@ -78,7 +78,8 @@ class Label(BaseOpsCenterModel):
             assert not values.get('group_rank'), "Dynamic labels cannot have a group rank"
             assert values.get('group_name'), "Dynamic labels must have a group name"
         elif values.get('group_name'):
-            assert not name, "Grouped labels should not used the name field"
+            assert isinstance(name, str), 'Label name should be a string'
+            assert name, "Grouped labels should have a name"
             assert (
                 values.get('group_rank')
             ), "Labels with a group name must have a group rank"
@@ -126,7 +127,6 @@ class Label(BaseOpsCenterModel):
         return values
 
     @validator("condition")
-    @classmethod
     def condition_is_valid(cls, condition: str) -> str:
         assert isinstance(condition, str), 'Label condition should be a string'
         if not condition:
@@ -134,7 +134,6 @@ class Label(BaseOpsCenterModel):
         return condition
 
     @validator("label_created_at", "label_modified_at")
-    @classmethod
     def verify_time_fields(
         cls, time: datetime.datetime
     ) -> datetime.datetime:
@@ -142,7 +141,6 @@ class Label(BaseOpsCenterModel):
         return time
 
     @validator("enabled", "is_dynamic")
-    @classmethod
     def enabled_or_dynamic(cls, b: bool) -> bool:
         assert isinstance(b, bool)
         return b

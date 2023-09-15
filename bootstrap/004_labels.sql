@@ -237,6 +237,21 @@ END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text, is_dynamic boolean)
     RETURNS text
+    language python
+    runtime_version = "3.10"
+    handler = 'update_label'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports=('{{stage}}/python/crud.zip')
+    EXECUTE AS OWNER
+AS
+$$
+from crud import update_entity
+def update_label(session, old_name, name, grp, rank, condition, is_dynamic):
+    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic})
+$$;
+
+CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text, is_dynamic boolean)
+    RETURNS text
     LANGUAGE SQL
     EXECUTE AS OWNER
 AS
