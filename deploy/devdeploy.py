@@ -50,7 +50,7 @@ def _copy_dependencies(cur, schema: str, stage: str):
     for root, dirs, files in os.walk(target_dir):
 
         # Skip over files/directories that start with a period
-        files = [f for f in files if not f.startswith(".")]
+        files = [f for f in files if not f.startswith(".") and not f.startswith('test_')]
         dirs[:] = [d for d in dirs if not d.startswith(".")]
         dirs[:] = [d for d in dirs if not d == "__pycache__"]
 

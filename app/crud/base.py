@@ -27,7 +27,7 @@ class BaseOpsCenterModel(BaseModel):
         return cols
 
     @classmethod
-    def create(cls, session, with_catalog_view=True):
+    def create_table(cls, session, with_catalog_view=True):
         cols = cls.cols_dict()
         cols_str = ", ".join([f"{k} {v}" for k, v in cols.items()])
         session.sql(
@@ -40,7 +40,7 @@ class BaseOpsCenterModel(BaseModel):
 
     def write(self, session):
         df = session.create_dataframe([Row(**dict(self))])
-        df.write.mode("append").save_as_table(self.table_name)
+        df.write.mode("append").save_as_table(f"INTERNAL.{self.table_name}")
 
     def get_id(self) -> str:
         return None
@@ -50,14 +50,14 @@ class BaseOpsCenterModel(BaseModel):
 
     def delete(self, session):
         session.sql(
-            f"DELETE FROM {self.table_name} WHERE {self.get_id_col()} = '{self.get_id()}'"
+            f"DELETE FROM INTERNAL.{self.table_name} WHERE {self.get_id_col()} = '{self.get_id()}'"
         ).collect()
 
     def update(self, session, obj) -> "BaseOpsCenterModel":
         cols = dict(obj)
         cols_str = ", ".join([f"{k} = {v}" for k, v in cols.items()])
         session.sql(
-            f"UPDATE {self.table_name} SET {cols_str} WHERE {self.get_id_col()} = '{self.get_id()}'"
+            f"UPDATE INTERNAL.{self.table_name} SET {cols_str} WHERE {self.get_id_col()} = '{self.get_id()}'"
         ).collect()
         return obj
 

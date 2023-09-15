@@ -1,3 +1,4 @@
+import snowflake.snowpark.exceptions
 from snowflake.snowpark import Row
 from pydantic import (
     validator,
@@ -16,7 +17,6 @@ from .session import session_ctx
 # hook up to stored procs for (CRUD and validation)
 # more tests
 # ensure create, prepopulate, validate get called at the right times in bootstrap
-# endure these files get put in a package in a stage and in the streamlit package
 class Label(BaseOpsCenterModel):
     table_name: ClassVar[str] = "LABELS"
     name: Optional[str] = None
@@ -24,9 +24,9 @@ class Label(BaseOpsCenterModel):
     group_rank: Optional[int] = None
     created_at: datetime.datetime  # todo should this have a default?
     condition: str
-    enabled: bool
+    enabled: bool = True
     modified_at: datetime.datetime  # todo should this have a default?
-    is_dynamic: bool
+    is_dynamic: bool = False
 
     def get_id_col(self) -> str:
         return "name" if self.name else "group_name"
@@ -36,11 +36,11 @@ class Label(BaseOpsCenterModel):
 
     def delete(self, session):
         super().delete(session)
-        session.call("internal.update_label_view();")
+        session.call("internal.update_label_view")
 
     def write(self, session):
         super().write(session)
-        session.call("internal.update_label_view();")
+        session.call("internal.update_label_view")
 
     def update(self, session, obj) -> "Label":
         if self.is_dynamic:
@@ -63,10 +63,10 @@ class Label(BaseOpsCenterModel):
         ), "Label not found. Please refresh your page to see latest list of labels."
         # handle updating timestamp(s)
         super().update(session, obj)
-        session.call("internal.update_label_view();")
+        session.call("internal.update_label_view")
         return obj
 
-    @root_validator()
+    @root_validator(allow_reuse=True)
     @classmethod
     def validate_label_obj(cls, values) -> "Label":
         """
@@ -77,7 +77,6 @@ class Label(BaseOpsCenterModel):
             assert not values.get('group_rank'), "Dynamic labels cannot have a group rank"
             assert values.get('group_name'), "Dynamic labels must have a group name"
         else:
-            assert values.get('name'), "Labels must have a name"
             if values.get('group_name'):
                 assert (
                     values.get('group_rank')
@@ -86,10 +85,9 @@ class Label(BaseOpsCenterModel):
                 assert (
                     not values.get('group_rank')
                 ), "Labels without a group name cannot have a group rank"
-        assert values.get('condition'), 'Condition must be provided'
         return values
 
-    @root_validator
+    @root_validator(allow_reuse=True)
     @classmethod
     def validate_label_against_db(cls, values) -> "Label":
         """
@@ -97,24 +95,33 @@ class Label(BaseOpsCenterModel):
         """
         session = session_ctx.get('session')
         assert session, 'Session must be present'
+        # Cannot check the condition if it's empty
         condition = values.get('condition')
-        assert condition, 'A Label must have a Condition'
-        if values.get('is_dynamic'):
-            stmt = f"select substring({condition}, 0, 0) from reporting.enriched_query_history where false"
-        else:
-            stmt = f"select case when {condition} then 1 else 0 end from reporting.enriched_query_history where false"
-        session.sql(stmt).collect()
+        if condition:
+            if values.get('is_dynamic'):
+                stmt = f"select substring({condition}, 0, 0) from reporting.enriched_query_history where false"
+            else:
+                stmt = f"select case when {condition} then 1 else 0 end from reporting.enriched_query_history where false"
+            try:
+                session.sql(stmt).collect()
+            except snowflake.snowpark.exceptions.SnowparkSQLException as e:
+                assert False, f'Invalid label condition: "{e.message}"'
+
         ## todo below should fail
         if values.get('group_name'):
             group_name = values.get('group_name')
-            session.sql(
-                f'select "{group_name}" from reporting.enriched_query_history where false'
-            ).collect()
+            name_check = f'select "{group_name}" from reporting.enriched_query_history where false'
         else:
             name = values.get('name')
-            session.sql(
-                f'select "{name}" from reporting.enriched_query_history where false'
-            ).collect()
+            name_check = f'select "{name}" from reporting.enriched_query_history where false'
+
+        try:
+            session.sql(name_check).collect()
+        except snowflake.snowpark.exceptions.SnowparkSQLException as e:
+            if 'invalid identifier' in e.message:
+                pass
+            else:
+                assert False, 'Invalid label name.'
         return values
 
     @validator("name")
@@ -124,7 +131,7 @@ class Label(BaseOpsCenterModel):
     ) -> str:
         assert isinstance(name, str)
         if not name:
-            raise ValueError("Name cannot be empty")
+            raise ValueError("Labels must have a name.")
 
         return name
 
@@ -133,7 +140,7 @@ class Label(BaseOpsCenterModel):
     def condition_is_valid(cls, condition: str) -> str:
         assert isinstance(condition, str)
         if not condition:
-            raise ValueError("Condition cannot be empty")
+            raise ValueError('Labels must have a Condition (a SQL expression which evaluates to a boolean).')
         return condition
 
     @validator("created_at", "modified_at")

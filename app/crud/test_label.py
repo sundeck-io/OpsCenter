@@ -1,3 +1,4 @@
+import os
 import pytest
 from datetime import datetime
 
@@ -25,15 +26,19 @@ def session():
     session_ctx.reset(token)
 
 
-def _get_label(name="label1") -> dict:
-    return dict(
+def _get_label(name="label1", grouped=False, dynamic=False) -> dict:
+    d = dict(
         name=name,
         condition="user_name = 'josh@sundeck.io'",
         modified_at=datetime.now(),
         created_at=datetime.now(),
         enabled=True,
-        is_dynamic=False,
+        is_dynamic=dynamic,
     )
+    if grouped:
+        d['group_name'] = 'group1'
+        d['group_rank'] = 1
+    return d
 
 
 def test_label(session):
@@ -70,7 +75,7 @@ def test_empty_label(session):
 
 
 def test_create_table(session):
-    Label.create(session)
+    Label.create_table(session)
     assert len(session._sql) == 2, "Expected 2 sql statement, got {}".format(
         len(session._sql)
     )

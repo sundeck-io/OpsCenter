@@ -1,8 +1,13 @@
+import datetime
+
+import pydantic
 import streamlit as st
 from connection import Connection
 import session as general_session
 from session import Mode
-from labels import Label as ModelLabel
+from crud.labels import Label as ModelLabel
+from crud.session import session_ctx
+from crud.errors import error_to_markdown
 
 
 class Label:
@@ -12,6 +17,7 @@ class Label:
         self.session.show_toast(self.status)
 
         self.snowflake = Connection.get()
+
 
     def list_labels(self):
         _ = self.snowflake.call(
@@ -175,22 +181,29 @@ class Label:
                 "labels",
                 "create",
             )
-            obj = ModelLabel.model_validate(
-                {
-                    "name": name,
-                    "condition": condition,
-                    "group_rank": rank,
-                    "group_name": group,
-                    "is_dynamic": is_dynamic,
-                },
-                context={"session": self.snowflake},
-            )
-            outcome = obj.create(self.snowflake)
+            try:
+                token = session_ctx.set(self.snowflake)
+                obj = ModelLabel.parse_obj(
+                    {
+                        "name": name,
+                        "condition": condition,
+                        "group_rank": rank,
+                        "group_name": group,
+                        "is_dynamic": is_dynamic,
+                        "created_at": datetime.datetime.now(),
+                        "modified_at": datetime.datetime.now(),
+                    },
+                )
+                outcome = obj.write(self.snowflake)
 
-            if outcome is None:
-                self.session.set_toast("New label created.")
-                self.session.do_list()
-                return
+                if outcome is None:
+                    self.session.set_toast("New label created.")
+                    self.session.do_list()
+                    return
+            except pydantic.ValidationError as ve:
+                outcome = error_to_markdown("Error validating Label.", ve)
+            finally:
+                session_ctx.reset(token)
 
         self.status.error(outcome)
 
