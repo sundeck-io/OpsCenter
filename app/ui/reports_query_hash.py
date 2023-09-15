@@ -113,7 +113,6 @@ select sum(cost) as "Cost", sum(cnt) as "Count", case when "IsRepeated" then 'Re
             else row["Query Text"],
             axis=1,
         )
-        print(len(df.to_json()))
         st.dataframe(df.drop(columns="Query Id"), use_container_width=True)
 
     is_enabled = connection.execute_select(
