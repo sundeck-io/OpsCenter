@@ -17,7 +17,7 @@ class Session:
         return self
 
     def collect(self):
-        # Tricks the tests into passing the check that a label name doesn't conflict with a QUERY_HISTORY column.
+        # GROSS. Tricks the tests into passing the check that a label name doesn't conflict with a QUERY_HISTORY column.
         # but only trying to match the name check and not the condition check.
         if self.sql and self._sql[-1].endswith('from reporting.enriched_query_history where false') and self._sql[-1].startswith('select "'):
             raise snowflake.snowpark.exceptions.SnowparkSQLException('invalid identifier to make tests pass')
@@ -32,18 +32,21 @@ def session():
     session_ctx.reset(token)
 
 
-def _get_label(name="label1", group_name=None, group_rank=None, dynamic=False) -> dict:
+def _get_label(name="label1", group_rank=None, condition="user_name = 'josh@sundeck.io'", dynamic=False) -> dict:
     d = dict(
-        name=name,
-        condition="user_name = 'josh@sundeck.io'",
+        condition=condition,
         label_modified_at=datetime.now(),
         label_created_at=datetime.now(),
         enabled=True,
         is_dynamic=dynamic,
     )
-    if group_name and group_rank:
-        d['group_name'] = group_name
+    if dynamic:
+        d['group_name'] = name
+    elif group_rank:
+        d['group_name'] = name
         d['group_rank'] = group_rank
+    else:
+        d['name'] = name
     return d
 
 
@@ -80,6 +83,16 @@ def test_empty_label(session):
     assert session._sql[1].lower() == _expected_name_check_query(''), "Unexpected label name query"
 
 
+def test_dynamic_label(session):
+    dl = _get_label('dynamic_label', condition='QUERY_TYPE', dynamic=True)
+    Label.parse_obj(dl)
+
+    assert len(session._sql) == 2, f"Expected 2 sql statements"
+    assert session._sql[0].lower() == _expected_dynamic_label_condition_check_query(dl.get('condition')), \
+        "Unexpected dynamic label condition query"
+    assert session._sql[1].lower() == _expected_name_check_query(dl.get('group_name')), "Unexpected label name query"
+
+
 def test_create_table(session):
     Label.create_table(session)
     assert len(session._sql) == 2, "Expected 2 sql statement, got {}".format(
@@ -96,6 +109,9 @@ def test_create_table(session):
         == "create or replace view catalog.labels as select * from internal.labels"
     ), "Expected create view statement, got {}".format(session._sql[1])
 
+
+def _expected_dynamic_label_condition_check_query(condition: str) -> str:
+    return f"select substring({condition}, 0, 0) from reporting.enriched_query_history where false".lower()
 
 def _expected_condition_check_query(condition: str) -> str:
     return f"select case when {condition} then 1 else 0 end from reporting.enriched_query_history where false".lower()

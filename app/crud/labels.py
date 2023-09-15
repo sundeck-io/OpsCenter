@@ -77,18 +77,17 @@ class Label(BaseOpsCenterModel):
             assert not name, "Dynamic labels cannot have a name"
             assert not values.get('group_rank'), "Dynamic labels cannot have a group rank"
             assert values.get('group_name'), "Dynamic labels must have a group name"
+        elif values.get('group_name'):
+            assert (
+                values.get('group_rank')
+            ), "Labels with a group name must have a group rank"
         else:
             assert isinstance(name, str), 'Label name should be a string'
             assert name, "Labels must have a name."
-
-            if values.get('group_name'):
-                assert (
-                    values.get('group_rank')
-                ), "Labels with a group name must have a group rank"
-            else:
-                assert (
+            assert (
                     not values.get('group_rank')
                 ), "Labels without a group name cannot have a group rank"
+
         return values
 
     @root_validator(allow_reuse=True)
@@ -112,12 +111,8 @@ class Label(BaseOpsCenterModel):
                 assert False, f'Invalid label condition: "{e.message}"'
 
         # Check that the label [group] name does not conflict with any columns already in this view
-        if values.get('group_name'):
-            group_name = values.get('group_name')
-            name_check = f'select "{group_name}" from reporting.enriched_query_history where false'
-        else:
-            name = values.get('name')
-            name_check = f'select "{name}" from reporting.enriched_query_history where false'
+        name = values.get('group_name') if values.get('group_name') else values.get('name')
+        name_check = f'select "{name}" from reporting.enriched_query_history where false'
 
         try:
             session.sql(name_check).collect()
