@@ -39,6 +39,13 @@ call INTERNAL.MIGRATE_LABELS_TABLE();
 call INTERNAL.MIGRATE_PREDEFINED_PROBES_TABLE();
 call INTERNAL.MIGRATE_PREDEFINED_LABELS_TABLE();
 
+-- Create all objects which are required by labels before
+-- we try to migrate/run query history.
+--
+-- When an upgrade happens, the query_hash functions would not yet exist
+-- which would break materializations and the view re-creation.
+call INTERNAL.ENABLE_QUERY_HASH();
+
 -- Re-generate the internal and public views
 call internal.migrate_queries();
 call internal.migrate_warehouse_events();
@@ -65,9 +72,6 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
     CALL INTERNAL.refresh_users();
-
--- create the query_hash functions in TOOLS
-call INTERNAL.ENABLE_QUERY_HASH();
 
 -- Populate the list of predefined labels
 call INTERNAL.POPULATE_PREDEFINED_LABELS();
