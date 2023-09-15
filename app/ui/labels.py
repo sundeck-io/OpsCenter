@@ -6,7 +6,7 @@ from connection import Connection
 import session as general_session
 from session import Mode
 from crud.labels import Label as ModelLabel
-from crud.session import session_ctx
+from crud.session import session_ctx, with_session
 from crud.errors import error_to_markdown
 
 
@@ -182,28 +182,26 @@ class Label:
                 "create",
             )
             try:
-                token = session_ctx.set(self.snowflake)
-                obj = ModelLabel.parse_obj(
-                    {
-                        "name": name,
-                        "condition": condition,
-                        "group_rank": rank,
-                        "group_name": group,
-                        "is_dynamic": is_dynamic,
-                        "created_at": datetime.datetime.now(),
-                        "modified_at": datetime.datetime.now(),
-                    },
-                )
-                outcome = obj.write(self.snowflake)
+                with with_session(self.snowflake) as sf:
+                    obj = ModelLabel.parse_obj(
+                        {
+                            "name": name,
+                            "condition": condition,
+                            "group_rank": rank,
+                            "group_name": group,
+                            "is_dynamic": is_dynamic,
+                            "created_at": datetime.datetime.now(),
+                            "modified_at": datetime.datetime.now(),
+                        },
+                    )
+                    outcome = obj.write(sf)
 
-                if outcome is None:
-                    self.session.set_toast("New label created.")
-                    self.session.do_list()
-                    return
+                    if outcome is None:
+                        self.session.set_toast("New label created.")
+                        self.session.do_list()
+                        return
             except pydantic.ValidationError as ve:
                 outcome = error_to_markdown("Error validating Label.", ve)
-            finally:
-                session_ctx.reset(token)
 
         self.status.error(outcome)
 
