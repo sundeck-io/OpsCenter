@@ -82,6 +82,43 @@ def test_empty_label(session):
     assert session._sql[1].lower() == _expected_name_check_query(''), "Unexpected label name query"
 
 
+def test_missing_condition(session):
+    l = _get_label()
+    l['condition'] = ''
+    with pytest.raises(ValueError):
+        _ = Label.parse_obj(l)
+
+    del l['condition']
+    with pytest.raises(ValueError):
+        _ = Label.parse_obj(l)
+
+
+def test_missing_created_at(session):
+    l = _get_label(name="")
+    del l['label_created_at']
+    with pytest.raises(ValueError):
+        _ = Label.parse_obj(l)
+
+
+@pytest.mark.parametrize('column', [('label_created_at'), ('label_modified_at')])
+def test_fail_when_times_are_not_times(column):
+    l = _get_label()
+    l[column] = 'not a time'
+    with pytest.raises(ValueError):
+        _ = Label.parse_obj(l)
+
+    # some other kind of junk
+    l[column] = (1234, 5678)
+    with pytest.raises(ValueError):
+        _ = Label.parse_obj(l)
+
+
+def test_missing_modified_at(session):
+    l = _get_label(name="")
+    del l['label_modified_at']
+    with pytest.raises(ValueError):
+        _ = Label.parse_obj(l)
+
 
 def test_create_table(session):
     Label.create_table(session)
