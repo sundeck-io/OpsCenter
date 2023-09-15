@@ -5,7 +5,7 @@ session_ctx = ContextVar('session')
 
 
 @contextmanager
-def with_session(session):
+def snowpark_session(session):
     """
     Makes the give Snowpark Session available to the CRUD implementation for the scope of this call.
     :param session:

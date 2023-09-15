@@ -22,10 +22,10 @@ class Label(BaseOpsCenterModel):
     name: Optional[str] = None
     group_name: Optional[str] = None
     group_rank: Optional[int] = None
-    created_at: datetime.datetime  # todo should this have a default?
+    label_created_at: datetime.datetime  # todo should this have a default?
     condition: str
     enabled: bool = True
-    modified_at: datetime.datetime  # todo should this have a default?
+    label_modified_at: datetime.datetime  # todo should this have a default?
     is_dynamic: bool = False
 
     def get_id_col(self) -> str:
@@ -44,22 +44,22 @@ class Label(BaseOpsCenterModel):
 
     def update(self, session, obj) -> "Label":
         if self.is_dynamic:
-            oldcnt = session.sql(
-                f"SELECT COUNT(*) FROM {self.table_name} WHERE group_name = '{self.group_name}' and is_dynamic"
+            old_label_exists = session.sql(
+                f"SELECT COUNT(*) FROM INTERNAL.{self.table_name} WHERE group_name = '{self.group_name}' and is_dynamic"
             ).collect()[0][0]
-            newcnt = 0
         else:
-            oldcnt = session.sql(
-                f"SELECT COUNT(*) FROM {self.table_name} WHERE name = '{self.name}'"
+            old_label_exists = session.sql(
+                f"SELECT COUNT(*) = 1 FROM INTERNAL.{self.table_name} WHERE name = '{self.name}'"
             ).collect()[0][0]
-            newcnt = session.sql(
-                f"SELECT COUNT(*) FROM {self.table_name} WHERE name = '{obj.name}' and name <> '{self.name}"
+            new_name_is_unique = session.sql(
+                f"SELECT COUNT(*) = 0 FROM INTERNAL.{self.table_name} WHERE name = '{obj.name}' and name <> '{self.name}'"
             ).collect()[0][0]
+            assert (
+                new_name_is_unique
+            ), "Label with this name already exists. Please choose a distinct name."
+
         assert (
-            newcnt == 0
-        ), "Label with this name already exists. Please choose a distinct name."
-        assert (
-            oldcnt == 1
+            old_label_exists
         ), "Label not found. Please refresh your page to see latest list of labels."
         # handle updating timestamp(s)
         super().update(session, obj)
@@ -143,7 +143,7 @@ class Label(BaseOpsCenterModel):
             raise ValueError('Labels must have a Condition (a SQL expression which evaluates to a boolean).')
         return condition
 
-    @validator("created_at", "modified_at")
+    @validator("label_created_at", "label_modified_at")
     @classmethod
     def verify_time_fields(
         cls, time: datetime.datetime

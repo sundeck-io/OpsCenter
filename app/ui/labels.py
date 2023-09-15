@@ -6,7 +6,7 @@ from connection import Connection
 import session as general_session
 from session import Mode
 from crud.labels import Label as ModelLabel
-from crud.session import session_ctx, with_session
+from crud.session import snowpark_session
 from crud.errors import error_to_markdown
 
 
@@ -182,7 +182,7 @@ class Label:
                 "create",
             )
             try:
-                with with_session(self.snowflake) as sf:
+                with snowpark_session(self.snowflake) as sf:
                     obj = ModelLabel.parse_obj(
                         {
                             "name": name,
@@ -190,8 +190,8 @@ class Label:
                             "group_rank": rank,
                             "group_name": group,
                             "is_dynamic": is_dynamic,
-                            "created_at": datetime.datetime.now(),
-                            "modified_at": datetime.datetime.now(),
+                            "label_created_at": datetime.datetime.now(),
+                            "label_modified_at": datetime.datetime.now(),
                         },
                     )
                     outcome = obj.write(sf)
@@ -214,9 +214,26 @@ class Label:
                 "update",
             )
 
-            outcome = self.snowflake.call(
-                "ADMIN.UPDATE_LABEL", oldname, name, group, rank, condition, is_dynamic
-            )
+            try:
+                with snowpark_session(self.snowflake) as sf:
+                    # Make the old label, bypassing validation
+                    old_label = ModelLabel.construct(name=oldname)
+                    # Validate the new label before saving
+                    new_label = ModelLabel.parse_obj(
+                        {
+                            "name": name,
+                            "condition": condition,
+                            "group_rank": rank,
+                            "group_name": group,
+                            "is_dynamic": is_dynamic,
+                            "label_created_at": datetime.datetime.now(),
+                            "label_modified_at": datetime.datetime.now(),
+                        },
+                    )
+                    _ = old_label.update(sf, new_label)
+                    outcome = None
+            except pydantic.ValidationError as ve:
+                outcome = error_to_markdown("Error updating Lable.", ve)
 
             if outcome is None:
                 self.session.set_toast("Label updated.")

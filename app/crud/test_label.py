@@ -26,18 +26,18 @@ def session():
     session_ctx.reset(token)
 
 
-def _get_label(name="label1", grouped=False, dynamic=False) -> dict:
+def _get_label(name="label1", group_name=None, group_rank=None, dynamic=False) -> dict:
     d = dict(
         name=name,
         condition="user_name = 'josh@sundeck.io'",
-        modified_at=datetime.now(),
-        created_at=datetime.now(),
+        label_modified_at=datetime.now(),
+        label_created_at=datetime.now(),
         enabled=True,
         is_dynamic=dynamic,
     )
-    if grouped:
-        d['group_name'] = 'group1'
-        d['group_rank'] = 1
+    if group_name and group_rank:
+        d['group_name'] = group_name
+        d['group_rank'] = group_rank
     return d
 
 
@@ -82,7 +82,7 @@ def test_create_table(session):
     assert session._sql[0].lower() == " ".join(
         """create table if not exists internal.labels
         (name string null, group_name string null, group_rank number null,
-        created_at timestamp, condition string, enabled boolean, modified_at timestamp,
+        label_created_at timestamp, condition string, enabled boolean, label_modified_at timestamp,
         is_dynamic boolean)""".split()
     ), "Expected create table statement, got {}".format(session._sql[0])
     assert (

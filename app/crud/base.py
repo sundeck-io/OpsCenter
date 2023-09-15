@@ -55,7 +55,8 @@ class BaseOpsCenterModel(BaseModel):
 
     def update(self, session, obj) -> "BaseOpsCenterModel":
         cols = dict(obj)
-        cols_str = ", ".join([f"{k} = {v}" for k, v in cols.items()])
+        # Filter out `None` values
+        cols_str = ", ".join([f"{k} = '{v}'" for k, v in cols.items() if v])
         session.sql(
             f"UPDATE INTERNAL.{self.table_name} SET {cols_str} WHERE {self.get_id_col()} = '{self.get_id()}'"
         ).collect()
