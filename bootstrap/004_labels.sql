@@ -148,9 +148,10 @@ CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number,
     EXECUTE AS OWNER
 AS
 $$
+from datetime import datetime
 from crud import create_entity
 def create_label(session, name, grp, rank, condition, is_dynamic):
-    return create_entity(session, 'LABEL', {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic})
+    return create_entity(session, 'LABEL', {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now()})
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_LABEL(name text)
@@ -164,8 +165,8 @@ CREATE OR REPLACE PROCEDURE ADMIN.DELETE_LABEL(name text)
 AS
 $$
 from crud import delete_entity
-def update_label(session, old_name, name, grp, rank, condition, is_dynamic):
-    return delete_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic})
+def delete_label(session, name):
+    return delete_entity(session, 'LABEL', name)
 $$;
 
 
@@ -179,9 +180,10 @@ CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text
     EXECUTE AS OWNER
 AS
 $$
+from datetime import datetime
 from crud import update_entity
 def update_label(session, old_name, name, grp, rank, condition, is_dynamic):
-    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic})
+    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now()})
 $$;
 
 
