@@ -76,19 +76,20 @@ class Label(BaseOpsCenterModel):
         if values.get('is_dynamic'):
             assert not name, "Dynamic labels cannot have a name"
             assert not values.get('group_rank'), "Dynamic labels cannot have a group rank"
-            assert values.get('group_name'), "Dynamic labels must have a group name"
+            assert values.get('group_name', None) is not None, "Dynamic labels must have a group name"
         elif values.get('group_name'):
-            assert isinstance(name, str), 'Label name should be a string'
-            assert name, "Grouped labels should have a name"
+            group_name = values.get('group_name')
+            assert group_name is not None, 'Name must not be null'
+            assert isinstance(group_name, str), 'Label name should be a string'
             assert (
                 values.get('group_rank')
-            ), "Labels with a group name must have a group rank"
+            ), "Grouped labels must have a rank"
         else:
-            assert isinstance(name, str), 'Label name should be a string'
-            assert name, "Labels must have a name."
+            assert name is not None, 'Name must not be null'
+            assert isinstance(name, str), 'Label name must be a string'
             assert (
                     not values.get('group_rank')
-                ), "Labels without a group name cannot have a group rank"
+                ), "Rank may only be provided for grouped labels"
 
         return values
 
@@ -118,7 +119,7 @@ class Label(BaseOpsCenterModel):
 
         try:
             session.sql(name_check).collect()
-            assert False, 'Label name conflicts with a QUERY_HISTORY columns. Please choose a different name.'
+            assert False, 'Name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY. Please use a different name.'
         except snowflake.snowpark.exceptions.SnowparkSQLException as e:
             if 'invalid identifier' in e.message:
                 pass
@@ -128,6 +129,7 @@ class Label(BaseOpsCenterModel):
 
     @validator("condition")
     def condition_is_valid(cls, condition: str) -> str:
+        assert condition is not None, 'Condition must not be null'
         assert isinstance(condition, str), 'Label condition should be a string'
         if not condition:
             raise ValueError('Labels must have a Condition (a SQL expression which evaluates to a boolean).')
