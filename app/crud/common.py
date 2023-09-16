@@ -45,8 +45,8 @@ def create_entity(session, entity_type, entity):
             return None
         except ValidationError as e:
             return summarize_error(f'Failed to create {entity_type.lower()}', e)
-        except Exception as e:
-            return str(e)
+        except Exception as ae:
+            return f'Failed to create {entity_type.lower()}: {str(ae)}'
 
 
 def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
@@ -68,17 +68,22 @@ def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
             new_label = Label.parse_obj(new_obj)
             obj.update(txn, new_label)
             return None
-        except ValidationError as e:
-            return summarize_error(f'Failed to update {entity_type.lower()}', e)
+        except ValidationError as ve:
+            return summarize_error(f'Failed to update {entity_type.lower()}', ve)
+        except Exception as ae:
+            return f'Failed to update {entity_type.lower()}: {str(ae)}'
 
 
 def delete_entity(session, entity_type: str, name: str):
     with transaction(session) as txn:
-        t = _TYPES.get(entity_type)
-        if not t:
-            raise ValueError(f"Unknown entity type: {entity_type}")
-        if not name:
-            return "Name must not be null"
-        obj = t.construct(name=name)
-        obj.delete(txn)
-        return None
+        try:
+            t = _TYPES.get(entity_type)
+            if not t:
+                raise ValueError(f"Unknown entity type: {entity_type}")
+            if not name:
+                return "Name must not be null"
+            obj = t.construct(name=name)
+            obj.delete(txn)
+            return None
+        except Exception as ae:
+            return f'Failed to delete {entity_type.lower()}: {str(ae)}'

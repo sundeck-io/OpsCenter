@@ -169,7 +169,7 @@ test_cases = [
         "Dynamic labels cannot have a name",
     ),
     (
-        "call ADMIN.UPDATE_LABEL(NULL, NULL, 'DYNAMIC_GROUP_LABEL', 10, 'QUERY_TYPE', TRUE);",
+        "call ADMIN.UPDATE_LABEL('DYNAMIC_GROUP_LABEL', NULL, 'DYNAMIC_GROUP_LABEL', 10, 'QUERY_TYPE', TRUE);",
         "Dynamic labels cannot have a group rank",
     ),
     (
