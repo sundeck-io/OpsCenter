@@ -45,7 +45,7 @@ class Label(BaseOpsCenterModel):
     def update(self, session, obj) -> "Label":
         if self.is_dynamic:
             old_label_exists = session.sql(
-                f"SELECT COUNT(*) FROM INTERNAL.{self.table_name} WHERE group_name = '{self.group_name}' and is_dynamic"
+                f"SELECT COUNT(*) = 1 FROM INTERNAL.{self.table_name} WHERE group_name = '{self.group_name}' and is_dynamic"
             ).collect()[0][0]
         else:
             old_label_exists = session.sql(

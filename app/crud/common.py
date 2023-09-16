@@ -41,7 +41,7 @@ def create_entity(session, entity_type, entity):
                 raise ValueError(f"Unknown entity type: {entity_type}")
             obj = t.parse_obj(entity)
             obj.write(txn)
-            return ""
+            return None
         except ValidationError as e:
             return summarize_error(f'Failed to create {entity_type}', e)
         except Exception as e:
@@ -54,10 +54,17 @@ def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
             t = _TYPES.get(entity_type)
             if not t:
                 raise ValueError(f"Unknown entity type: {entity_type}")
-            obj = t.construct(name=old_name)
+            # TODO the existing way we update dynamic labels is very busted. Need to differentiate normal from dynamic labels
+            # Assuming the old label is dynamic just because the new one is dynamic is wrong but what the code currently does.
+            if new_obj.get("is_dynamic", False):
+                obj = t.construct(group_name=old_name, is_dynamic=True)
+            elif new_obj.get('group_name', None):
+                obj = t.construct(group_name=old_name)
+            else:
+                obj = t.construct(name=old_name)
             new_label = Label.parse_obj(new_obj)
             obj.update(txn, new_label)
-            return ""
+            return None
         except ValidationError as e:
             return summarize_error(f'Failed to update {entity_type}', e)
 
@@ -69,4 +76,4 @@ def delete_entity(session, entity_type: str, name: str):
             raise ValueError(f"Unknown entity type: {entity_type}")
         obj = t.construct(name=name)
         obj.delete(txn)
-        return ""
+        return None
