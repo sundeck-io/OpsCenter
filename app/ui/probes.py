@@ -67,7 +67,7 @@ class Probe:
                 "No probes defined. Probes help you categorize alert and cancel running queries."
             )
             st.button(
-                "New", key="create", on_click=self.session.do_create, args=[None, False]
+                "New", key="create", on_click=self.session.do_create, args=[dict()]
             )
             return
 
@@ -126,7 +126,7 @@ class Probe:
                     args=[row["NAME"]],
                 )
 
-        st.button("New", key="create", on_click=self.session.do_create, args=[None])
+        st.button("New", key="create", on_click=self.session.do_create, args=[dict()])
 
     def on_create_click(
         self,

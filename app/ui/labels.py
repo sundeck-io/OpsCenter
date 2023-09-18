@@ -53,15 +53,17 @@ class Label:
                         Labels can be used to create and filter reports."""
             )
             st.button(
-                "New", key="create", on_click=self.session.do_create, args=[None, False]
+                "New", key="create", on_click=self.session.do_create, args=[dict()]
             )
             st.button(
-                "New (in group)", on_click=self.session.do_create, args=["", False]
+                "New (in group)",
+                on_click=self.session.do_create,
+                args=[dict(grouped="")],
             )
             st.button(
                 "New dynamic grouped labels",
                 on_click=self.session.do_create,
-                args=["", True],
+                args=[dict(grouped="", is_dynamic=True)],
             )
             return
 
