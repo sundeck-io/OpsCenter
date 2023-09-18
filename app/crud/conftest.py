@@ -1,9 +1,12 @@
 import pytest
 import snowflake
-from .session import session_context
+from .session import _session_context
 
 
 class Session:
+    """
+    A fake snowflake.snowpark.Session object for unit tests.
+    """
     def __init__(self):
         self._sql = []
 
@@ -30,6 +33,6 @@ class Session:
 @pytest.fixture(autouse=True)
 def session():
     session = Session()
-    token = session_context.set(session)
+    token = _session_context.set(session)
     yield session
-    session_context.reset(token)
+    _session_context.reset(token)
