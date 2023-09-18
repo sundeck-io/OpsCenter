@@ -201,7 +201,6 @@ class Label:
                         self.session.do_list()
                         return
             except pydantic.ValidationError as ve:
-                print(f'Failed to create label {ve}')
                 outcome = error_to_markdown("Error validating Label.", ve)
 
         self.status.error(outcome)

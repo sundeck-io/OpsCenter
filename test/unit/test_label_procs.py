@@ -109,36 +109,35 @@ def test_smoke_update_label(conn, timestamp_string):
 test_cases = [
     (
         "call ADMIN.CREATE_LABEL(NULL, NULL, NULL, 'compilation_time > 5000');",
-        "Name must not be null",
+        "Name must not be null.",
     ),
     (
         "call ADMIN.CREATE_LABEL('{label}', NULL, 100, 'compilation_time > 5000');",
-        "Rank may only be provided for grouped labels",
+        "Rank must only be set if Group name is also provided.",
     ),
     (
         "call ADMIN.CREATE_LABEL('{label}', 'group_1', NULL, 'compilation_time > 5000');",
-        "Grouped labels must have a rank",
+        "Rank must provided if you are creating a grouped label.",
     ),
     (
-        # compile_time is not a column in QUERY_HISTORY, it's compilation_time.
         "call ADMIN.CREATE_LABEL('{label}', NULL, NULL, 'compile_time > 5000');",
-        "Invalid label condition",
+        "Invalid condition SQL. Please check your syntax.",
     ),
     (
         "call ADMIN.CREATE_LABEL('QUERY_TEXT', NULL, NULL, 'compilation_time > 5000');",
-        "Name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY. Please use a different name.",
+        "Label name can not be same as column name in view reporting.enriched_query_history. Please use a different label name.",
     ),
     (
         "call ADMIN.UPDATE_LABEL('{label}', NULL, NULL, NULL, 'compile_time > 5000');",
-        "Name must not be null",
+        "Name must not be null.",
     ),
     (
         "call ADMIN.UPDATE_LABEL('{label}', '{label}_1', NULL, 100, 'compilation_time > 5000');",
-        "Rank may only be provided for grouped labels",
+        "Rank must only be set if group name is also provided.",
     ),
     (
         "call ADMIN.UPDATE_LABEL('{label}', '{label}_1', 'group_1', NULL, 'compilation_time > 5000');",
-        "Grouped labels must have a rank",
+        "Rank must provided if you are creating a grouped label.",
     ),
     (
         "call ADMIN.UPDATE_LABEL('{label}', '{label}', 'group_1', 100, 'compilation_time > 5000');",
@@ -146,35 +145,35 @@ test_cases = [
     ),
     (
         "call ADMIN.UPDATE_LABEL('{label}', '{label}', 'group_1', 100, 'compile_time > 5000');",
-        "Invalid label condition",
+        "Invalid condition SQL. Please check your syntax.",
     ),
     (
         "call ADMIN.CREATE_LABEL('{label}', 'QUERY_TEXT', 10, 'compilation_time > 5000');",
-        "Name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY. Please use a different name.",
+        "Group name can not be same as column name in view reporting.enriched_query_history. Please use a different group name.",
     ),
     (
         "call ADMIN.CREATE_LABEL('{label}', 'DYNAMIC_GROUP_LABEL', NULL, 'QUERY_TYPE', TRUE);",
-        "Dynamic labels cannot have a name",
+        "Rank or name must not be set for dynamic grouped labels.",
     ),
     (
         "call ADMIN.CREATE_LABEL(NULL, 'DYNAMIC_GROUP_LABEL', 10, 'QUERY_TYPE', TRUE);",
-        "Dynamic labels cannot have a group rank",
+        "Rank or name must not be set for dynamic grouped labels.",
     ),
     (
         "call ADMIN.CREATE_LABEL(NULL, NULL, 10, 'QUERY_TYPE', TRUE);",
-        "Dynamic labels cannot have a group rank",
+        "group name must be set for dynamic grouped labels.",
     ),
     (
         "call ADMIN.UPDATE_LABEL('{label}', '{label}', 'DYNAMIC_GROUP_LABEL', NULL, 'QUERY_TYPE', TRUE);",
-        "Dynamic labels cannot have a name",
+        "Rank or name must not be set for dynamic grouped labels.",
     ),
     (
-        "call ADMIN.UPDATE_LABEL('DYNAMIC_GROUP_LABEL', NULL, 'DYNAMIC_GROUP_LABEL', 10, 'QUERY_TYPE', TRUE);",
-        "Dynamic labels cannot have a group rank",
+        "call ADMIN.UPDATE_LABEL(NULL, NULL, 'DYNAMIC_GROUP_LABEL', 10, 'QUERY_TYPE', TRUE);",
+        "Rank or name must not be set for dynamic grouped labels.",
     ),
     (
         "call ADMIN.DELETE_DYNAMIC_LABEL(NULL);",
-        "Name must not be null",
+        "Name must not be null.",
     ),
 ]
 

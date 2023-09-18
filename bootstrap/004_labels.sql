@@ -57,6 +57,8 @@ EXCEPTION
         raise;
 END;
 
+DROP PROCEDURE IF EXISTS INTERNAL.VALIDATE_LABEL_CONDITION(string, string);
+
 CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_LABEL_CONDITION(condition string, is_dynamic boolean)
 RETURNS STRING
 AS
@@ -78,8 +80,7 @@ EXCEPTION
 END;
 $$;
 
-
-DROP PROCEDURE IF EXISTS INTERNAL.VALIDATE_LABEL_CONDITION(string, boolean);
+DROP PROCEDURE IF EXISTS INTERNAL.VALIDATE_LABEL_Name(string);
 
 -- Verify label name as quoted identifier is not same as any column name in view reporting.enriched_query_history.
 CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_Name(name string, is_label boolean)
@@ -100,8 +101,6 @@ EXCEPTION
     WHEN OTHER THEN
         return 'Failure validating name. Please check your syntax.' || :SQLERRM;
 END;
-
-DROP PROCEDURE IF EXISTS INTERNAL.VALIDATE_Name(string, boolean);
 
 CREATE OR REPLACE PROCEDURE INTERNAL.UPDATE_LABEL_VIEW()
 RETURNS boolean
@@ -152,7 +151,6 @@ SELECT *,$$;
     execute immediate s;
     return true;
 END;
-
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text, is_dynamic boolean)
     RETURNS text
@@ -238,7 +236,6 @@ BEGIN
 END;
 $$;
 
-
 CREATE OR REPLACE PROCEDURE INTERNAL.INITIALIZE_LABELS()
     RETURNS boolean
     LANGUAGE SQL
@@ -292,87 +289,6 @@ BEGIN
     DELETE FROM internal.labels where group_name = :name and is_dynamic;
     CALL INTERNAL.UPDATE_LABEL_VIEW();
     return 'done';
-END;
-
-CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text, is_dynamic boolean)
-    RETURNS text
-    LANGUAGE SQL
-    EXECUTE AS OWNER
-AS
-BEGIN
-    if (:is_dynamic = true) then
-        if (:grp is null) then
-            return 'group name must be set for dynamic grouped labels.';
-        elseif (:oldname is not null or :name is not null or :rank is not null) then
-            return 'Rank or name must not be set for dynamic grouped labels.';
-        end if;
-    else
-        if (name is null) then
-          return 'Name must not be null.';
-        elseif (grp is null and rank is not null) then
-          return 'Rank must only be set if group name is also provided.';
-        elseif (grp is not null and rank is null) then
-          return 'Rank must provided if you are creating a grouped label.';
-        end if;
-    end if;
-
-    let outcome text := 'Duplicate label name found. Please use a distinct name.';
-
-    outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:condition, :is_dynamic));
-    if (outcome is not null) then
-      return outcome;
-    end if;
-
-    outcome := (CALL INTERNAL.VALIDATE_Name(:name, true));
-
-    if (outcome is not null) then
-      return outcome;
-    end if;
-
-    BEGIN TRANSACTION;
-
-    if (:is_dynamic = false) then
-        -- Make sure that the old name exists once and the new name doesn't exist (assuming it is different from the old name)
-        let oldcnt number := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE name = :oldname);
-        let newcnt number := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE name = :name AND name <> :oldname);
-
-        IF (oldcnt <> 1) THEN
-          outcome := 'Label not found. Please refresh your page to see latest list of labels.';
-        ELSEIF (newcnt <> 0) THEN
-          outcome := 'A label with this name already exists. Please choose a distinct name.';
-        ELSE
-          UPDATE internal.labels SET  NAME = :name, GROUP_NAME = :grp, GROUP_RANK = :rank, CONDITION = :condition, LABEL_MODIFIED_AT = current_timestamp() WHERE NAME = :oldname;
-          outcome := null;
-        END IF;
-    else
-        -- dynamic grouped label
-        let oldcnt number := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE group_name = :grp and is_dynamic);
-        IF (oldcnt <> 1) THEN
-          outcome := 'Label not found. Please refresh your page to see latest list of labels.';
-        ELSE
-          UPDATE internal.labels SET  CONDITION = :condition, LABEL_MODIFIED_AT = current_timestamp() WHERE group_name = :grp and is_dynamic;
-          outcome := null;
-        END IF;
-    end if;
-
-    COMMIT;
-    CALL INTERNAL.UPDATE_LABEL_VIEW();
-    return outcome;
-EXCEPTION
-  WHEN OTHER THEN
-      ROLLBACK;
-      RAISE;
-END;
-
-CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text)
-    RETURNS text
-    LANGUAGE SQL
-    EXECUTE AS OWNER
-AS
-BEGIN
-    let outcome text := null;
-    outcome := (CALL ADMIN.UPDATE_LABEL(:oldname, :name, :grp, :rank, :condition, false));
-    return outcome;
 END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text, is_dynamic boolean)

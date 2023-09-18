@@ -10,7 +10,6 @@ def summarize_error(base_msg: str, ve: pydantic.ValidationError) -> str:
 
 
 def error_to_markdown(base_msg: str, ve: pydantic.ValidationError) -> str:
-    print(f"caught validation error {ve}")
     errs = []
     for e in ve.errors():
         if e.get("type", "").startswith("assertion_error") or e.get("type", "").startswith("value_error"):
