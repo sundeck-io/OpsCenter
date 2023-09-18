@@ -194,6 +194,7 @@ class Label(BaseOpsCenterModel):
                     name,
                 ),
             ).collect()[0][0]
+            # TODO updating a label fails after adding this assertion
             assert count == 0, "Duplicate label name found. Please use a distinct name."
 
         return values
