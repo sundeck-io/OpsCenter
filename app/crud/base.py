@@ -63,14 +63,10 @@ class BaseOpsCenterModel(BaseModel):
 
     def update(self, session, obj) -> "BaseOpsCenterModel":
         cols = dict(obj)
-        # TODO do we need to filter out None values? If so, why?
-        # Filter out `None` values
+        # Build up the SET clause and bind param values
         set_elements = []
         params = []
         for k, v in cols.items():
-            if v is None:
-                continue
-
             set_elements.append(f"{k} = ?")
             params.append(v)
         set_clause = ", ".join(set_elements)

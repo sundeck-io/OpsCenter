@@ -1,15 +1,14 @@
-from contextlib import contextmanager
 from pydantic import ValidationError
 from .labels import Label
 from .errors import summarize_error
-from .session import session_context
+from .session import snowpark_session
 
+# A "registry" of CRUD types and the implementation class
 _TYPES = {"LABEL": Label}
 
 
-
 def create_entity(session, entity_type, entity):
-    with transaction(session) as txn:
+    with snowpark_session(session) as txn:
         try:
             t = _TYPES.get(entity_type)
             if not t:
@@ -24,7 +23,7 @@ def create_entity(session, entity_type, entity):
 
 
 def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
-    with transaction(session) as txn:
+    with snowpark_session(session) as txn:
         try:
             t = _TYPES.get(entity_type)
             if not t:
@@ -49,7 +48,7 @@ def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
 
 
 def delete_entity(session, entity_type: str, name: str):
-    with transaction(session) as txn:
+    with snowpark_session(session) as txn:
         try:
             t = _TYPES.get(entity_type)
             if not t:
