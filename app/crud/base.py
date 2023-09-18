@@ -44,12 +44,12 @@ class BaseOpsCenterModel(BaseModel):
 
     def write(self, session):
         try:
-            session.sql('BEGIN').collect()
+            session.sql("BEGIN").collect()
             df = session.create_dataframe([Row(**dict(self))])
             df.write.mode("append").save_as_table(f"INTERNAL.{self.table_name}")
-            session.sql('COMMIT').collect()
-        except Exception as e:
-            session.sql('ROLLBACK').collect()
+            session.sql("COMMIT").collect()
+        except Exception:
+            session.sql("ROLLBACK").collect()
             raise
 
         session.call(self.on_success_proc)
@@ -62,14 +62,14 @@ class BaseOpsCenterModel(BaseModel):
 
     def delete(self, session):
         try:
-            session.sql('BEGIN').collect()
+            session.sql("BEGIN").collect()
             session.sql(
                 f"DELETE FROM INTERNAL.{self.table_name} WHERE {self.get_id_col()} = ?",
                 params=(self.get_id(),),
             ).collect()
-            session.sql('COMMIT').collect()
+            session.sql("COMMIT").collect()
         except Exception as e:
-            session.sql('ROLLBACK').collect()
+            session.sql("ROLLBACK").collect()
             raise e
 
         session.call(self.on_success_proc)
@@ -88,14 +88,14 @@ class BaseOpsCenterModel(BaseModel):
         set_clause = ", ".join(set_elements)
         params.append(self.get_id())
         try:
-            session.sql('BEGIN').collect()
+            session.sql("BEGIN").collect()
             session.sql(
                 f"UPDATE INTERNAL.{self.table_name} SET {set_clause} WHERE {self.get_id_col()} = ?",
                 params=params,
             ).collect()
-            session.sql('COMMIT').collect()
+            session.sql("COMMIT").collect()
         except Exception as e:
-            session.sql('ROLLBACK').collect()
+            session.sql("ROLLBACK").collect()
             raise e
 
         session.call(self.on_success_proc)

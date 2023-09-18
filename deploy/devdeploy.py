@@ -26,10 +26,12 @@ def _setup_database(cur, database: str, schema: str, stage: str):
 def _make_crud_zip(source: str, dest: str):
     print(f"Creating {dest} zipfile from {source}.")
     # Create a ZipFile object in write mode
-    with zipfile.ZipFile(dest, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zipf:
         # Walk through the directory and add each file to the zip file
         for root, dirs, files in os.walk(source):
-            files = [f for f in files if not f.startswith(".") and not f.startswith('test_')]
+            files = [
+                f for f in files if not f.startswith(".") and not f.startswith("test_")
+            ]
             for file in files:
                 file_path = os.path.join(root, file)
                 arc_name = f"crud/{os.path.relpath(file_path, source)}"
@@ -50,7 +52,9 @@ def _copy_dependencies(cur, schema: str, stage: str):
     for root, dirs, files in os.walk(target_dir):
 
         # Skip over files/directories that start with a period
-        files = [f for f in files if not f.startswith(".") and not f.startswith('test_')]
+        files = [
+            f for f in files if not f.startswith(".") and not f.startswith("test_")
+        ]
         dirs[:] = [d for d in dirs if not d.startswith(".")]
         dirs[:] = [d for d in dirs if not d == "__pycache__"]
 
@@ -122,7 +126,7 @@ def devdeploy(
     _setup_database(cur, conn.database, conn.schema, stage)
 
     # Build a new zip file with the CRUD python project.
-    _make_crud_zip("app/crud", 'app/python/crud.zip')
+    _make_crud_zip("app/crud", "app/python/crud.zip")
 
     # Copy dependencies into the stage
     _copy_dependencies(cur, conn.schema, stage)

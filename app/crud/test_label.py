@@ -18,8 +18,16 @@ class Session:
     def collect(self):
         # GROSS. Tricks the tests into passing the check that a label name doesn't conflict with a QUERY_HISTORY column.
         # but only trying to match the name check and not the condition check.
-        if self.sql and self._sql[-1].endswith('from reporting.enriched_query_history where false') and self._sql[-1].startswith('select "'):
-            raise snowflake.snowpark.exceptions.SnowparkSQLException('invalid identifier to make tests pass')
+        if (
+            self.sql
+            and self._sql[-1].endswith(
+                "from reporting.enriched_query_history where false"
+            )
+            and self._sql[-1].startswith('select "')
+        ):
+            raise snowflake.snowpark.exceptions.SnowparkSQLException(
+                "invalid identifier to make tests pass"
+            )
         return self
 
 
@@ -31,7 +39,13 @@ def session():
     session_ctx.reset(token)
 
 
-def _get_label(name="label1", group_name=None, group_rank=None, condition="user_name = 'josh@sundeck.io'", dynamic=False) -> dict:
+def _get_label(
+    name="label1",
+    group_name=None,
+    group_rank=None,
+    condition="user_name = 'josh@sundeck.io'",
+    dynamic=False,
+) -> dict:
     d = dict(
         name=name,
         condition=condition,
@@ -41,84 +55,93 @@ def _get_label(name="label1", group_name=None, group_rank=None, condition="user_
         is_dynamic=dynamic,
     )
     if dynamic:
-        del d['name']
-        d['group_name'] = name
+        del d["name"]
+        d["group_name"] = name
     elif group_name and group_rank:
-        d['group_name'] = group_name
-        d['group_rank'] = group_rank
+        d["group_name"] = group_name
+        d["group_rank"] = group_rank
 
     return d
 
 
-def test_label(session):
-    l = _get_label()
-    _ = Label.parse_obj(l)
+def test_basic_label(session):
+    test_label = _get_label()
+    _ = Label.parse_obj(test_label)
 
-    assert len(session._sql) == 2, f"Expected 2 sql statements"
-    assert session._sql[0].lower() == _expected_condition_check_query(l.get('condition')), \
-        "Unexpected label condition query"
-    assert session._sql[1].lower() == _expected_name_check_query(l.get('name')), "Unexpected label name query"
+    assert len(session._sql) == 2, "Expected 2 sql statements"
+    assert session._sql[0].lower() == _expected_condition_check_query(
+        test_label.get("condition")
+    ), "Unexpected label condition query"
+    assert session._sql[1].lower() == _expected_name_check_query(
+        test_label.get("name")
+    ), "Unexpected label name query"
 
 
 def test_none_label(session):
-    l = _get_label(name=None)
+    test_label = _get_label(name=None)
     with pytest.raises(ValueError):
-        _ = Label.parse_obj(l)
+        _ = Label.parse_obj(test_label)
 
     assert len(session._sql) == 2, "Expected no sql statements for a None name"
-    assert session._sql[0].lower() == _expected_condition_check_query(l.get('condition')), \
-        "Unexpected label condition query"
-    assert session._sql[1].lower() == _expected_name_check_query(l.get('name')), "Unexpected label name query"
+    assert session._sql[0].lower() == _expected_condition_check_query(
+        test_label.get("condition")
+    ), "Unexpected label condition query"
+    assert session._sql[1].lower() == _expected_name_check_query(
+        test_label.get("name")
+    ), "Unexpected label name query"
 
 
 def test_empty_label(session):
-    l = _get_label(name="")
+    test_label = _get_label(name="")
     with pytest.raises(ValueError):
-        _ = Label.parse_obj(l)
+        _ = Label.parse_obj(test_label)
 
     assert len(session._sql) == 2, "Expected no sql statements for a None name"
-    assert session._sql[0].lower() == _expected_condition_check_query(l.get('condition')), \
-        "Unexpected label condition query"
+    assert session._sql[0].lower() == _expected_condition_check_query(
+        test_label.get("condition")
+    ), "Unexpected label condition query"
     # An empty name is overriden to be the default value None.
-    assert session._sql[1].lower() == _expected_name_check_query(''), "Unexpected label name query"
+    assert session._sql[1].lower() == _expected_name_check_query(
+        ""
+    ), "Unexpected label name query"
 
 
 def test_missing_condition(session):
-    l = _get_label()
-    l['condition'] = ''
+    test_label = _get_label()
+    test_label["condition"] = ""
     with pytest.raises(ValueError):
-        _ = Label.parse_obj(l)
+        _ = Label.parse_obj(test_label)
 
-    del l['condition']
+    del test_label["condition"]
     with pytest.raises(ValueError):
-        _ = Label.parse_obj(l)
+        _ = Label.parse_obj(test_label)
 
 
 def test_missing_created_at(session):
-    l = _get_label(name="")
-    del l['label_created_at']
+    test_label = _get_label(name="")
+    del test_label["label_created_at"]
     with pytest.raises(ValueError):
-        _ = Label.parse_obj(l)
+        _ = Label.parse_obj(test_label)
 
 
-@pytest.mark.parametrize('column', [('label_created_at'), ('label_modified_at')])
+@pytest.mark.parametrize("column", [("label_created_at"), ("label_modified_at")])
 def test_fail_when_times_are_not_times(column):
-    l = _get_label()
-    l[column] = 'not a time'
+    test_label = _get_label()
+    test_label[column] = "not a time"
     with pytest.raises(ValueError):
-        _ = Label.parse_obj(l)
+        _ = Label.parse_obj(test_label)
 
     # some other kind of junk
-    l[column] = (1234, 5678)
+    test_label[column] = (1234, 5678)
     with pytest.raises(ValueError):
-        _ = Label.parse_obj(l)
+        _ = Label.parse_obj(test_label)
 
 
 def test_missing_modified_at(session):
-    l = _get_label(name="")
-    del l['label_modified_at']
+    test_label = _get_label(name="")
+    del test_label["label_modified_at"]
     with pytest.raises(ValueError):
-        _ = Label.parse_obj(l)
+        _ = Label.parse_obj(test_label)
 
 
 def test_create_table(session):

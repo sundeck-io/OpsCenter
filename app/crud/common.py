@@ -20,9 +20,9 @@ def create_entity(session, entity_type, entity):
         obj.write(session)
         return None
     except ValidationError as e:
-        return summarize_error(f'Failed to create {entity_type.lower()}', e)
+        return summarize_error(f"Failed to create {entity_type.lower()}", e)
     except Exception as ae:
-        return f'Failed to create {entity_type.lower()}: {str(ae)}'
+        return f"Failed to create {entity_type.lower()}: {str(ae)}"
 
 
 def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
@@ -36,7 +36,7 @@ def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
             return "Name must not be null"
         if new_obj.get("is_dynamic", False):
             obj = t.construct(group_name=old_name, is_dynamic=True)
-        elif new_obj.get('group_name', None):
+        elif new_obj.get("group_name", None):
             obj = t.construct(group_name=old_name)
         else:
             obj = t.construct(name=old_name)
@@ -44,9 +44,9 @@ def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
         obj.update(session, new_label)
         return None
     except ValidationError as ve:
-        return summarize_error(f'Failed to update {entity_type.lower()}', ve)
+        return summarize_error(f"Failed to update {entity_type.lower()}", ve)
     except Exception as ae:
-        return f'Failed to update {entity_type.lower()}: {str(ae)}'
+        return f"Failed to update {entity_type.lower()}: {str(ae)}"
 
 
 def delete_entity(session, entity_type: str, name: str):
@@ -60,4 +60,4 @@ def delete_entity(session, entity_type: str, name: str):
         obj.delete(session)
         return None
     except Exception as ae:
-        return f'Failed to delete {entity_type.lower()}: {str(ae)}'
+        return f"Failed to delete {entity_type.lower()}: {str(ae)}"

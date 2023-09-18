@@ -18,7 +18,6 @@ class Label:
 
         self.snowflake = Connection.get()
 
-
     def list_labels(self):
         _ = self.snowflake.call(
             "INTERNAL.REPORT_ACTION",

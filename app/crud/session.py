@@ -1,7 +1,7 @@
 from contextvars import ContextVar
 from contextlib import contextmanager
 
-session_ctx = ContextVar('session')
+session_ctx = ContextVar("session")
 
 
 @contextmanager
