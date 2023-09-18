@@ -1,7 +1,7 @@
 from contextvars import ContextVar
 from contextlib import contextmanager
 
-session_context = ContextVar("session")
+_session_contextvar = ContextVar("session")
 
 
 @contextmanager
@@ -9,8 +9,12 @@ def snowpark_session(session):
     """
     Makes the give Snowpark Session available to the CRUD implementation for the scope of this call.
     """
-    token = session_context.set(session)
+    token = _session_contextvar.set(session)
     try:
         yield session
     finally:
-        session_context.reset(token)
+        _session_contextvar.reset(token)
+
+
+def get_current_session():
+    return _session_contextvar.get()

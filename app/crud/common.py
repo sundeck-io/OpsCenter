@@ -6,25 +6,6 @@ from .session import session_context
 
 _TYPES = {"LABEL": Label}
 
-@contextmanager
-def transaction(session):
-    txn_open = False
-    token = session_context.set(session)
-    try:
-        # TODO The call to internal.update_label_view fails with
-        #  the error "Modifying a transaction that has started at a different scope is not allowed."
-        #  when running inside of this block. Is the Snowpark dataframe doing something with txn?
-        # Gotta fix this now, as we depend on rolling back the label insert if the view regeneration fails
-        session.sql("BEGIN").collect()
-        txn_open = True
-        yield session
-        session.sql("COMMIT").collect()
-    except:
-        if txn_open:
-            session.sql("ROLLBACK").collect()
-        raise
-    finally:
-        session_context.reset(token)
 
 
 def create_entity(session, entity_type, entity):

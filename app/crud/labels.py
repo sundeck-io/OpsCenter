@@ -5,14 +5,12 @@ from pydantic import (
 )
 from typing import Optional, ClassVar
 import datetime
-from .base import BaseOpsCenterModel
-from .session import session_context
+from .base import BaseOpsCenterModel, transaction
+from .session import get_current_session
 
 
 ## TODO
-# migrate - maybe we don't move out of sql?
 # copy predefined labels to labels - maybe we dont move out of sql?
-# ensure create, prepopulate, validate get called at the right times in bootstrap
 class Label(BaseOpsCenterModel):
     table_name: ClassVar[str] = "LABELS"
     on_success_proc: ClassVar[str] = "INTERNAL.UPDATE_LABEL_VIEW"
@@ -32,69 +30,79 @@ class Label(BaseOpsCenterModel):
         return self.name if self.name else self.group_name
 
     def delete(self, session):
-        super().delete(session)
+        with transaction(session) as txn:
+            super().delete(txn)
+        session.call(self.on_success_proc)
 
     def write(self, session):
-        if self.group_name:
-            # check if the grouped label's name conflict with :
-            #  1) another label in the same group,
-            #  2) or an ungrouped label's name.
-            #  3) another dynamic group name
-            count = session.sql(
-                """
-                SELECT COUNT(*) FROM INTERNAL.LABELS
-                WHERE
-                    (GROUP_NAME = ? AND NAME = ? AND NAME IS NOT NULL)
-                     OR (NAME = ? AND GROUP_NAME IS NULL)
-                     OR (GROUP_NAME = ? AND NAME IS NULL)""",
-                params=(
-                    self.group_name,
-                    self.name,
-                    self.group_name,
-                    self.group_name,
-                ),
-            ).collect()[0][0]
-            assert (
-                    count == 0
-            ), "Duplicate grouped label name found. Please use a distinct name."
-        else:
-            # check if the ungrouped label's name conflict with another ungrouped label, or a group with same name.
-            count = session.sql(
-                """
-                SELECT COUNT(*) FROM INTERNAL.LABELS
-                WHERE (NAME = ? AND GROUP_NAME IS NULL) OR (GROUP_NAME = ? AND GROUP_NAME IS NOT NULL)""",
-                params=(
-                    self.name,
-                    self.name,
-                ),
-            ).collect()[0][0]
-            assert count == 0, "Duplicate label name found. Please use a distinct name."
+        with transaction(session) as txn:
+            if self.group_name:
+                # check if the grouped label's name conflict with :
+                #  1) another label in the same group,
+                #  2) or an ungrouped label's name.
+                #  3) another dynamic group name
+                count = txn.sql(
+                    """
+                    SELECT COUNT(*) FROM INTERNAL.LABELS
+                    WHERE
+                        (GROUP_NAME = ? AND NAME = ? AND NAME IS NOT NULL)
+                         OR (NAME = ? AND GROUP_NAME IS NULL)
+                         OR (GROUP_NAME = ? AND NAME IS NULL)""",
+                    params=(
+                        self.group_name,
+                        self.name,
+                        self.group_name,
+                        self.group_name,
+                    ),
+                ).collect()[0][0]
+                assert (
+                        count == 0
+                ), "Duplicate grouped label name found. Please use a distinct name."
+            else:
+                # check if the ungrouped label's name conflict with another ungrouped label, or a group with same name.
+                count = txn.sql(
+                    """
+                    SELECT COUNT(*) FROM INTERNAL.LABELS
+                    WHERE (NAME = ? AND GROUP_NAME IS NULL) OR (GROUP_NAME = ? AND GROUP_NAME IS NOT NULL)""",
+                    params=(
+                        self.name,
+                        self.name,
+                    ),
+                ).collect()[0][0]
+                assert count == 0, "Duplicate label name found. Please use a distinct name."
 
-        super().write(session)
+            super().write(txn)
+
+        # re-generate the views outside the transaction
+        session.call(self.on_success_proc)
 
     def update(self, session, obj: "Label") -> "Label":
-        if self.is_dynamic:
-            old_label_exists = session.sql(
-                f"SELECT COUNT(*) FROM INTERNAL.{self.table_name} WHERE group_name = ? and is_dynamic",
-                params=(self.group_name,)
-            ).collect()[0][0]
-        else:
-            old_label_exists = session.sql(
-                f"SELECT COUNT(*) = 1 FROM INTERNAL.{self.table_name} WHERE name = ?", params=(self.name,)
-            ).collect()[0][0]
-            new_name_is_unique = session.sql(
-                f"SELECT COUNT(*) = 0 FROM INTERNAL.{self.table_name} WHERE name = ? and name <> ?",
-                params=(obj.name, self.name,)
-            ).collect()[0][0]
+        with transaction(session) as txn:
+            if self.is_dynamic:
+                old_label_exists = session.sql(
+                    f"SELECT COUNT(*) FROM INTERNAL.{self.table_name} WHERE group_name = ? and is_dynamic",
+                    params=(self.group_name,)
+                ).collect()[0][0]
+            else:
+                old_label_exists = session.sql(
+                    f"SELECT COUNT(*) = 1 FROM INTERNAL.{self.table_name} WHERE name = ?", params=(self.name,)
+                ).collect()[0][0]
+                new_name_is_unique = session.sql(
+                    f"SELECT COUNT(*) = 0 FROM INTERNAL.{self.table_name} WHERE name = ? and name <> ?",
+                    params=(obj.name, self.name,)
+                ).collect()[0][0]
+                assert (
+                    new_name_is_unique
+                ), "Label with this name already exists. Please choose a distinct name."
+
             assert (
-                new_name_is_unique
-            ), "Label with this name already exists. Please choose a distinct name."
+                old_label_exists
+            ), "Label not found. Please refresh your page to see latest list of labels."
 
-        assert (
-            old_label_exists
-        ), "Label not found. Please refresh your page to see latest list of labels."
+            super().update(session, obj)
 
-        super().update(session, obj)
+        session.call(self.on_success_proc)
+
         return obj
 
     @root_validator(allow_reuse=True)
@@ -132,7 +140,7 @@ class Label(BaseOpsCenterModel):
         """
         Validates this Label against the database to check things like name uniqueness and condition validity.
         """
-        session = session_context.get()
+        session = get_current_session()
         assert session, "Session must be present"
 
         # Cannot check the condition if it's empty
@@ -155,7 +163,7 @@ class Label(BaseOpsCenterModel):
         """
         Validates that the label's name does not duplicate a column in account_usage.query_history.
         """
-        session = session_context.get()
+        session = get_current_session()
         assert session, "Session must be present"
 
         # Check that the label [group] name does not conflict with any columns already in this view

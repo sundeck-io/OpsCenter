@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from snowflake.snowpark import Row
 from pydantic import BaseModel
 from typing import ClassVar, get_args, get_origin, Union, Dict
@@ -5,15 +6,11 @@ import datetime
 
 
 ## TODO
-# migrate - maybe we don't move out of sql?
-# copy predefined labels to labels - maybe we dont move out of sql?
 # same again for probes
 # hook up to stored procs for (CRUD and validation)
 class BaseOpsCenterModel(BaseModel):
     # The name of the table in snowflake (without schema) that the model maps to.
     table_name: ClassVar[str] = None
-    # The procedure to be called after any CRUD operation on this model.
-    on_success_proc: ClassVar[str] = None
 
     @classmethod
     def cols_dict(cls) -> Dict[str, str]:
@@ -41,36 +38,28 @@ class BaseOpsCenterModel(BaseModel):
             ).collect()
 
     def write(self, session):
-        try:
-            session.sql("BEGIN").collect()
-            df = session.create_dataframe([Row(**dict(self))])
-            df.write.mode("append").save_as_table(f"INTERNAL.{self.table_name}")
-            session.sql("COMMIT").collect()
-        except Exception:
-            session.sql("ROLLBACK").collect()
-            raise
-
-        session.call(self.on_success_proc)
+        df = session.create_dataframe([Row(**dict(self))])
+        df.write.mode("append").save_as_table(f"INTERNAL.{self.table_name}")
 
     def get_id(self) -> str:
+        """
+        Returns the column value for the current row which is unique among all other rows.
+        :return:
+        """
         return None
 
     def get_id_col(self) -> str:
+        """
+        Returns the name of the column which is unique among all other rows.
+        :return:
+        """
         return None
 
     def delete(self, session):
-        try:
-            session.sql("BEGIN").collect()
-            session.sql(
-                f"DELETE FROM INTERNAL.{self.table_name} WHERE {self.get_id_col()} = ?",
-                params=(self.get_id(),),
-            ).collect()
-            session.sql("COMMIT").collect()
-        except Exception as e:
-            session.sql("ROLLBACK").collect()
-            raise e
-
-        session.call(self.on_success_proc)
+        session.sql(
+            f"DELETE FROM INTERNAL.{self.table_name} WHERE {self.get_id_col()} = ?",
+            params=(self.get_id(),),
+        ).collect()
 
     def update(self, session, obj) -> "BaseOpsCenterModel":
         cols = dict(obj)
@@ -86,18 +75,10 @@ class BaseOpsCenterModel(BaseModel):
             params.append(v)
         set_clause = ", ".join(set_elements)
         params.append(self.get_id())
-        try:
-            session.sql("BEGIN").collect()
-            session.sql(
-                f"UPDATE INTERNAL.{self.table_name} SET {set_clause} WHERE {self.get_id_col()} = ?",
-                params=params,
-            ).collect()
-            session.sql("COMMIT").collect()
-        except Exception as e:
-            session.sql("ROLLBACK").collect()
-            raise e
-
-        session.call(self.on_success_proc)
+        session.sql(
+            f"UPDATE INTERNAL.{self.table_name} SET {set_clause} WHERE {self.get_id_col()} = ?",
+            params=params,
+        ).collect()
         return obj
 
 
@@ -119,3 +100,23 @@ def handle_union(args, origin):
         return f"{handle_type(args[0])} NULL"
     else:
         raise ValueError(f"Unknown union: {args} {origin}")
+
+
+@contextmanager
+def transaction(session):
+    """
+    Wraps any commands in a Snowflake transaction, automatically calling COMMIT on successful execution. If a
+    Python exception is caught, ROLLBACK is automatically called. Beware calling any DDL statements while using
+    this transaction as Snowflake will throw an error.
+    """
+    txn_started = False
+    try:
+        session.sql("BEGIN").collect()
+        txn_started = True
+        yield session
+        session.sql("COMMIT").collect()
+    except Exception as e:
+        if txn_started:
+            session.sql("ROLLBACK").collect()
+        raise e
+
