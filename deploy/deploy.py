@@ -52,9 +52,15 @@ def _clear_stage(cur):
 
 def _sync_local_to_stage(cur):
     print("Syncing local files to stage.")
+
+    # Copy the CRUD module to the stage.
+    helpers.zip_python_module('app/crud', 'app/python/crud.zip')
+    put_cmd = f"PUT 'file://app/python/crud.zip' '{FULL_STAGE_SLASH}/python' overwrite=true auto_compress=false"
+    cur.execute(put_cmd)
+
     # Walk the target directory and upload all files to the stage
     target_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "app"))
-    for root, dirs, files in os.walk(target_dir):
+    for root, dirs, files in os.walk(target_dir, followlinks=False):
 
         # Skip over files/directories that start with a period
         files = [f for f in files if not f.startswith(".")]
