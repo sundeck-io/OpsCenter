@@ -222,7 +222,7 @@ class Label:
                     # Validate the new label before saving
                     new_label = ModelLabel.parse_obj(
                         {
-                            'old_name': oldname,
+                            "old_name": oldname,
                             "name": name,
                             "condition": condition,
                             "group_rank": rank,

@@ -18,4 +18,3 @@ def snowpark_session(session):
 
 def get_current_session():
     return _session_context.get()
-

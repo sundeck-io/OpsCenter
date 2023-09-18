@@ -74,7 +74,9 @@ class Connection:
                     schema = Connection.remove_quotes(
                         config.get(section, "schemaname", fallback="PUBLIC")
                     )
-                    warehouse = Connection.remove_quotes(config.get(section, "warehousename", fallback='COMPUTE_WH'))
+                    warehouse = Connection.remove_quotes(
+                        config.get(section, "warehousename", fallback="COMPUTE_WH")
+                    )
 
                     connection_parameters = {
                         "account": accountname,

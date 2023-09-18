@@ -54,7 +54,7 @@ def _sync_local_to_stage(cur):
     print("Syncing local files to stage.")
 
     # Copy the CRUD module to the stage.
-    helpers.zip_python_module('app/crud', 'app/python/crud.zip')
+    helpers.zip_python_module("app/crud", "app/python/crud.zip")
     put_cmd = f"PUT 'file://app/python/crud.zip' '{FULL_STAGE_SLASH}/python' overwrite=true auto_compress=false"
     cur.execute(put_cmd)
 

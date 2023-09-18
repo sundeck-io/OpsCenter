@@ -56,7 +56,7 @@ class Label(BaseOpsCenterModel):
                     ),
                 ).collect()[0][0]
                 assert (
-                        count == 0
+                    count == 0
                 ), "Duplicate grouped label name found. Please use a distinct name."
             else:
                 # check if the ungrouped label's name conflict with another ungrouped label, or a group with same name.
@@ -69,7 +69,9 @@ class Label(BaseOpsCenterModel):
                         self.name,
                     ),
                 ).collect()[0][0]
-                assert count == 0, "Duplicate label name found. Please use a distinct name."
+                assert (
+                    count == 0
+                ), "Duplicate label name found. Please use a distinct name."
 
             super().write(txn)
 
@@ -77,19 +79,23 @@ class Label(BaseOpsCenterModel):
         session.call(self.on_success_proc)
 
     def update(self, session, obj: "Label") -> "Label":
-        with transaction(session) as txn:
+        with transaction(session):
             if self.is_dynamic:
                 old_label_exists = session.sql(
                     f"SELECT COUNT(*) FROM INTERNAL.{self.table_name} WHERE group_name = ? and is_dynamic",
-                    params=(self.group_name,)
+                    params=(self.group_name,),
                 ).collect()[0][0]
             else:
                 old_label_exists = session.sql(
-                    f"SELECT COUNT(*) = 1 FROM INTERNAL.{self.table_name} WHERE name = ?", params=(self.name,)
+                    f"SELECT COUNT(*) = 1 FROM INTERNAL.{self.table_name} WHERE name = ?",
+                    params=(self.name,),
                 ).collect()[0][0]
                 new_name_is_unique = session.sql(
                     f"SELECT COUNT(*) = 0 FROM INTERNAL.{self.table_name} WHERE name = ? and name <> ?",
-                    params=(obj.name, self.name,)
+                    params=(
+                        obj.name,
+                        self.name,
+                    ),
                 ).collect()[0][0]
                 assert (
                     new_name_is_unique
@@ -187,7 +193,6 @@ class Label(BaseOpsCenterModel):
 
         return values
 
-
     @validator("condition", allow_reuse=True)
     def condition_is_valid(cls, condition: str) -> str:
         assert condition is not None, "Condition must not be null"
@@ -200,7 +205,9 @@ class Label(BaseOpsCenterModel):
 
     @validator("label_created_at", "label_modified_at", allow_reuse=True)
     def verify_time_fields(cls, time: datetime.datetime) -> datetime.datetime:
-        assert isinstance(time, datetime.datetime), 'Time fields must be a datetime.datetime object'
+        assert isinstance(
+            time, datetime.datetime
+        ), "Time fields must be a datetime.datetime object"
         return time
 
     @validator("enabled", "is_dynamic", allow_reuse=True)

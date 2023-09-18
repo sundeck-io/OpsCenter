@@ -7,6 +7,7 @@ class Session:
     """
     A fake snowflake.snowpark.Session object for unit tests.
     """
+
     def __init__(self):
         self._sql = []
 
@@ -18,11 +19,11 @@ class Session:
         # GROSS. Tricks the tests into passing the check that a label name doesn't conflict with a QUERY_HISTORY column.
         # but only trying to match the name check and not the condition check.
         if (
-                self.sql
-                and self._sql[-1].endswith(
-            "from reporting.enriched_query_history where false"
-        )
-                and self._sql[-1].startswith('select "')
+            self.sql
+            and self._sql[-1].endswith(
+                "from reporting.enriched_query_history where false"
+            )
+            and self._sql[-1].startswith('select "')
         ):
             raise snowflake.snowpark.exceptions.SnowparkSQLException(
                 "invalid identifier to make tests pass"

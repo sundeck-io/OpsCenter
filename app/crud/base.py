@@ -115,4 +115,3 @@ def transaction(session):
         if txn_started:
             session.sql("ROLLBACK").collect()
         raise e
-

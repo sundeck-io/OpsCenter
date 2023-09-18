@@ -184,11 +184,13 @@ def zip_python_module(source: str, dest: str):
         # Walk through the directory and add each file to the zip file
         for root, dirs, files in os.walk(source):
             files = [
-                f for f in files if not f.startswith(".") and not f.startswith("test_") and not f == 'conftest.py'
+                f
+                for f in files
+                if not f.startswith(".")
+                and not f.startswith("test_")
+                and not f == "conftest.py"
             ]
             for file in files:
                 file_path = os.path.join(root, file)
                 arc_name = f"crud/{os.path.relpath(file_path, source)}"
                 zipf.write(file_path, arcname=arc_name)
-
-
