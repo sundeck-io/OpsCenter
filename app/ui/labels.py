@@ -145,26 +145,26 @@ class Label:
                         "New",
                         key=f"create{x}",
                         on_click=self.session.do_create,
-                        args=[None, False],
+                        args=[dict()],
                     )
                     st.button(
                         "New (in group)",
                         key=f"create_group{x}",
                         on_click=self.session.do_create,
-                        args=["", False],
+                        args=[dict(grouped="")],
                     )
                     st.button(
                         "New dynamic grouped labels",
                         key=f"create_function_group{x}",
                         on_click=self.session.do_create,
-                        args=["", True],
+                        args=[dict(grouped="", is_dynamic=True)],
                     )
                 elif dynamics[x] is False:
                     st.button(
                         "Add label to group",
                         key=f"create{x}",
                         on_click=self.session.do_create,
-                        args=[items[x], False],
+                        args=[dict(grouped=items[x])],
                     )
 
     def on_create_click(self, name, group, rank, condition, is_dynamic):
@@ -218,7 +218,9 @@ class Label:
             self.session.set_toast("Label deleted.")
             self.session.do_list()
 
-    def create_label(self, grouped: str, is_dynamic: bool):
+    def create_label(self, create: dict):
+        grouped = create.get("grouped")
+        is_dynamic = create.get("is_dynamic", False)
         st.title("New Label")
         group = None
         rank = None
@@ -287,7 +289,7 @@ def display():
     if labels.session.mode is Mode.LIST:
         labels.list_labels()
     elif labels.session.mode is Mode.CREATE:
-        labels.create_label(labels.session.group_create, labels.session.is_dynamic)
+        labels.create_label(labels.session.create)
     elif labels.session.mode is Mode.EDIT:
         labels.edit_label(labels.session.update)
     else:

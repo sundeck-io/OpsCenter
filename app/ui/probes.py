@@ -126,9 +126,7 @@ class Probe:
                     args=[row["NAME"]],
                 )
 
-        st.button(
-            "New", key="create", on_click=self.session.do_create, args=[None, False]
-        )
+        st.button("New", key="create", on_click=self.session.do_create, args=[None])
 
     def on_create_click(
         self,
