@@ -7,14 +7,11 @@ from pydantic import (
 from typing import Optional, ClassVar
 import datetime
 from .base import BaseOpsCenterModel
-from .session import session_ctx
+from .session import session_ctx, operation_context
 
 ## TODO
 # migrate - maybe we don't move out of sql?
 # copy predefined labels to labels - maybe we dont move out of sql?
-# same again for probes
-# hook up to stored procs for (CRUD and validation)
-# more tests
 # ensure create, prepopulate, validate get called at the right times in bootstrap
 class Label(BaseOpsCenterModel):
     table_name: ClassVar[str] = "LABELS"
@@ -101,7 +98,7 @@ class Label(BaseOpsCenterModel):
         """
         Validates this Label against the database to check things like name uniqueness and condition validity.
         """
-        session = session_ctx.get("session")
+        session = session_ctx.get()
         assert session, "Session must be present"
 
         # Cannot check the condition if it's empty
@@ -124,7 +121,7 @@ class Label(BaseOpsCenterModel):
         """
         Validates that the label's name does not duplicate a column in account_usage.query_history.
         """
-        session = session_ctx.get("session")
+        session = session_ctx.get()
         assert session, "Session must be present"
 
         # Check that the label [group] name does not conflict with any columns already in this view
@@ -148,17 +145,25 @@ class Label(BaseOpsCenterModel):
 
         return values
 
+
     @root_validator(allow_reuse=True)
     @classmethod
-    def validate_label_name_uniqueness(cls, values) -> "Label":
+    def validate_label_name_uniqueness_on_create(cls, values) -> "Label":
         """
         Validates that the labels' name (and group name) do not duplicate existing name(s) in OpsCenter.
         :param values:
         :return:
         """
+        op = operation_context.get()
+        assert op is not None, 'Bug: the operation must be provided'
+
+        # Skip this validation if not in the context of a create
+        if op.lower() != 'create':
+            return values
+
         name = values.get("name", "")
         group_name = values.get("group_name", "")
-        session = session_ctx.get("session")
+        session = session_ctx.get()
         assert session, "Session must be present"
 
         if group_name:
@@ -194,12 +199,51 @@ class Label(BaseOpsCenterModel):
                     name,
                 ),
             ).collect()[0][0]
-            # TODO updating a label fails after adding this assertion
             assert count == 0, "Duplicate label name found. Please use a distinct name."
 
         return values
 
-    @validator("condition")
+
+    @root_validator(allow_reuse=True)
+    @classmethod
+    def validate_label_name_uniqueness_on_update(cls, values) -> "Label":
+        """
+        Validates a label's name for uniqueness in the context of an update
+        """
+        op = operation_context.get()
+        assert op is not None, 'Bug: the operation must be provided'
+
+        # Skip this validation if not in the context of a create
+        if op.lower() != 'update':
+            return values
+
+        old_name = values.get('old_name', None)
+        assert old_name is not None, 'Bug: the old Label name must be provided'
+
+        name = values.get("name", "")
+        group_name = values.get("group_name", "")
+        session = session_ctx.get()
+        assert session, "Session must be present"
+
+        if values.get("is_dynamic", False):
+            # Dynamic label validation
+            oldcnt = session.sql("SELECT COUNT(*) FROM INTERNAL.LABELS WHERE group_name = ? and is_dynamic",
+                                 params=(group_name,)).collect()[0][0]
+            assert oldcnt == 1, 'Label not found. Please refresh your page to see latest list of labels.'
+        else:
+            # Grouped or ungrouped label validation
+            # Make sure that the old name exists once and the new name doesn't exist (assuming it is different from the old name)
+            oldcnt = session.sql('SELECT COUNT(*) FROM INTERNAL.LABELS WHERE NAME = ?',
+                                 params=(old_name,)).collect()[0][0]
+            newcnt = session.sql('SELECT COUNT(*) FROM INTERNAL.LABELS WHERE NAME = ? AND NAME <> ?',
+                                 params=(name, old_name,)).collect()[0][0]
+            assert oldcnt == 1, 'Label not found. Please refresh your page to see latest list of labels.'
+            assert newcnt == 0, 'A label with this name already exists. Please choose a distinct name.'
+
+        return values
+
+
+    @validator("condition", allow_reuse=True)
     def condition_is_valid(cls, condition: str) -> str:
         assert condition is not None, "Condition must not be null"
         assert isinstance(condition, str), "Label condition should be a string"
@@ -209,63 +253,12 @@ class Label(BaseOpsCenterModel):
             )
         return condition
 
-    @validator("label_created_at", "label_modified_at")
+    @validator("label_created_at", "label_modified_at", allow_reuse=True)
     def verify_time_fields(cls, time: datetime.datetime) -> datetime.datetime:
         assert isinstance(time, datetime.datetime)
         return time
 
-    @validator("enabled", "is_dynamic")
+    @validator("enabled", "is_dynamic", allow_reuse=True)
     def enabled_or_dynamic(cls, b: bool) -> bool:
         assert isinstance(b, bool)
         return b
-
-
-class PredefinedLabel(Label):
-    table_name: ClassVar[str] = "PREDEFINED_LABELS"
-
-    @classmethod
-    def prepopulate(cls, session):
-        labels = [
-            ("Large Results", "rows_produced > 50000000"),
-            ("Writes", "query_type in ('CREATE_TABLE_AS_SELECT', 'INSERT')"),
-            ("Expanding Output", "10*bytes_scanned < BYTES_WRITTEN_TO_RESULT"),
-            (
-                "Full Scans",
-                "coalesce(partitions_scanned, 0) > coalesce(partitions_total, 1) * 0.95",
-            ),
-            ("Long Compilation", "COMPILATION_TIME > 100"),
-            ("Long Queries", "TOTAL_ELAPSED_TIME > 600000"),
-            ("Expensive Queries", "COST>0.5"),
-            ("Accelerated Queries", "QUERY_ACCELERATION_BYTES_SCANNED > 0"),
-        ]
-        if session.sql(
-            "select system$behavior_change_bundle_status('2023_06') = 'ENABLED'"
-        ).collect()[0][0]:
-            labels.extend(
-                [
-                    (
-                        "Repeated Queries",
-                        "tools.is_repeated_query(query_parameterized_hash, 1000)",
-                    ),
-                    (
-                        "ad-hoc Queries",
-                        "tools.is_ad_hoc_query(query_parameterized_hash, 10)",
-                    ),
-                ]
-            )
-        rows = []
-        for name, condition in labels:
-            o = cls.model_validate(
-                {
-                    "name": name,
-                    "condition": condition,
-                    "enabled": True,
-                    "is_dynamic": False,
-                    "created_at": datetime.datetime.now(),
-                    "modified_at": datetime.datetime.now(),
-                },
-                context={"session": session},
-            )
-            rows.append(Row(**dict(o)))
-        df = session.create_dataframe(rows)
-        df.write.mode("overwrite").save_as_table(cls.table_name)

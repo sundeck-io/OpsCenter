@@ -5,12 +5,10 @@ import datetime
 
 
 ## TODO
-# test validation stuff
 # migrate - maybe we don't move out of sql?
 # copy predefined labels to labels - maybe we dont move out of sql?
 # same again for probes
 # hook up to stored procs for (CRUD and validation)
-# more tests
 class BaseOpsCenterModel(BaseModel):
     # The name of the table in snowflake (without schema) that the model maps to.
     table_name: ClassVar[str] = None
@@ -76,6 +74,7 @@ class BaseOpsCenterModel(BaseModel):
 
     def update(self, session, obj) -> "BaseOpsCenterModel":
         cols = dict(obj)
+        # TODO do we need to filter out None values? If so, why?
         # Filter out `None` values
         set_elements = []
         params = []

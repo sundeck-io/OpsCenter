@@ -74,6 +74,7 @@ class Connection:
                     schema = Connection.remove_quotes(
                         config.get(section, "schemaname", fallback="PUBLIC")
                     )
+                    warehouse = Connection.remove_quotes(config.get(section, "warehousename", fallback='COMPUTE_WH'))
 
                     connection_parameters = {
                         "account": accountname,
@@ -81,6 +82,7 @@ class Connection:
                         "password": password,
                         "database": database,
                         "schema": schema,
+                        "warehouse": warehouse,
                     }
 
                     Session.builder.configs(connection_parameters).create()
