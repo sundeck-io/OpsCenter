@@ -113,6 +113,92 @@ SELECT *,$$;
     return true;
 END;
 
+
+CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text, is_dynamic boolean)
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+$$
+BEGIN
+    if (:is_dynamic = true) then
+        if (:grp is null) then
+            return 'group name must be set for dynamic grouped labels.';
+        elseif (:name is not null or :rank is not null) then
+            return 'Rank or name must not be set for dynamic grouped labels.';
+        end if;
+    else
+        if (:name is null) then
+          return 'Name must not be null.';
+        elseif (grp is null and rank is not null) then
+          return 'Rank must only be set if Group name is also provided.';
+        elseif (grp is not null and rank is null) then
+          return 'Rank must provided if you are creating a grouped label.';
+        end if;
+    end if;
+
+    let outcome text := 'Failure validating name & condition. Please check your syntax.';
+    outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:condition, :is_dynamic));
+
+    if (outcome is not null) then
+      return outcome;
+    end if;
+
+    if (:grp is null) then
+        outcome := (CALL INTERNAL.VALIDATE_Name(:name, true));
+    else
+        outcome := (CALL INTERNAL.VALIDATE_Name(:grp, false));
+    end if;
+
+    if (outcome is not null) then
+      return outcome;
+    end if;
+
+    BEGIN TRANSACTION;
+        let cnt number := 0;
+        if (:grp is null) then
+            -- check if the ungrouped label's name conflict with another ungrouped label, or a group with same name.
+            cnt  := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE (name = :name and group_name is null) or (group_name = :name and group_name is not null));
+            outcome := 'Duplicate label name found. Please use a distinct name.';
+        else
+            -- check if the grouped label's name conflict with :
+            --  1) another label in the same group,
+            --  2) or an ungrouped label's name.
+            --  3) another dynamic group name
+            cnt  := (SELECT COUNT(*) AS cnt FROM internal.labels
+                     WHERE (group_name = :grp and name = :name and name is not null) or
+                            (name = :grp and group_name is null) or
+                            (group_name = :grp and name is null));
+            outcome := 'Duplicate grouped label name found. Please use a distinct name.';
+        end if;
+
+        IF (cnt = 0) THEN
+          INSERT INTO internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
+          VALUES (:name, :grp, :rank, current_timestamp(), :condition, current_timestamp(), :is_dynamic, TRUE);
+          outcome := null;
+        END IF;
+
+    COMMIT;
+    CALL INTERNAL.UPDATE_LABEL_VIEW();
+    return outcome;
+
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text)
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+$$
+BEGIN
+    let outcome text := null;
+    outcome := (CALL ADMIN.CREATE_LABEL(:name, :grp, :rank, :condition, false));
+    return outcome;
+END;
+$$;
+
+
 CREATE OR REPLACE PROCEDURE INTERNAL.INITIALIZE_LABELS()
     RETURNS boolean
     LANGUAGE SQL
@@ -138,53 +224,116 @@ BEGIN
 END;
 
 
-CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text, is_dynamic boolean)
-    RETURNS text
-    language python
-    runtime_version = "3.10"
-    handler = 'create_label'
-    packages = ('snowflake-snowpark-python', 'pydantic')
-    imports=('{{stage}}/python/crud.zip')
-    EXECUTE AS OWNER
-AS
-$$
-from datetime import datetime
-from crud import create_entity
-def create_label(session, name, grp, rank, condition, is_dynamic):
-    return create_entity(session, 'LABEL', {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now()})
-$$;
-
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_LABEL(name text)
     RETURNS text
-    language python
-    runtime_version = "3.10"
-    handler = 'delete_label'
-    packages = ('snowflake-snowpark-python', 'pydantic')
-    imports=('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
-$$
-from crud import delete_entity
-def delete_label(session, name):
-    return delete_entity(session, 'LABEL', name)
-$$;
+BEGIN
+    if (:name is null) then
+      return 'Name must not be null.';
+    end if;
 
+    DELETE FROM internal.labels where name = :name;
+    CALL INTERNAL.UPDATE_LABEL_VIEW();
+    return 'done';
+END;
+
+CREATE OR REPLACE PROCEDURE ADMIN.DELETE_DYNAMIC_LABEL(name text)
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+BEGIN
+    if (:name is null) then
+      return 'Name must not be null.';
+    end if;
+
+    DELETE FROM internal.labels where group_name = :name and is_dynamic;
+    CALL INTERNAL.UPDATE_LABEL_VIEW();
+    return 'done';
+END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text, is_dynamic boolean)
     RETURNS text
-    language python
-    runtime_version = "3.10"
-    handler = 'update_label'
-    packages = ('snowflake-snowpark-python', 'pydantic')
-    imports=('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
-$$
-from datetime import datetime
-from crud import update_entity
-def update_label(session, old_name, name, grp, rank, condition, is_dynamic):
-    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now()})
-$$;
+BEGIN
+    if (:is_dynamic = true) then
+        if (:grp is null) then
+            return 'group name must be set for dynamic grouped labels.';
+        elseif (:oldname is not null or :name is not null or :rank is not null) then
+            return 'Rank or name must not be set for dynamic grouped labels.';
+        end if;
+    else
+        if (name is null) then
+          return 'Name must not be null.';
+        elseif (grp is null and rank is not null) then
+          return 'Rank must only be set if group name is also provided.';
+        elseif (grp is not null and rank is null) then
+          return 'Rank must provided if you are creating a grouped label.';
+        end if;
+    end if;
+
+    let outcome text := 'Duplicate label name found. Please use a distinct name.';
+
+    outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:condition, :is_dynamic));
+    if (outcome is not null) then
+      return outcome;
+    end if;
+
+    outcome := (CALL INTERNAL.VALIDATE_Name(:name, true));
+
+    if (outcome is not null) then
+      return outcome;
+    end if;
+
+    BEGIN TRANSACTION;
+
+    if (:is_dynamic = false) then
+        -- Make sure that the old name exists once and the new name doesn't exist (assuming it is different from the old name)
+        let oldcnt number := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE name = :oldname);
+        let newcnt number := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE name = :name AND name <> :oldname);
+
+        IF (oldcnt <> 1) THEN
+          outcome := 'Label not found. Please refresh your page to see latest list of labels.';
+        ELSEIF (newcnt <> 0) THEN
+          outcome := 'A label with this name already exists. Please choose a distinct name.';
+        ELSE
+          UPDATE internal.labels SET  NAME = :name, GROUP_NAME = :grp, GROUP_RANK = :rank, CONDITION = :condition, LABEL_MODIFIED_AT = current_timestamp() WHERE NAME = :oldname;
+          outcome := null;
+        END IF;
+    else
+        -- dynamic grouped label
+        let oldcnt number := (SELECT COUNT(*) AS cnt FROM internal.labels WHERE group_name = :grp and is_dynamic);
+        IF (oldcnt <> 1) THEN
+          outcome := 'Label not found. Please refresh your page to see latest list of labels.';
+        ELSE
+          UPDATE internal.labels SET  CONDITION = :condition, LABEL_MODIFIED_AT = current_timestamp() WHERE group_name = :grp and is_dynamic;
+          outcome := null;
+        END IF;
+    end if;
+
+    COMMIT;
+    CALL INTERNAL.UPDATE_LABEL_VIEW();
+    return outcome;
+EXCEPTION
+  WHEN OTHER THEN
+      ROLLBACK;
+      RAISE;
+END;
+
+CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text)
+    RETURNS text
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+BEGIN
+    let outcome text := null;
+    outcome := (CALL ADMIN.UPDATE_LABEL(:oldname, :name, :grp, :rank, :condition, false));
+    return outcome;
+END;
 
 
 CREATE OR REPLACE VIEW CATALOG.LABELS AS SELECT * exclude (enabled) FROM INTERNAL.LABELS;
