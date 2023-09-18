@@ -95,12 +95,13 @@ class Label(BaseOpsCenterModel):
 
     @root_validator(allow_reuse=True)
     @classmethod
-    def validate_label_against_db(cls, values) -> "Label":
+    def validate_label_condition(cls, values) -> "Label":
         """
         Validates this Label against the database to check things like name uniqueness and condition validity.
         """
         session = session_ctx.get('session')
         assert session, 'Session must be present'
+
         # Cannot check the condition if it's empty
         condition = values.get('condition')
         if condition:
@@ -112,6 +113,18 @@ class Label(BaseOpsCenterModel):
                 session.sql(stmt).collect()
             except snowflake.snowpark.exceptions.SnowparkSQLException as e:
                 assert False, f'Invalid label condition: "{e.message}"'
+
+        return values
+
+
+    @root_validator(allow_reuse=True)
+    @classmethod
+    def validate_label_name_against_query_history(cls, values) -> "Label":
+        """
+        Validates that the label's name does not duplicate a column in account_usage.query_history.
+        """
+        session = session_ctx.get('session')
+        assert session, 'Session must be present'
 
         # Check that the label [group] name does not conflict with any columns already in this view
         name = values.get('group_name') if values.get('group_name') else values.get('name')
@@ -125,6 +138,45 @@ class Label(BaseOpsCenterModel):
                 pass
             else:
                 assert False, 'Invalid label name.'
+
+        return values
+
+    @root_validator(allow_reuse=True)
+    @classmethod
+    def validate_label_name_uniqueness(cls, values) -> "Label":
+        """
+        Validates that the labels' name (and group name) do not duplicate existing name(s) in OpsCenter.
+        :param values:
+        :return:
+        """
+        name = values.get('name', '')
+        group_name = values.get('group_name', '')
+        session = session_ctx.get('session')
+        assert session, 'Session must be present'
+
+        if group_name:
+            # check if the grouped label's name conflict with :
+            #  1) another label in the same group,
+            #  2) or an ungrouped label's name.
+            #  3) another dynamic group name
+            count = session.sql("""
+                SELECT COUNT(*) FROM INTERNAL.LABELS
+                WHERE
+                    (GROUP_NAME = ? AND NAME IS NULL)
+                     OR (NAME = ? AND GROUP_NAME IS NULL)
+                     OR (GROUP_NAME = ? AND NAME IS NULL)""",
+                params=(group_name, name, group_name, group_name,),
+            ).collect()[0][0]
+            assert count == 0, 'Duplicate grouped label name found. Please use a distinct name.'
+        else:
+            # check if the ungrouped label's name conflict with another ungrouped label, or a group with same name.
+            count = session.sql("""
+                SELECT COUNT(*) FROM INTERNAL.LABELS
+                WHERE (NAME = ? AND GROUP_NAME IS NULL) OR (GROUP_NAME = ? AND GROUP_NAME IS NOT NULL)""",
+                                params=(name, name,),
+                                ).collect()[0][0]
+            assert count == 0, 'Duplicate label name found. Please use a distinct name.'
+
         return values
 
     @validator("condition")
