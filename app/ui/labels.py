@@ -182,7 +182,7 @@ class Label:
                 "create",
             )
             try:
-                with snowpark_session(self.snowflake) as sf:
+                with snowpark_session(self.snowflake) as txn:
                     obj = ModelLabel.parse_obj(
                         {
                             "name": name,
@@ -194,7 +194,7 @@ class Label:
                             "label_modified_at": datetime.datetime.now(),
                         },
                     )
-                    outcome = obj.write(sf)
+                    outcome = obj.write(txn)
 
                     if outcome is None:
                         self.session.set_toast("New label created.")
@@ -249,10 +249,10 @@ class Label:
                 "labels",
                 "delete",
             )
-            with snowpark_session(self.snowflake) as sf:
+            with snowpark_session(self.snowflake) as txn:
                 # Make the old label, bypassing validation
                 label_to_del = ModelLabel.construct(name=name)
-                label_to_del.delete(sf)
+                label_to_del.delete(txn)
 
             self.session.set_toast("Label deleted.")
             self.session.do_list()

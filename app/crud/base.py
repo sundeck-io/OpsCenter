@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import ClassVar, get_args, get_origin, Union, Dict
 import datetime
 
+
 ## TODO
 # test validation stuff
 # migrate - maybe we don't move out of sql?
@@ -11,7 +12,10 @@ import datetime
 # hook up to stored procs for (CRUD and validation)
 # more tests
 class BaseOpsCenterModel(BaseModel):
+    # The name of the table in snowflake (without schema) that the model maps to.
     table_name: ClassVar[str] = None
+    # The procedure to be called after any CRUD operation on this model.
+    on_success_proc: ClassVar[str] = None
 
     @classmethod
     def cols_dict(cls) -> Dict[str, str]:
@@ -39,8 +43,16 @@ class BaseOpsCenterModel(BaseModel):
             ).collect()
 
     def write(self, session):
-        df = session.create_dataframe([Row(**dict(self))])
-        df.write.mode("append").save_as_table(f"INTERNAL.{self.table_name}")
+        try:
+            session.sql('BEGIN').collect()
+            df = session.create_dataframe([Row(**dict(self))])
+            df.write.mode("append").save_as_table(f"INTERNAL.{self.table_name}")
+            session.sql('COMMIT').collect()
+        except Exception as e:
+            session.sql('ROLLBACK').collect()
+            raise
+
+        session.call(self.on_success_proc)
 
     def get_id(self) -> str:
         return None
@@ -49,10 +61,18 @@ class BaseOpsCenterModel(BaseModel):
         return None
 
     def delete(self, session):
-        session.sql(
-            f"DELETE FROM INTERNAL.{self.table_name} WHERE {self.get_id_col()} = ?",
-            params=(self.get_id(),),
-        ).collect()
+        try:
+            session.sql('BEGIN').collect()
+            session.sql(
+                f"DELETE FROM INTERNAL.{self.table_name} WHERE {self.get_id_col()} = ?",
+                params=(self.get_id(),),
+            ).collect()
+            session.sql('COMMIT').collect()
+        except Exception as e:
+            session.sql('ROLLBACK').collect()
+            raise e
+
+        session.call(self.on_success_proc)
 
     def update(self, session, obj) -> "BaseOpsCenterModel":
         cols = dict(obj)
@@ -67,10 +87,18 @@ class BaseOpsCenterModel(BaseModel):
             params.append(v)
         set_clause = ", ".join(set_elements)
         params.append(self.get_id())
-        session.sql(
-            f"UPDATE INTERNAL.{self.table_name} SET {set_clause} WHERE {self.get_id_col()} = ?",
-            params=params,
-        ).collect()
+        try:
+            session.sql('BEGIN').collect()
+            session.sql(
+                f"UPDATE INTERNAL.{self.table_name} SET {set_clause} WHERE {self.get_id_col()} = ?",
+                params=params,
+            ).collect()
+            session.sql('COMMIT').collect()
+        except Exception as e:
+            session.sql('ROLLBACK').collect()
+            raise e
+
+        session.call(self.on_success_proc)
         return obj
 
 

@@ -10,7 +10,6 @@ from .base import BaseOpsCenterModel
 from .session import session_ctx
 
 ## TODO
-# test validation stuff
 # migrate - maybe we don't move out of sql?
 # copy predefined labels to labels - maybe we dont move out of sql?
 # same again for probes
@@ -19,6 +18,7 @@ from .session import session_ctx
 # ensure create, prepopulate, validate get called at the right times in bootstrap
 class Label(BaseOpsCenterModel):
     table_name: ClassVar[str] = "LABELS"
+    on_success_proc: ClassVar[str] = "INTERNAL.UPDATE_LABEL_VIEW"
     name: Optional[str] = None
     group_name: Optional[str] = None
     group_rank: Optional[int] = None
