@@ -2,14 +2,14 @@ from contextlib import contextmanager
 from pydantic import ValidationError
 from .labels import Label
 from .errors import summarize_error
-from .session import session_ctx, operation
+from .session import session_context
 
 _TYPES = {"LABEL": Label}
 
 @contextmanager
 def transaction(session):
     txn_open = False
-    token = session_ctx.set(session)
+    token = session_context.set(session)
     try:
         # TODO The call to internal.update_label_view fails with
         #  the error "Modifying a transaction that has started at a different scope is not allowed."
@@ -24,11 +24,11 @@ def transaction(session):
             session.sql("ROLLBACK").collect()
         raise
     finally:
-        session_ctx.reset(token)
+        session_context.reset(token)
 
 
 def create_entity(session, entity_type, entity):
-    with transaction(session) as txn, operation("create") as op:
+    with transaction(session) as txn:
         try:
             t = _TYPES.get(entity_type)
             if not t:
@@ -43,7 +43,7 @@ def create_entity(session, entity_type, entity):
 
 
 def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
-    with transaction(session) as txn, operation('update') as op:
+    with transaction(session) as txn:
         try:
             t = _TYPES.get(entity_type)
             if not t:
@@ -68,7 +68,7 @@ def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
 
 
 def delete_entity(session, entity_type: str, name: str):
-    with transaction(session) as txn, operation('delete') as op:
+    with transaction(session) as txn:
         try:
             t = _TYPES.get(entity_type)
             if not t:

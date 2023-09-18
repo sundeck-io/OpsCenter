@@ -1,5 +1,4 @@
 import snowflake.snowpark.exceptions
-from snowflake.snowpark import Row
 from pydantic import (
     validator,
     root_validator,
@@ -7,7 +6,8 @@ from pydantic import (
 from typing import Optional, ClassVar
 import datetime
 from .base import BaseOpsCenterModel
-from .session import session_ctx, operation_context
+from .session import session_context
+
 
 ## TODO
 # migrate - maybe we don't move out of sql?
@@ -33,23 +33,58 @@ class Label(BaseOpsCenterModel):
 
     def delete(self, session):
         super().delete(session)
-        session.call("internal.update_label_view")
 
     def write(self, session):
-        super().write(session)
-        session.call("internal.update_label_view")
+        if self.group_name:
+            # check if the grouped label's name conflict with :
+            #  1) another label in the same group,
+            #  2) or an ungrouped label's name.
+            #  3) another dynamic group name
+            count = session.sql(
+                """
+                SELECT COUNT(*) FROM INTERNAL.LABELS
+                WHERE
+                    (GROUP_NAME = ? AND NAME = ? AND NAME IS NOT NULL)
+                     OR (NAME = ? AND GROUP_NAME IS NULL)
+                     OR (GROUP_NAME = ? AND NAME IS NULL)""",
+                params=(
+                    self.group_name,
+                    self.name,
+                    self.group_name,
+                    self.group_name,
+                ),
+            ).collect()[0][0]
+            assert (
+                    count == 0
+            ), "Duplicate grouped label name found. Please use a distinct name."
+        else:
+            # check if the ungrouped label's name conflict with another ungrouped label, or a group with same name.
+            count = session.sql(
+                """
+                SELECT COUNT(*) FROM INTERNAL.LABELS
+                WHERE (NAME = ? AND GROUP_NAME IS NULL) OR (GROUP_NAME = ? AND GROUP_NAME IS NOT NULL)""",
+                params=(
+                    self.name,
+                    self.name,
+                ),
+            ).collect()[0][0]
+            assert count == 0, "Duplicate label name found. Please use a distinct name."
 
-    def update(self, session, obj) -> "Label":
+        super().write(session)
+
+    def update(self, session, obj: "Label") -> "Label":
         if self.is_dynamic:
             old_label_exists = session.sql(
-                f"SELECT COUNT(*) FROM INTERNAL.{self.table_name} WHERE group_name = '{self.group_name}' and is_dynamic"
+                f"SELECT COUNT(*) FROM INTERNAL.{self.table_name} WHERE group_name = ? and is_dynamic",
+                params=(self.group_name,)
             ).collect()[0][0]
         else:
             old_label_exists = session.sql(
-                f"SELECT COUNT(*) = 1 FROM INTERNAL.{self.table_name} WHERE name = '{self.name}'"
+                f"SELECT COUNT(*) = 1 FROM INTERNAL.{self.table_name} WHERE name = ?", params=(self.name,)
             ).collect()[0][0]
             new_name_is_unique = session.sql(
-                f"SELECT COUNT(*) = 0 FROM INTERNAL.{self.table_name} WHERE name = '{obj.name}' and name <> '{self.name}'"
+                f"SELECT COUNT(*) = 0 FROM INTERNAL.{self.table_name} WHERE name = ? and name <> ?",
+                params=(obj.name, self.name,)
             ).collect()[0][0]
             assert (
                 new_name_is_unique
@@ -58,9 +93,8 @@ class Label(BaseOpsCenterModel):
         assert (
             old_label_exists
         ), "Label not found. Please refresh your page to see latest list of labels."
-        # handle updating timestamp(s)
+
         super().update(session, obj)
-        session.call("internal.update_label_view")
         return obj
 
     @root_validator(allow_reuse=True)
@@ -84,7 +118,7 @@ class Label(BaseOpsCenterModel):
             assert isinstance(group_name, str), "Label name should be a string"
             assert values.get("group_rank"), "Grouped labels must have a rank"
         else:
-            assert name is not None, "Name must not be null"
+            assert name, "Name must be non-null and non-empty."
             assert isinstance(name, str), "Label name must be a string"
             assert not values.get(
                 "group_rank"
@@ -98,7 +132,7 @@ class Label(BaseOpsCenterModel):
         """
         Validates this Label against the database to check things like name uniqueness and condition validity.
         """
-        session = session_ctx.get()
+        session = session_context.get()
         assert session, "Session must be present"
 
         # Cannot check the condition if it's empty
@@ -121,7 +155,7 @@ class Label(BaseOpsCenterModel):
         """
         Validates that the label's name does not duplicate a column in account_usage.query_history.
         """
-        session = session_ctx.get()
+        session = session_context.get()
         assert session, "Session must be present"
 
         # Check that the label [group] name does not conflict with any columns already in this view
@@ -146,103 +180,6 @@ class Label(BaseOpsCenterModel):
         return values
 
 
-    @root_validator(allow_reuse=True)
-    @classmethod
-    def validate_label_name_uniqueness_on_create(cls, values) -> "Label":
-        """
-        Validates that the labels' name (and group name) do not duplicate existing name(s) in OpsCenter.
-        :param values:
-        :return:
-        """
-        op = operation_context.get()
-        assert op is not None, 'Bug: the operation must be provided'
-
-        # Skip this validation if not in the context of a create
-        if op.lower() != 'create':
-            return values
-
-        name = values.get("name", "")
-        group_name = values.get("group_name", "")
-        session = session_ctx.get()
-        assert session, "Session must be present"
-
-        if group_name:
-            # check if the grouped label's name conflict with :
-            #  1) another label in the same group,
-            #  2) or an ungrouped label's name.
-            #  3) another dynamic group name
-            count = session.sql(
-                """
-                SELECT COUNT(*) FROM INTERNAL.LABELS
-                WHERE
-                    (GROUP_NAME = ? AND NAME IS NULL)
-                     OR (NAME = ? AND GROUP_NAME IS NULL)
-                     OR (GROUP_NAME = ? AND NAME IS NULL)""",
-                params=(
-                    group_name,
-                    name,
-                    group_name,
-                    group_name,
-                ),
-            ).collect()[0][0]
-            assert (
-                count == 0
-            ), "Duplicate grouped label name found. Please use a distinct name."
-        else:
-            # check if the ungrouped label's name conflict with another ungrouped label, or a group with same name.
-            count = session.sql(
-                """
-                SELECT COUNT(*) FROM INTERNAL.LABELS
-                WHERE (NAME = ? AND GROUP_NAME IS NULL) OR (GROUP_NAME = ? AND GROUP_NAME IS NOT NULL)""",
-                params=(
-                    name,
-                    name,
-                ),
-            ).collect()[0][0]
-            assert count == 0, "Duplicate label name found. Please use a distinct name."
-
-        return values
-
-
-    @root_validator(allow_reuse=True)
-    @classmethod
-    def validate_label_name_uniqueness_on_update(cls, values) -> "Label":
-        """
-        Validates a label's name for uniqueness in the context of an update
-        """
-        op = operation_context.get()
-        assert op is not None, 'Bug: the operation must be provided'
-
-        # Skip this validation if not in the context of a create
-        if op.lower() != 'update':
-            return values
-
-        old_name = values.get('old_name', None)
-        assert old_name is not None, 'Bug: the old Label name must be provided'
-
-        name = values.get("name", "")
-        group_name = values.get("group_name", "")
-        session = session_ctx.get()
-        assert session, "Session must be present"
-
-        if values.get("is_dynamic", False):
-            # Dynamic label validation
-            oldcnt = session.sql("SELECT COUNT(*) FROM INTERNAL.LABELS WHERE group_name = ? and is_dynamic",
-                                 params=(group_name,)).collect()[0][0]
-            assert oldcnt == 1, 'Label not found. Please refresh your page to see latest list of labels.'
-        else:
-            # Grouped or ungrouped label validation
-            # Make sure that the old name exists once and the new name doesn't exist (assuming it is different from the old name)
-            oldcnt = session.sql('SELECT COUNT(*) FROM INTERNAL.LABELS WHERE NAME = ?',
-                                 params=(old_name,)).collect()[0][0]
-            newcnt = session.sql('SELECT COUNT(*) FROM INTERNAL.LABELS WHERE NAME = ? AND NAME <> ?',
-                                 params=(name, old_name,)).collect()[0][0]
-            assert oldcnt == 1, 'Label not found. Please refresh your page to see latest list of labels.'
-            assert newcnt == 0, 'A label with this name already exists. Please choose a distinct name.'
-
-        return values
-
-
     @validator("condition", allow_reuse=True)
     def condition_is_valid(cls, condition: str) -> str:
         assert condition is not None, "Condition must not be null"
@@ -255,7 +192,7 @@ class Label(BaseOpsCenterModel):
 
     @validator("label_created_at", "label_modified_at", allow_reuse=True)
     def verify_time_fields(cls, time: datetime.datetime) -> datetime.datetime:
-        assert isinstance(time, datetime.datetime)
+        assert isinstance(time, datetime.datetime), 'Time fields must be a datetime.datetime object'
         return time
 
     @validator("enabled", "is_dynamic", allow_reuse=True)

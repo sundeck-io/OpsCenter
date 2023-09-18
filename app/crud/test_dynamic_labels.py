@@ -1,16 +1,7 @@
 import pytest
 
 from .labels import Label
-from .session import session_ctx
-from .test_label import Session, _get_label, _expected_name_check_query
-
-
-@pytest.fixture(autouse=True)
-def session():
-    session = Session()
-    token = session_ctx.set(session)
-    yield session
-    session_ctx.reset(token)
+from .test_label import _get_label, _expected_name_check_query
 
 
 def _get_dynamic_label() -> dict:

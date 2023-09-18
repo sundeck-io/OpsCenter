@@ -6,7 +6,7 @@ from connection import Connection
 import session as general_session
 from session import Mode
 from crud.labels import Label as ModelLabel
-from crud.session import snowpark_session, operation
+from crud.session import snowpark_session
 from crud.errors import error_to_markdown
 
 
@@ -181,7 +181,7 @@ class Label:
                 "create",
             )
             try:
-                with snowpark_session(self.snowflake) as txn, operation('create') as op:
+                with snowpark_session(self.snowflake) as txn:
                     obj = ModelLabel.parse_obj(
                         {
                             "name": name,
@@ -201,6 +201,8 @@ class Label:
                         return
             except pydantic.ValidationError as ve:
                 outcome = error_to_markdown("Error validating Label.", ve)
+            except AssertionError as ae:
+                outcome = str(ae)
 
         self.status.error(outcome)
 
@@ -214,7 +216,7 @@ class Label:
             )
 
             try:
-                with snowpark_session(self.snowflake) as sf, operation("update") as op:
+                with snowpark_session(self.snowflake) as sf:
                     # Make the old label, bypassing validation
                     old_label = ModelLabel.construct(name=oldname)
                     # Validate the new label before saving
@@ -226,6 +228,7 @@ class Label:
                             "group_rank": rank,
                             "group_name": group,
                             "is_dynamic": is_dynamic,
+                            # TODO should be the original created_at time
                             "label_created_at": datetime.datetime.now(),
                             "label_modified_at": datetime.datetime.now(),
                         },
@@ -234,6 +237,8 @@ class Label:
                     outcome = None
             except pydantic.ValidationError as ve:
                 outcome = error_to_markdown("Error updating Label.", ve)
+            except AssertionError as ae:
+                outcome = str(ae)
 
             if outcome is None:
                 self.session.set_toast("Label updated.")
@@ -248,7 +253,7 @@ class Label:
                 "labels",
                 "delete",
             )
-            with snowpark_session(self.snowflake) as txn, operation('delete') as op:
+            with snowpark_session(self.snowflake) as txn:
                 # Make the old label, bypassing validation
                 label_to_del = ModelLabel.construct(name=name)
                 label_to_del.delete(txn)
