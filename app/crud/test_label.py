@@ -125,6 +125,10 @@ def test_create_table(session):
     ), "Expected create view statement, got {}".format(session._sql[1])
 
 
+def test_silly():
+    assert True, 'how could true not be true!'
+
+
 def _expected_condition_check_query(condition: str) -> str:
     return f"select case when {condition} then 1 else 0 end from reporting.enriched_query_history where false".lower()
 
