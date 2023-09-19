@@ -15,6 +15,26 @@ jobs:
           python-version: '3.8'
           cache: 'pip'
       - uses: pre-commit/action@v3.0.0
+  crud-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          submodules: recursive
+      - uses: actions/setup-python@v3
+        with:
+          python-version: '3.8'
+          cache: 'pip'
+      - name: Install all dependencies
+        run: |
+          pip install poetry
+          poetry config virtualenvs.in-project true
+          poetry install
+      - name: Show dependencies
+        run: poetry show
+      - name: Run CRUD unit tests
+        run: poetry run python -m pytest app/crud -rP
   devdeploy-with-materialization:
     runs-on: ubuntu-latest
     steps:
@@ -47,7 +67,7 @@ jobs:
         run: |
           mkdir $HOME/.snowsql
           envsubst < deploy/opscenter.config > $HOME/.snowsql/config
-      - name: Run deploy/devdeploy.py (without triggering materializations)
+      - name: Run deploy/devdeploy.py
         run: poetry run python deploy/devdeploy.py --profile opscenter
   unit-tests:
     runs-on: ubuntu-latest
@@ -114,6 +134,9 @@ jobs:
         run: |
           mkdir $HOME/.snowsql
           envsubst < deploy/opscenter.config > $HOME/.snowsql/config
+        # Hack to re-create the app/ui/crud.zip for the local streamlit
+      - name: Run deploy/devdeploy.py without materialization
+        run: poetry run python deploy/devdeploy.py --profile opscenter -s
       - name: run streamlit
         run: "poetry run streamlit run app/ui/Home.py --browser.gatherUsageStats false &"
       - name: Set cypress env variables

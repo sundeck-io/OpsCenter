@@ -7,3 +7,4 @@ dependencies:
 - altair
 - snowflake-native-apps-permission
 - streamlit=1.22.0
+- pydantic

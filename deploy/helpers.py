@@ -2,6 +2,7 @@ import os
 from configparser import RawConfigParser
 import snowflake.connector
 import subprocess
+import zipfile
 
 DATABASE = "DEV"
 SCHEMA = "CODE"
@@ -168,3 +169,28 @@ def generate_get_sundeck_deployment_function(deployment: str) -> str:
         return '{deployment}';
     $$ ;
 """
+
+
+def zip_python_module(module_name: str, source: str, dest: str):
+    """
+    Creates a ZIP file at the given `dest` from the Python module at `source`.
+    :param module_name: The name of the Python module to prepend to entries in the ZIP File (e.g. 'crud')
+    :param source: The path where the Python source files are located
+    :param dest: The path where the ZIP file should be written
+    """
+    print(f"Creating the archive {dest} from {source}.")
+    # Create a ZipFile object in write mode
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zipf:
+        # Walk through the directory and add each file to the zip file
+        for root, dirs, files in os.walk(source):
+            files = [
+                f
+                for f in files
+                if not f.startswith(".")
+                and not f.startswith("test_")
+                and not f == "conftest.py"
+            ]
+            for file in files:
+                file_path = os.path.join(root, file)
+                arc_name = f"{module_name}/{os.path.relpath(file_path, source)}"
+                zipf.write(file_path, arcname=arc_name)

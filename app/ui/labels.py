@@ -1,7 +1,13 @@
+import datetime
+
+import pydantic
 import streamlit as st
 from connection import Connection
 import session as general_session
 from session import Mode
+from crud.labels import Label as ModelLabel
+from crud.session import snowpark_session
+from crud.errors import error_to_markdown
 
 
 class Label:
@@ -176,14 +182,29 @@ class Label:
                 "labels",
                 "create",
             )
-            outcome = self.snowflake.call(
-                "ADMIN.CREATE_LABEL", name, group, rank, condition, is_dynamic
-            )
+            try:
+                with snowpark_session(self.snowflake) as txn:
+                    obj = ModelLabel.parse_obj(
+                        {
+                            "name": name,
+                            "condition": condition,
+                            "group_rank": rank,
+                            "group_name": group,
+                            "is_dynamic": is_dynamic,
+                            "label_created_at": datetime.datetime.now(),
+                            "label_modified_at": datetime.datetime.now(),
+                        },
+                    )
+                    outcome = obj.write(txn)
 
-            if outcome is None:
-                self.session.set_toast("New label created.")
-                self.session.do_list()
-                return
+                    if outcome is None:
+                        self.session.set_toast("New label created.")
+                        self.session.do_list()
+                        return
+            except pydantic.ValidationError as ve:
+                outcome = error_to_markdown("Error validating Label.", ve)
+            except AssertionError as ae:
+                outcome = str(ae)
 
         self.status.error(outcome)
 
@@ -196,9 +217,30 @@ class Label:
                 "update",
             )
 
-            outcome = self.snowflake.call(
-                "ADMIN.UPDATE_LABEL", oldname, name, group, rank, condition, is_dynamic
-            )
+            try:
+                with snowpark_session(self.snowflake) as sf:
+                    # Make the old label, bypassing validation
+                    old_label = ModelLabel.construct(name=oldname)
+                    # Validate the new label before saving
+                    new_label = ModelLabel.parse_obj(
+                        {
+                            "old_name": oldname,
+                            "name": name,
+                            "condition": condition,
+                            "group_rank": rank,
+                            "group_name": group,
+                            "is_dynamic": is_dynamic,
+                            # TODO should be the original created_at time
+                            "label_created_at": datetime.datetime.now(),
+                            "label_modified_at": datetime.datetime.now(),
+                        },
+                    )
+                    _ = old_label.update(sf, new_label)
+                    outcome = None
+            except pydantic.ValidationError as ve:
+                outcome = error_to_markdown("Error updating Label.", ve)
+            except AssertionError as ae:
+                outcome = str(ae)
 
             if outcome is None:
                 self.session.set_toast("Label updated.")
@@ -213,10 +255,11 @@ class Label:
                 "labels",
                 "delete",
             )
-            if is_dynamic is False:
-                self.snowflake.call("ADMIN.DELETE_LABEL", name)
-            else:
-                self.snowflake.call("ADMIN.DELETE_DYNAMIC_LABEL", name)
+            with snowpark_session(self.snowflake) as txn:
+                # Make the old label, bypassing validation
+                label_to_del = ModelLabel.construct(name=name)
+                label_to_del.delete(txn)
+
             self.session.set_toast("Label deleted.")
             self.session.do_list()
 

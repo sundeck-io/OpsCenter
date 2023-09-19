@@ -15,8 +15,15 @@ python = "~3.8"
 plotly = "~5.11"
 streamlit = "~1.22"
 snowflake-snowpark-python = { version = "^1.5.1", extras = ["pandas"] }
+pydantic = "==1.10.8"
 
 [tool.poetry.group.dev.dependencies]
 watchdog = "^3.0.0"
 pytest = "^7.4.1"
 snowflake-connector-python = "^3.1.1"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+  # Suppress the deprecation warnings that are coming from Snowflake and Snowpark dependencies
+	"ignore::DeprecationWarning",
+]

@@ -52,9 +52,24 @@ def _clear_stage(cur):
 
 def _sync_local_to_stage(cur):
     print("Syncing local files to stage.")
+
+    # Build the CRUD module as a zip file
+    helpers.zip_python_module("crud", "app/crud", "app/python/crud.zip")
+
+    # Copy the CRUD module to the stage.
+    cmds = [
+        # Write the CRUD zip to /python for the SQL procs
+        f"PUT 'file://app/python/crud.zip' '{FULL_STAGE_SLASH}/python' overwrite=true auto_compress=false",
+        # Write it into /ui, too, because streamlit can't load from outside the app's directory
+        f"PUT 'file://app/python/crud.zip' '{FULL_STAGE_SLASH}/ui' overwrite=true auto_compress=false",
+    ]
+    for cmd in cmds:
+        print(f"Running {cmd}")
+        cur.execute(cmd)
+
     # Walk the target directory and upload all files to the stage
     target_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "app"))
-    for root, dirs, files in os.walk(target_dir):
+    for root, dirs, files in os.walk(target_dir, followlinks=False):
 
         # Skip over files/directories that start with a period
         files = [f for f in files if not f.startswith(".")]
