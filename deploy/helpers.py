@@ -171,12 +171,12 @@ def generate_get_sundeck_deployment_function(deployment: str) -> str:
 """
 
 
-def zip_python_module(source: str, dest: str):
+def zip_python_module(module_name: str, source: str, dest: str):
     """
     Creates a ZIP file at the given `dest` from the Python module at `source`.
-    :param source:
-    :param dest:
-    :return:
+    :param module_name: The name of the Python module to prepend to entries in the ZIP File (e.g. 'crud')
+    :param source: The path where the Python source files are located
+    :param dest: The path where the ZIP file should be written
     """
     print(f"Creating the archive {dest} from {source}.")
     # Create a ZipFile object in write mode
@@ -192,5 +192,5 @@ def zip_python_module(source: str, dest: str):
             ]
             for file in files:
                 file_path = os.path.join(root, file)
-                arc_name = f"crud/{os.path.relpath(file_path, source)}"
+                arc_name = f"{module_name}/{os.path.relpath(file_path, source)}"
                 zipf.write(file_path, arcname=arc_name)

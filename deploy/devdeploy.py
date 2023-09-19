@@ -1,8 +1,8 @@
 import getopt
 import time
-import os
 import helpers
 import re
+import shutil
 import sys
 
 
@@ -24,30 +24,22 @@ def _setup_database(cur, database: str, schema: str, stage: str):
 
 def _copy_dependencies(cur, schema: str, stage: str):
     print(f"Copying dependencies to @{schema}.{stage}.")
+    # Writes all dependencies into `@stage/python`
     for file in ["sqlglot.zip", "crud.zip"]:
         local_file_path = f"app/python/{file}"
         stage_file_path = f"@{schema}.{stage}/python"
         put_cmd = f"PUT 'file://{local_file_path}' '{stage_file_path}' overwrite=true auto_compress=false"
         print(put_cmd)
         cur.execute(put_cmd)
-    target_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "app", "crud")
-    )
-    for root, dirs, files in os.walk(target_dir):
 
-        # Skip over files/directories that start with a period
-        files = [
-            f for f in files if not f.startswith(".") and not f.startswith("test_")
-        ]
-        dirs[:] = [d for d in dirs if not d.startswith(".")]
-        dirs[:] = [d for d in dirs if not d == "__pycache__"]
+    # Also copy the CRUD zip into @stage/ui because the streamlit app cannot reach "out" of the `ui` directory
+    # to dynamically load this from elsewhere in the stage.
+    put_cmd = f"PUT 'file://app/python/crud.zip' '@{schema}.{stage}/ui' overwrite=true auto_compress=false"
+    print(put_cmd)
+    cur.execute(put_cmd)
 
-        for file in files:
-            local_file_path = os.path.join(root, file)
-            stage_file_path = f"@{schema}.{stage}/crud"
-            put_cmd = f"PUT 'file://{local_file_path}' '{stage_file_path}' overwrite=true auto_compress=false"
-            print(put_cmd)
-            cur.execute(put_cmd)
+    # Copy the CRUD zip from app/python to app/ui to keep devdeploy and deploy streamlit consistent with each other.
+    shutil.copy2('app/python/crud.zip', 'app/ui/crud.zip')
 
 
 def _copy_opscenter_files(cur, schema: str, stage: str, deployment: str):
@@ -110,7 +102,7 @@ def devdeploy(
     _setup_database(cur, conn.database, conn.schema, stage)
 
     # Build a new zip file with the CRUD python project.
-    helpers.zip_python_module("app/crud", "app/python/crud.zip")
+    helpers.zip_python_module("crud", "app/crud", "app/python/crud.zip")
 
     # Copy dependencies into the stage
     _copy_dependencies(cur, conn.schema, stage)
