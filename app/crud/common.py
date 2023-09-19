@@ -34,9 +34,8 @@ def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
                 return "Name must not be null"
             if new_obj.get("is_dynamic", False):
                 obj = t.construct(group_name=old_name, is_dynamic=True)
-            elif new_obj.get("group_name", None):
-                obj = t.construct(group_name=old_name)
             else:
+                # label name is unique across all grouped/ungrouped labels
                 obj = t.construct(name=old_name)
             new_label = Label.parse_obj(new_obj)
             obj.update(txn, new_label)

@@ -35,9 +35,7 @@ def delete_list_of_labels(conn, sql):
         cur = cnx.cursor()
         for name in cur.execute(sql).fetchall():
             delete_label_statement = f"call ADMIN.DELETE_LABEL('{name[0]}');"
-            assert "done" in str(
-                run_proc(conn, delete_label_statement)
-            ), "Stored procedure output does not match expected result!"
+            assert run_proc(conn, delete_label_statement) is None, "Stored procedure output does not match expected result!"
 
 
 def delete_list_of_probes(conn, sql):

@@ -57,7 +57,7 @@ class Label(BaseOpsCenterModel):
                 ).collect()[0][0]
                 assert (
                     count == 0
-                ), "Duplicate grouped label name found. Please use a distinct name."
+                ), f"A label with this name already exists."
             else:
                 # check if the ungrouped label's name conflict with another ungrouped label, or a group with same name.
                 count = txn.sql(
@@ -71,7 +71,7 @@ class Label(BaseOpsCenterModel):
                 ).collect()[0][0]
                 assert (
                     count == 0
-                ), "Duplicate label name found. Please use a distinct name."
+                ), f"A label with the name '{self.name}' already exists."
 
             super().write(txn)
 
@@ -99,11 +99,11 @@ class Label(BaseOpsCenterModel):
                 ).collect()[0][0]
                 assert (
                     new_name_is_unique
-                ), "Label with this name already exists. Please choose a distinct name."
+                ), f"A label with the name '{obj.name}' already exists."
 
             assert (
                 old_label_exists
-            ), "Label not found. Please refresh your page to see latest list of labels."
+            ), f"A label with the name '{self.name}' does not exist."
 
             super().update(session, obj)
 
@@ -119,24 +119,24 @@ class Label(BaseOpsCenterModel):
         """
         name = values.get("name")
         if values.get("is_dynamic"):
-            assert not name, "Dynamic labels cannot have a name"
+            assert not name, "Dynamic labels cannot have a name."
             assert not values.get(
                 "group_rank"
-            ), "Dynamic labels cannot have a group rank"
+            ), "Dynamic labels cannot have a rank."
             assert (
                 values.get("group_name", None) is not None
-            ), "Dynamic labels must have a group name"
+            ), "Dynamic labels must have a group name."
         elif values.get("group_name"):
             group_name = values.get("group_name")
-            assert group_name is not None, "Name must not be null"
-            assert isinstance(group_name, str), "Label name should be a string"
-            assert values.get("group_rank"), "Grouped labels must have a rank"
+            assert group_name is not None, "Name must not be null."
+            assert isinstance(group_name, str), "Name should be a string."
+            assert values.get("group_rank"), "Grouped labels must have a rank."
         else:
-            assert name, "Name must be non-null and non-empty."
-            assert isinstance(name, str), "Label name must be a string"
+            assert name is not None, "Name must not be null."
+            assert isinstance(name, str), "Name must be a string."
             assert not values.get(
                 "group_rank"
-            ), "Rank may only be provided for grouped labels"
+            ), "Group rank may only be provided for grouped labels."
 
         return values
 
@@ -159,7 +159,7 @@ class Label(BaseOpsCenterModel):
             try:
                 session.sql(stmt).collect()
             except snowflake.snowpark.exceptions.SnowparkSQLException as e:
-                assert False, f'Invalid label condition: "{e.message}"'
+                assert False, f'Invalid label condition: "{e.message}".'
 
         return values
 
@@ -173,18 +173,16 @@ class Label(BaseOpsCenterModel):
         assert session, "Session must be present"
 
         # Check that the label [group] name does not conflict with any columns already in this view
+        attr = "group name" if values.get("group_name") else "name"
         name = (
             values.get("group_name") if values.get("group_name") else values.get("name")
         )
-        name_check = (
-            f'select "{name}" from reporting.enriched_query_history where false'
-        )
 
         try:
-            session.sql(name_check).collect()
+            session.sql(f'select "{name}" from reporting.enriched_query_history where false').collect()
             assert (
                 False
-            ), "Name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY. Please use a different name."
+            ), f"Label {attr} cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY."
         except snowflake.snowpark.exceptions.SnowparkSQLException as e:
             if "invalid identifier" in e.message:
                 pass
@@ -195,8 +193,8 @@ class Label(BaseOpsCenterModel):
 
     @validator("condition", allow_reuse=True)
     def condition_is_valid(cls, condition: str) -> str:
-        assert condition is not None, "Condition must not be null"
-        assert isinstance(condition, str), "Label condition should be a string"
+        assert condition is not None, "Condition must not be null."
+        assert isinstance(condition, str), "Condition should be a string."
         if not condition:
             raise ValueError(
                 "Labels must have a Condition (a SQL expression which evaluates to a boolean)."
