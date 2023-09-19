@@ -67,8 +67,12 @@ class BaseOpsCenterModel(BaseModel):
         set_elements = []
         params = []
         for k, v in cols.items():
-            set_elements.append(f"{k} = ?")
-            params.append(v)
+            # Specific versions of snowpark-python appear to have an issue handling None bind parameters
+            if v is None:
+                set_elements.append(f"{k} = NULL")
+            else:
+                set_elements.append(f"{k} = ?")
+                params.append(v)
         set_clause = ", ".join(set_elements)
         params.append(self.get_id())
         session.sql(
