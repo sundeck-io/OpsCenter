@@ -67,7 +67,7 @@ jobs:
         run: |
           mkdir $HOME/.snowsql
           envsubst < deploy/opscenter.config > $HOME/.snowsql/config
-      - name: Run deploy/devdeploy.py (without triggering materializations)
+      - name: Run deploy/devdeploy.py
         run: poetry run python deploy/devdeploy.py --profile opscenter
   unit-tests:
     runs-on: ubuntu-latest
@@ -134,6 +134,9 @@ jobs:
         run: |
           mkdir $HOME/.snowsql
           envsubst < deploy/opscenter.config > $HOME/.snowsql/config
+        # Hack to re-create the app/ui/crud.zip for the local streamlit
+      - name: Run deploy/devdeploy.py without materialization
+        run: poetry run python deploy/devdeploy.py --profile opscenter -s
       - name: run streamlit
         run: "poetry run streamlit run app/ui/Home.py --browser.gatherUsageStats false &"
       - name: Set cypress env variables
