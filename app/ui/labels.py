@@ -269,6 +269,10 @@ class Label:
         st.title("New Label")
         group = None
         rank = None
+        name = None
+
+        if not is_dynamic:
+            name = st.text_input(key="NAME", label="Label Name")
 
         if grouped is not None:
             group = st.text_input(
@@ -277,15 +281,14 @@ class Label:
                 value=grouped,
                 disabled=(grouped != ""),
             )
-        name = None
-        if not is_dynamic:
-            name = st.text_input(key="NAME", label="Label Name")
 
-        condition = st.text_area(key="CONDITION", label="Condition")
         if grouped is not None and not is_dynamic:
             rank = st.number_input(
-                key="GROUP_RANK", label="Rank", format="%i", value=10
+                key="GROUP_RANK", label="Group Rank", format="%i", value=10
             )
+
+        condition = st.text_area(key="CONDITION", label="Condition")
+
         st.button(
             "Create",
             on_click=lambda: self.on_create_click(
@@ -297,11 +300,13 @@ class Label:
     def edit_label(self, update: dict):
         st.title("Edit Label")
         is_dynamic = update["is_dynamic"]
+
         name = None
         if is_dynamic is False:
             name = st.text_input(key="NAME", label="Label Name", value=update["name"])
         group = update["group_name"]
         rank = update["group_rank"]
+
         if group is not None:
             group = st.text_input(
                 key="GROUP_NAME",
@@ -309,6 +314,7 @@ class Label:
                 value=update["group_name"],
                 disabled=True,
             )
+
         if group is not None and is_dynamic is False:
             rank = st.number_input(
                 key="GROUP_RANK",
@@ -316,6 +322,7 @@ class Label:
                 format="%i",
                 value=update["group_rank"],
             )
+
         condition = st.text_area(
             key="CONDITION", label="Condition", value=update["condition"]
         )

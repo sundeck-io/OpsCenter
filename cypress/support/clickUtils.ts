@@ -29,22 +29,28 @@ export const clickCheck = (options: {
   clickElem: string;
   contains?: string;
   forceClick?: boolean;
+  noLog?: boolean;
 }) => {
-  cy.get(options.clickElem)
+  const { clickElem, contains, forceClick, noLog } = options;
+  cy.get(clickElem, { log: !noLog })
     .should("exist")
-    .as(`clickElem-${options.clickElem}`);
-  if (options.contains) {
-    cy.get(`@clickElem-${options.clickElem}`)
-      .contains(options.contains)
-      .as(`clickElem-${options.contains}`);
-    cy.get(`@clickElem-${options.contains}`).click(
-      options.forceClick ? { force: true } : undefined
-    );
+    .as(`clickElem-${clickElem}`);
+  if (contains) {
+    cy.get(`@clickElem-${clickElem}`, { log: !noLog })
+      .contains(contains, { log: !noLog })
+      .as(`clickElem-${contains}`);
+    cy.get(`@clickElem-${contains}`, { log: !noLog }).click({
+      log: !noLog,
+      force: forceClick,
+    });
   } else {
-    cy.get(`@clickElem-${options.clickElem}`)
+    cy.get(`@clickElem-${clickElem}`, { log: !noLog })
       .scrollIntoView()
       .should("be.visible")
-      .click(options.forceClick ? { force: true } : undefined);
+      .click({
+        log: !noLog,
+        force: forceClick,
+      });
   }
   checkNoErrorOnThePage();
 };

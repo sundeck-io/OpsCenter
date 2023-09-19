@@ -13,6 +13,7 @@ module.exports = defineConfig({
     experimentalRunAllSpecs: true,
     viewportHeight: 1080,
     viewportWidth: 1920,
+    supportFile: "cypress/support/customCypressUtils.ts",
   },
   retries: {
     // Configure retry attempts for `cypress run`
