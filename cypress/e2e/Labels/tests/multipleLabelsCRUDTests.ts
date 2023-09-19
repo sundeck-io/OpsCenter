@@ -4,6 +4,8 @@ import { generateUniqueName } from "../../../support/formUtils";
 import { checkOnCorrectPage } from "../../../support/pageAssertionUtils";
 import { setup } from "../../../support/setupUtils";
 import {
+  BUTTON_TEXT,
+  HEADER_TEXT,
   QUERY_TEXT_1,
   QUERY_TEXT_2,
   UNGROUPED,
@@ -28,9 +30,12 @@ export const MultipleLabelsCRUDTests = () =>
 
       afterEach(() => {
         checkOnCorrectPage({
-          headerText: "Query Labels",
-          notRightPageText: ["New Label", "Edit Label"],
-          notRightPageButton: "Cancel",
+          headerText: HEADER_TEXT.LABELS,
+          notRightPageText: [
+            HEADER_TEXT.CREATE_LABEL,
+            HEADER_TEXT.UPDATE_LABEL,
+          ],
+          notRightPageButton: BUTTON_TEXT.CANCEL,
         });
         checkNoErrorOnThePage();
 
@@ -48,18 +53,21 @@ export const MultipleLabelsCRUDTests = () =>
       });
 
       it("Create multiple ungrouped labels", () => {
-        buttonClick("New");
+        buttonClick(BUTTON_TEXT.NEW);
         fillInNewLabelForm({
           labelName: label_1,
           groupName: UNGROUPED,
           condition: QUERY_TEXT_1,
         });
-        buttonClick("Create");
+        buttonClick(BUTTON_TEXT.CREATE);
         checkNoErrorOnThePage();
         checkOnCorrectPage({
-          headerText: "Query Labels",
-          notRightPageText: ["New Label", "Edit Label"],
-          notRightPageButton: "Cancel",
+          headerText: HEADER_TEXT.LABELS,
+          notRightPageText: [
+            HEADER_TEXT.CREATE_LABEL,
+            HEADER_TEXT.UPDATE_LABEL,
+          ],
+          notRightPageButton: BUTTON_TEXT.CANCEL,
         });
         checkLabelExists({
           labelName: label_1,
@@ -67,17 +75,20 @@ export const MultipleLabelsCRUDTests = () =>
           doesExist: true,
         });
 
-        buttonClick("New");
+        buttonClick(BUTTON_TEXT.NEW);
         fillInNewLabelForm({
           labelName: label_2,
           condition: QUERY_TEXT_2,
         });
-        buttonClick("Create");
+        buttonClick(BUTTON_TEXT.CREATE);
         checkNoErrorOnThePage();
         checkOnCorrectPage({
-          headerText: "Query Labels",
-          notRightPageText: ["New Label", "Edit Label"],
-          notRightPageButton: "Cancel",
+          headerText: HEADER_TEXT.LABELS,
+          notRightPageText: [
+            HEADER_TEXT.CREATE_LABEL,
+            HEADER_TEXT.UPDATE_LABEL,
+          ],
+          notRightPageButton: BUTTON_TEXT.CANCEL,
         });
         checkLabelExists({
           labelName: label_2,
@@ -91,13 +102,18 @@ export const MultipleLabelsCRUDTests = () =>
       const groupName = generateUniqueName("crudMultipleGroupedLabels");
       const label_1 = generateUniqueName("firstLabel");
       const label_2 = generateUniqueName("secondLabel");
+      const rank1 = "100";
+      const rank2 = "200";
       const labelList = [label_1, label_2];
 
       afterEach(() => {
         checkOnCorrectPage({
-          headerText: "Query Labels",
-          notRightPageText: ["New Label", "Edit Label"],
-          notRightPageButton: "Cancel",
+          headerText: HEADER_TEXT.LABELS,
+          notRightPageText: [
+            HEADER_TEXT.CREATE_LABEL,
+            HEADER_TEXT.UPDATE_LABEL,
+          ],
+          notRightPageButton: BUTTON_TEXT.CANCEL,
         });
         checkNoErrorOnThePage();
 
@@ -115,19 +131,22 @@ export const MultipleLabelsCRUDTests = () =>
       });
 
       it("Create multiple grouped labels with different ranks", () => {
-        buttonClick("New (in group)");
+        buttonClick(BUTTON_TEXT.NEW_GROUPED);
         fillInNewLabelForm({
           labelName: label_1,
           groupName: groupName,
           condition: QUERY_TEXT_1,
-          rank: "100",
+          rank: rank1,
         });
-        buttonClick("Create");
+        buttonClick(BUTTON_TEXT.CREATE);
         checkNoErrorOnThePage();
         checkOnCorrectPage({
-          headerText: "Query Labels",
-          notRightPageText: ["New Label", "Edit Label"],
-          notRightPageButton: "Cancel",
+          headerText: HEADER_TEXT.LABELS,
+          notRightPageText: [
+            HEADER_TEXT.CREATE_LABEL,
+            HEADER_TEXT.UPDATE_LABEL,
+          ],
+          notRightPageButton: BUTTON_TEXT.CANCEL,
         });
         checkLabelExists({
           labelName: label_1,
@@ -139,13 +158,16 @@ export const MultipleLabelsCRUDTests = () =>
           groupName,
           labelName: label_2,
           condition: QUERY_TEXT_2,
-          rank: "200",
+          rank: rank2,
         });
         checkNoErrorOnThePage();
         checkOnCorrectPage({
-          headerText: "Query Labels",
-          notRightPageText: ["New Label", "Edit Label"],
-          notRightPageButton: "Cancel",
+          headerText: HEADER_TEXT.LABELS,
+          notRightPageText: [
+            HEADER_TEXT.CREATE_LABEL,
+            HEADER_TEXT.UPDATE_LABEL,
+          ],
+          notRightPageButton: BUTTON_TEXT.CANCEL,
         });
         checkLabelExists({
           labelName: label_2,

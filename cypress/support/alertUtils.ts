@@ -15,6 +15,18 @@ export function checkNoErrorOnThePage() {
         throw new Error(`Error on screen: ${$errorElem.text()}`);
       }
     });
+
+  // cy.get('[role="alert"]')
+  //   // stops the test from throwing it's own error so we can retrieve the internal text
+  //   .should(() => {
+  //     return;
+  //   })
+  //   // allows us to grab the internal text of the error
+  //   .then(($errorElem) => {
+  //     if ($errorElem.length > 0) {
+  //       throw new Error(`Error on screen: ${$errorElem.text()}`);
+  //     }
+  //   });
 }
 
 // Check for Success notification with particular text presence

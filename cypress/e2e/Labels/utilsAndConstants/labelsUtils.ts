@@ -5,7 +5,12 @@ import {
   buttonClick,
 } from "../../../support/clickUtils";
 import { checkOnCorrectPage } from "../../../support/pageAssertionUtils";
-import { UNGROUPED } from "./labelTestConstants";
+import {
+  BUTTON_TEXT,
+  HEADER_TEXT,
+  LABEL_TYPES,
+  UNGROUPED,
+} from "./labelTestConstants";
 
 export const fillInNewUngroupedLabelForm = (options: {
   labelName: string;
@@ -26,13 +31,13 @@ export const fillInNewUngroupedLabelForm = (options: {
 
 export const fillInNewLabelForm = (options: {
   groupName?: string;
-  labelName: string;
+  labelName?: string;
   condition: string;
   rank?: string;
 }) => {
   const { groupName, labelName, condition, rank } = options;
 
-  cy.get('input[aria-label="Label Name"]').clear().type(labelName);
+  labelName && cy.get('input[aria-label="Label Name"]').clear().type(labelName);
 
   groupName &&
     groupName !== UNGROUPED &&
@@ -55,14 +60,7 @@ export const addNewLabelToGroup = (options: {
 }) => {
   const { groupName, labelName, condition, rank } = options;
   // Find tab with the group name and click on it
-  cy.get('button[data-baseweb="tab"')
-    .should("exist")
-    .find('div[data-testid="stMarkdownContainer"]')
-    .should("exist")
-    .contains(groupName)
-    .as("labelGroupTab");
-
-  clickCheck({ clickElem: "@labelGroupTab" });
+  clickLabelGroupTab(groupName);
 
   buttonCheckExists("Add label to group");
   buttonClick("Add label to group");
@@ -71,10 +69,13 @@ export const addNewLabelToGroup = (options: {
 
   rank && cy.get('input[aria-label="Group Rank"]').clear().type(rank);
 
-  cy.get('textarea[aria-label="Condition"]').clear().type(condition);
+  cy.get('textarea[aria-label="Condition"]')
+    .clear()
+    .type(condition)
+    .type("{command+enter}");
 
-  buttonCheckExists("Create");
-  buttonClick("Create");
+  buttonCheckExists(BUTTON_TEXT.CREATE);
+  buttonClick(BUTTON_TEXT.CREATE);
 
   // Find tab with the group name and click on it
 
@@ -95,9 +96,10 @@ export const addNewLabelToGroup = (options: {
 
 export const labelDelete = (options: {
   groupName: string; // For ungrouped label, specify "Ungrouped" in the groupName argument
-  labelName: string;
+  labelName?: string; // dynamic grouped labels don't have names
+  condition?: string;
 }) => {
-  const { groupName, labelName } = options;
+  const { groupName, labelName, condition } = options;
 
   // Find tab with the group name and click on it
   cy.get('div[data-baseweb="tab-list"]')
@@ -107,41 +109,64 @@ export const labelDelete = (options: {
 
   clickCheck({ clickElem: "@tabs", contains: groupName, forceClick: true });
 
-  cy.get('div[data-testid="stHorizontalBlock"]')
-    .should("exist")
-    .contains(labelName)
-    .should("exist")
-    .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
-    .should("exist")
-    .within(() => {
-      // Only searches within specific stHorizontalBlock that has probeName
-      cy.get('div[data-testid="column"]')
-        .contains("🗑️")
-        .should("exist")
-        .click({ force: true });
-    });
+  if (labelName) {
+    cy.get('div[data-testid="stHorizontalBlock"]')
+      .should("exist")
+      .contains(labelName)
+      .should("exist")
+      .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
+      .should("exist")
+      .within(() => {
+        // Only searches within specific stHorizontalBlock that has probeName
+        cy.get('div[data-testid="column"]')
+          .contains("🗑️")
+          .should("exist")
+          .click({ force: true });
+      });
+  } else if (condition) {
+    cy.get('div[data-testid="stHorizontalBlock"]')
+      .should("exist")
+      .contains(condition)
+      .should("exist")
+      .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
+      .should("exist")
+      .within(() => {
+        // Only searches within specific stHorizontalBlock that has probeName
+        cy.get('div[data-testid="column"]')
+          .contains("🗑️")
+          .should("exist")
+          .click({ force: true });
+      });
+  }
 };
 
 export function checkLabelExists(options: {
-  labelName: string;
+  labelName?: string;
+  condition?: string; // if no label name, as is the case for dynamic grouped labels
   groupName: string;
   doesExist: boolean;
   indexNumber?: number;
 }) {
-  const { labelName, groupName, doesExist, indexNumber } = options;
+  const { labelName, groupName, doesExist, condition } = options;
 
   clickCheck({
     clickElem: '[data-testid="stMarkdownContainer"]',
     contains: groupName,
   });
 
-  cy.dataId({ value: "stMarkdownContainer" })
-    .contains(labelName)
-    .should(doesExist ? "exist" : "not.exist");
+  if (labelName) {
+    cy.dataId({ value: "stMarkdownContainer" })
+      .contains(labelName)
+      .should(doesExist ? "exist" : "not.exist");
+  } else if (condition) {
+    cy.dataId({ value: "stVerticalBlock" })
+      .contains(condition)
+      .should(doesExist ? "exist" : "not.exist");
+  }
 }
 
 export function checkUpdatedLabelExists(options: {
-  labelName: string;
+  labelName?: string;
   groupName?: string;
   condition?: string;
   rank?: string;
@@ -154,27 +179,55 @@ export function checkUpdatedLabelExists(options: {
     contains: groupName ? groupName : UNGROUPED,
   });
 
-  cy.dataId({ value: "stHorizontalBlock" })
-    .should("exist")
-    .contains(labelName)
-    .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
-    .should("exist")
-    .within(() => {
-      condition &&
-        cy
-          .dataId({ value: "stVerticalBlock" })
-          .contains(condition)
-          .should("exist");
+  if (labelName) {
+    cy.dataId({ value: "stHorizontalBlock" })
+      .should("exist")
+      .contains(labelName)
+      .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
+      .should("exist")
+      .within(() => {
+        condition &&
+          cy
+            .dataId({ value: "stVerticalBlock" })
+            .contains(condition)
+            .should("exist");
 
-      rank &&
-        cy.dataId({ value: "stVerticalBlock" }).contains(rank).should("exist");
-    });
+        rank &&
+          cy
+            .dataId({ value: "stVerticalBlock" })
+            .contains(rank)
+            .should("exist");
+      });
+  } else if (condition) {
+    cy.dataId({ value: "stHorizontalBlock" })
+      .should("exist")
+      .contains(condition);
+  }
 }
 
-export const labelUpdateClick = (labelName: string) => {
+export const clickLabelGroupTab = (groupName: string) => {
+  cy.get('button[data-baseweb="tab"')
+    .should("exist")
+    .find('div[data-testid="stMarkdownContainer"]')
+    .should("exist")
+    .contains(groupName)
+    .as("labelGroupTab");
+
+  clickCheck({ clickElem: "@labelGroupTab" });
+};
+
+export const labelUpdateClick = (options: {
+  labelName?: string;
+  condition?: string;
+  groupName?: string;
+}) => {
+  const { labelName, condition, groupName } = options;
+  if (groupName) {
+    clickLabelGroupTab(groupName);
+  }
   cy.get('div[data-testid="stHorizontalBlock"]')
     .should("exist")
-    .contains(labelName)
+    .contains(labelName ? labelName : condition)
     .should("exist")
     .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
     .should("exist")
@@ -217,13 +270,14 @@ export const updateLabelForm = (options: {
 };
 
 export const checkLabelFormValues = (options: {
-  labelName: string;
+  labelName?: string;
   condition: string;
   groupName?: string;
   rank?: string;
 }) => {
   const { labelName, condition, groupName, rank } = options;
-  cy.get('input[aria-label="Label Name"]').should("have.value", labelName);
+  labelName &&
+    cy.get('input[aria-label="Label Name"]').should("have.value", labelName);
   cy.get('textarea[aria-label="Condition"]').should("have.value", condition);
   groupName &&
     cy.get('input[aria-label="Group Name"]').should("have.value", groupName);
@@ -232,52 +286,63 @@ export const checkLabelFormValues = (options: {
 
 export const createNewLabel = (options: {
   // Do not use for adding to a label group. Use addNewLabelToGroup() instead.
-  labelName: string;
+  labelName?: string;
   condition: string;
   groupName?: string;
+  type: keyof typeof LABEL_TYPES;
   rank?: string;
 }) => {
-  const { labelName, condition, groupName, rank } = options;
-  buttonClick(groupName ? "New (in group)" : "New");
+  const { labelName, condition, groupName, rank, type } = options;
+  buttonClick(
+    type === LABEL_TYPES.UNGROUPED
+      ? BUTTON_TEXT.NEW
+      : type === LABEL_TYPES.GROUPED
+      ? BUTTON_TEXT.NEW_GROUPED
+      : BUTTON_TEXT.NEW_DYNAMIC_GROUPED
+  );
   fillInNewLabelForm({
     labelName: labelName,
     groupName: groupName,
     condition: condition,
     rank: rank,
   });
-  buttonClick("Create");
+  buttonClick(BUTTON_TEXT.CREATE);
   checkNoErrorOnThePage();
   checkOnCorrectPage({
-    headerText: "Query Labels",
-    notRightPageText: ["New Label", "Edit Label"],
-    notRightPageButton: "Cancel",
+    headerText: HEADER_TEXT.LABELS,
+    notRightPageText: [HEADER_TEXT.CREATE_LABEL, HEADER_TEXT.UPDATE_LABEL],
+    notRightPageButton: BUTTON_TEXT.CANCEL,
   });
   checkLabelExists({
     labelName: labelName,
+    condition: condition,
     groupName: groupName ? groupName : UNGROUPED,
     doesExist: true,
   });
 };
 
 export const deleteLabel = (options: {
-  labelName: string;
+  labelName?: string; // dynamic grouped labels don't have label names
   groupName?: string;
+  condition?: string;
 }) => {
-  const { labelName, groupName } = options;
+  const { labelName, groupName, condition } = options;
   checkOnCorrectPage({
-    headerText: "Query Labels",
-    notRightPageText: ["New Label", "Edit Label"],
-    notRightPageButton: "Cancel",
+    headerText: HEADER_TEXT.LABELS,
+    notRightPageText: [HEADER_TEXT.CREATE_LABEL, HEADER_TEXT.UPDATE_LABEL],
+    notRightPageButton: BUTTON_TEXT.CANCEL,
   });
   checkNoErrorOnThePage();
 
   labelDelete({
     groupName: groupName ? groupName : UNGROUPED,
     labelName: labelName,
+    condition: condition,
   });
 
   checkLabelExists({
     labelName: labelName,
+    condition: condition,
     groupName: groupName ? groupName : UNGROUPED,
     doesExist: false,
   });

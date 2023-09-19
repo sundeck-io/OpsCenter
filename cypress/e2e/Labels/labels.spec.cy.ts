@@ -5,7 +5,14 @@ import { checkOnCorrectPage } from "../../support/pageAssertionUtils";
 import { setup } from "../../support/setupUtils";
 import { LabelsButtonTests } from "./tests/labelsButtonsTests";
 import { MultipleLabelsCRUDTests } from "./tests/multipleLabelsCRUDTests";
-import { SingleLabelCRUDTests } from "./tests/singleLabelCRUDTests";
+import { SingleDynamicGroupedLabelCRUDTests } from "./tests/singleDynamicGroupedLabelCRUDTests";
+import { SingleGroupedLabelCRUDTests } from "./tests/singleGroupedLabelCRUDTests";
+import { SingleUngroupedLabelCRUDTests } from "./tests/singleUngroupedLabelCRUDTests";
+import {
+  BUTTON_TEXT,
+  HEADER_TEXT,
+  MENU_TEXT,
+} from "./utilsAndConstants/labelTestConstants";
 
 describe("Labels section", () => {
   before(() => {
@@ -17,17 +24,19 @@ describe("Labels section", () => {
 
     checkForLoading();
 
-    clickCheck({ clickElem: "span", contains: "Labels" });
+    clickCheck({ clickElem: "span", contains: MENU_TEXT.LABELS });
 
     checkOnCorrectPage({
-      headerText: "Query Labels",
-      notRightPageText: ["New Label", "Edit Label"],
-      notRightPageButton: "Cancel",
+      headerText: HEADER_TEXT.LABELS,
+      notRightPageText: [HEADER_TEXT.CREATE_LABEL, HEADER_TEXT.UPDATE_LABEL],
+      notRightPageButton: BUTTON_TEXT.CANCEL,
     });
     checkNoErrorOnThePage();
   });
 
   LabelsButtonTests();
-  SingleLabelCRUDTests();
-  // MultipleLabelsCRUDTests();
+  SingleUngroupedLabelCRUDTests();
+  SingleGroupedLabelCRUDTests();
+  SingleDynamicGroupedLabelCRUDTests();
+  MultipleLabelsCRUDTests();
 });

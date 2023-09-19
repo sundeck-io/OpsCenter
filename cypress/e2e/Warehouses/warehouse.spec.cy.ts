@@ -1,6 +1,7 @@
 import { clickCheck } from "../../support/clickUtils";
 import { checkForLoading } from "../../support/loadingUtils";
 import { setup } from "../../support/setupUtils";
+import { MENU_TEXT } from "../Labels/utilsAndConstants/labelTestConstants";
 
 describe("Warehouse section", () => {
   before(() => {
@@ -14,7 +15,7 @@ describe("Warehouse section", () => {
 
     const stringList = ["365", "90", "30", "7"];
 
-    clickCheck({ clickElem: "span", contains: "Warehouses" });
+    clickCheck({ clickElem: "span", contains: MENU_TEXT.WAREHOUSES });
 
     // Check that text "Warehouse Heatmap" is visible
     cy.get("span").contains("Warehouse Heatmap").should("be.visible");
