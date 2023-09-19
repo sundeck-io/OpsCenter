@@ -64,7 +64,7 @@ def _sync_local_to_stage(cur):
         f"PUT 'file://app/python/crud.zip' '{FULL_STAGE_SLASH}/ui' overwrite=true auto_compress=false",
     ]
     for cmd in cmds:
-        print(f'Running {cmd}')
+        print(f"Running {cmd}")
         cur.execute(cmd)
 
     # Walk the target directory and upload all files to the stage

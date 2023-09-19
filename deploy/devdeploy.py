@@ -39,7 +39,7 @@ def _copy_dependencies(cur, schema: str, stage: str):
     cur.execute(put_cmd)
 
     # Copy the CRUD zip from app/python to app/ui to keep devdeploy and deploy streamlit consistent with each other.
-    shutil.copy2('app/python/crud.zip', 'app/ui/crud.zip')
+    shutil.copy2("app/python/crud.zip", "app/ui/crud.zip")
 
 
 def _copy_opscenter_files(cur, schema: str, stage: str, deployment: str):
