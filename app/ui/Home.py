@@ -3,6 +3,7 @@ import config
 import filters
 import sthelp
 import setup
+import reports_heatmap
 
 sthelp.chrome()
 setup.setup_permissions()
@@ -51,5 +52,5 @@ utilized as anything less represents cost for active warehouses that are not run
     st.container()
 
     filter_values = filters.display(filter_container)
-    # with st.spinner("Loading Warehouse Heatmap"):
-    #    reports_heatmap.heatmap(filter_values, credit_cost)
+    with st.spinner("Loading Warehouse Heatmap"):
+        reports_heatmap.heatmap(filter_values, credit_cost)
