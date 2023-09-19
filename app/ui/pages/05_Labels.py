@@ -8,6 +8,7 @@ sthelp.chrome("Labels")
 if not add_custom_modules():
     st.warning("Unable to load OpsCenter modules.")
 
-import labels
+
+import labels  # noqa E402
 
 labels.display()
