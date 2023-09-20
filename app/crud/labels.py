@@ -3,8 +3,10 @@ from pydantic import (
     validator,
     root_validator,
 )
-from typing import Optional, ClassVar
+from typing import Optional, ClassVar, Union
 import datetime
+import math
+import pandas as pd
 from .base import BaseOpsCenterModel, transaction
 from .session import get_current_session
 
@@ -16,7 +18,8 @@ class Label(BaseOpsCenterModel):
     on_success_proc: ClassVar[str] = "INTERNAL.UPDATE_LABEL_VIEW"
     name: Optional[str] = None
     group_name: Optional[str] = None
-    group_rank: Optional[int] = None
+    # Accept float to ease passing values directly from Pandas
+    group_rank: Optional[Union[int,float]] = None
     label_created_at: datetime.datetime  # todo should this have a default?
     condition: str
     enabled: bool = True
@@ -191,6 +194,14 @@ class Label(BaseOpsCenterModel):
 
         return values
 
+    @validator("group_rank", allow_reuse=True)
+    def group_rank_is_numeric(cls, rank: Optional[int]) -> Optional[int]:
+        # Pandas will give NaN instead of None which is a float
+        if rank is None or math.isnan(rank):
+            return None
+        assert isinstance(rank, int), "Group rank must be an integer."
+        return rank
+
     @validator("condition", allow_reuse=True)
     def condition_is_valid(cls, condition: str) -> str:
         assert condition is not None, "Condition must not be null."
@@ -203,6 +214,9 @@ class Label(BaseOpsCenterModel):
 
     @validator("label_created_at", "label_modified_at", allow_reuse=True)
     def verify_time_fields(cls, time: datetime.datetime) -> datetime.datetime:
+        # auto-unwrap a pandas Timestamp
+        if isinstance(time, pd.Timestamp):
+            return time.to_pydatetime()
         assert isinstance(
             time, datetime.datetime
         ), "Time fields must be a datetime.datetime object"
@@ -212,3 +226,19 @@ class Label(BaseOpsCenterModel):
     def enabled_or_dynamic(cls, b: bool) -> bool:
         assert isinstance(b, bool)
         return b
+
+
+class PredefinedLabel(Label):
+    @classmethod
+    def validate_all(cls, session: snowflake.snowpark.Session):
+        """
+        Parses all labels in the predefined_labels to verify that all of the labels are valid.
+        :param session:
+        :return:
+        """
+        df = session.sql("select * from internal.predefined_labels").to_pandas()
+        # Lowercase all of the column names
+        df.rename(columns={col_name: col_name.lower() for col_name in df.axes[1]}, inplace=True)
+        for row in df.to_dict(orient='records'):
+            # Validate each predefined label
+            _ = Label.parse_obj(row)

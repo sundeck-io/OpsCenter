@@ -288,27 +288,18 @@ EXCEPTION
 END;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_PREDEFINED_LABELS()
-    RETURNS text
-    LANGUAGE SQL
+    RETURNS TEXT
+    LANGUAGE PYTHON
+    runtime_version = "3.10"
+    handler = 'validate_predefined_labels'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
 $$
-DECLARE
-    outcome string;
-    labels cursor for select "NAME", "CONDITION" from internal.predefined_labels;
-BEGIN
-    for record in labels do
-        let name string := record."NAME";
-        let condition string := record."CONDITION";
-        outcome := (CALL INTERNAL.VALIDATE_LABEL_CONDITION(:condition, false));
-        IF (outcome is not null) then
-            let res text := 'Predefined label  \'' || name || '\' with condition  \'' || condition || '\' is not valid';
-            RETURN res;
-        END IF;
-    end for;
-    RETURN NULL;
-END;
+from crud import validate_predefined_labels
 $$;
+
 
 CREATE OR REPLACE PROCEDURE INTERNAL.MERGE_PREDEFINED_LABELS()
 RETURNS BOOLEAN
