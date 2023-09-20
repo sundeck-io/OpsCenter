@@ -245,12 +245,13 @@ def test_update_label_errors(conn, timestamp_string):
     sql = f"call ADMIN.UPDATE_LABEL('{label}_2', '{label}', NULL, NULL, 'rows_produced > 100');"
     assert 'already exists' in run_proc(conn, sql)
 
-    # Update label with the column name from reporting.enriched_query_history
-
+    # Ungrouped label names cannot conflict with columns in ENRICHED_QUERY_HISTORY
     sql = f"call ADMIN.UPDATE_LABEL('{label}_2', 'QUERY_TEXT', NULL, NULL, 'rows_produced > 100');"
     assert 'cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY' in run_proc(conn, sql)
 
-    sql = f"call ADMIN.UPDATE_LABEL('{label}_2', 'QUERY_TEXT', 'group_1', 100, 'rows_produced > 100');"
+    # Grouped label names cannot conflict with columns in ENRICHED_QUERY_HISTORY, but the name on
+    # a grouped label _may_ (because the grouped label's name is the column value in the view)
+    sql = f"call ADMIN.UPDATE_LABEL('{label}_2', '{label}_2', 'QUERY_TEXT', 100, 'rows_produced > 100');"
     assert 'cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY' in run_proc(conn, sql)
 
 
