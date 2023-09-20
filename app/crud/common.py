@@ -52,7 +52,7 @@ def delete_entity(session, entity_type: str, name: str):
             t = _TYPES.get(entity_type)
             if not t:
                 raise ValueError(f"Unknown entity type: {entity_type}")
-            if not name:
+            if name is None:
                 return "Name must not be null"
             obj = t.construct(name=name)
             obj.delete(txn)
