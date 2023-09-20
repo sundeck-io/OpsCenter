@@ -53,7 +53,7 @@ def test_smoke_ungrouped_label(conn, timestamp_string):
 def test_smoke_grouped_label(conn, timestamp_string):
     name = generate_unique_name("label", timestamp_string)
     group_name = generate_unique_name("group", timestamp_string)
-    sql = f"call ADMIN.CREATE_LABEL('{name}', '{group_name}', 50, 'query_type = \\\'SELECT\\\'');"
+    sql = f"call ADMIN.CREATE_LABEL('{name}', '{group_name}', 50, 'query_type = \\'SELECT\\'');"
 
     # create_label returns NULL in case of successful label creation
     assert run_proc(conn, sql) is None, "ADMIN.CREATE_LABEL did not return NULL value!"
@@ -72,7 +72,7 @@ def test_smoke_grouped_label(conn, timestamp_string):
 
     # update condition expression
     new_name = f"{name}_new"
-    sql = f"call ADMIN.UPDATE_LABEL('{name}', '{new_name}', '{group_name}', 100, 'query_type ilike \\\'select\\\'');"
+    sql = f"call ADMIN.UPDATE_LABEL('{name}', '{new_name}', '{group_name}', 100, 'query_type ilike \\'select\\'');"
     assert run_proc(conn, sql) is None, "ADMIN.UPDATE_LABEL did not return NULL value!"
 
     # make sure the condition is updated
@@ -153,7 +153,7 @@ test_cases = [
     ),
     (
         "call ADMIN.CREATE_LABEL('QUERY_TEXT', NULL, NULL, 'compilation_time > 5000');",
-        "Label name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY"
+        "Label name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY",
     ),
     (
         "call ADMIN.UPDATE_LABEL('{label}', NULL, NULL, NULL, 'compile_time > 5000');",
@@ -211,9 +211,7 @@ def test_error_message(conn, timestamp_string, statement, expected_error):
 
     label = generate_unique_name("label", timestamp_string)
     sql = statement.format(label=label)
-    assert expected_error in str(
-        run_proc(conn, sql)
-    )
+    assert expected_error in str(run_proc(conn, sql))
 
 
 # Test that validates that we get correct error on attempt to create label with existing name
@@ -224,7 +222,7 @@ def test_create_label_with_existing_name(conn, timestamp_string):
     assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
 
     sql = f"call ADMIN.CREATE_LABEL('{label}', NULL, NULL, 'compilation_time > 5000');"
-    assert 'already exists' in run_proc(conn, sql)
+    assert "already exists" in run_proc(conn, sql)
 
 
 # Test that validates that we get correct errors on attempt to update existing label
@@ -243,16 +241,22 @@ def test_update_label_errors(conn, timestamp_string):
 
     # Update second label with the name of the first label
     sql = f"call ADMIN.UPDATE_LABEL('{label}_2', '{label}', NULL, NULL, 'rows_produced > 100');"
-    assert 'already exists' in run_proc(conn, sql)
+    assert "already exists" in run_proc(conn, sql)
 
     # Ungrouped label names cannot conflict with columns in ENRICHED_QUERY_HISTORY
     sql = f"call ADMIN.UPDATE_LABEL('{label}_2', 'QUERY_TEXT', NULL, NULL, 'rows_produced > 100');"
-    assert 'cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY' in run_proc(conn, sql)
+    assert (
+        "cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY"
+        in run_proc(conn, sql)
+    )
 
     # Grouped label names cannot conflict with columns in ENRICHED_QUERY_HISTORY, but the name on
     # a grouped label _may_ (because the grouped label's name is the column value in the view)
     sql = f"call ADMIN.UPDATE_LABEL('{label}_2', '{label}_2', 'QUERY_TEXT', 100, 'rows_produced > 100');"
-    assert 'cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY' in run_proc(conn, sql)
+    assert (
+        "cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY"
+        in run_proc(conn, sql)
+    )
 
 
 # Test that validates that we can create/drop label with empty string for name
@@ -274,9 +278,11 @@ def test_create_grouped_label_with_existing_name(conn, timestamp_string):
     )
     assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
 
-    sql = f"call ADMIN.CREATE_LABEL('{label}', 'group-1', 20, 'compilation_time > 5000');"
+    sql = (
+        f"call ADMIN.CREATE_LABEL('{label}', 'group-1', 20, 'compilation_time > 5000');"
+    )
 
-    assert 'A label with this name already exists' in run_proc(conn, sql)
+    assert "A label with this name already exists" in run_proc(conn, sql)
 
 
 # Test that validates the behavior when we create ungrouped label, then grouped label
@@ -299,7 +305,7 @@ def test_create_grouped_then_ungrouped_label(conn, timestamp_string):
 
     # create an ungrouped label using label_name = {label}.
     sql = f"call ADMIN.CREATE_LABEL('{label}', NULL, NULL, 'compilation_time > 5000');"
-    assert 'already exists' in run_proc(conn, sql)
+    assert "already exists" in run_proc(conn, sql)
 
 
 def test_validate_predefined_label(conn, timestamp_string):

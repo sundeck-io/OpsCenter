@@ -19,7 +19,7 @@ class Label(BaseOpsCenterModel):
     name: Optional[str] = None
     group_name: Optional[str] = None
     # Accept float to ease passing values directly from Pandas
-    group_rank: Optional[Union[int,float]] = None
+    group_rank: Optional[Union[int, float]] = None
     label_created_at: datetime.datetime  # todo should this have a default?
     condition: str
     enabled: bool = True
@@ -58,9 +58,7 @@ class Label(BaseOpsCenterModel):
                         self.group_name,
                     ),
                 ).collect()[0][0]
-                assert (
-                    count == 0
-                ), f"A label with this name already exists."
+                assert count == 0, "A label with this name already exists."
             else:
                 # check if the ungrouped label's name conflict with another ungrouped label, or a group with same name.
                 count = txn.sql(
@@ -123,9 +121,7 @@ class Label(BaseOpsCenterModel):
         name = values.get("name")
         if values.get("is_dynamic"):
             assert not name, "Dynamic labels cannot have a name."
-            assert not values.get(
-                "group_rank"
-            ), "Dynamic labels cannot have a rank."
+            assert not values.get("group_rank"), "Dynamic labels cannot have a rank."
             assert (
                 values.get("group_name", None) is not None
             ), "Dynamic labels must have a group name."
@@ -182,7 +178,9 @@ class Label(BaseOpsCenterModel):
         )
 
         try:
-            session.sql(f'select "{name}" from reporting.enriched_query_history where false').collect()
+            session.sql(
+                f'select "{name}" from reporting.enriched_query_history where false'
+            ).collect()
             assert (
                 False
             ), f"Label {attr} cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY."
@@ -238,7 +236,10 @@ class PredefinedLabel(Label):
         """
         df = session.sql("select * from internal.predefined_labels").to_pandas()
         # Lowercase all of the column names
-        df.rename(columns={col_name: col_name.lower() for col_name in df.axes[1]}, inplace=True)
-        for row in df.to_dict(orient='records'):
+        df.rename(
+            columns={col_name: col_name.lower() for col_name in df.axes[1]},
+            inplace=True,
+        )
+        for row in df.to_dict(orient="records"):
             # Validate each predefined label
             _ = Label.parse_obj(row)

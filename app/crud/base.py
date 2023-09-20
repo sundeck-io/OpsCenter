@@ -100,7 +100,12 @@ def handle_type(t):
 def handle_union(args, origin):
     if origin == Union and len(args) == 2 and type(None) == args[1]:
         return f"{handle_type(args[0])} NULL"
-    if origin == Union and len(args) == 3 and handle_type(args[0]) == handle_type(args[1]) and type(None) == args[2]:
+    if (
+        origin == Union
+        and len(args) == 3
+        and handle_type(args[0]) == handle_type(args[1])
+        and type(None) == args[2]
+    ):
         return f"{handle_type(args[0])} NULL"
     else:
         raise ValueError(f"Unknown union: {args} {origin}")

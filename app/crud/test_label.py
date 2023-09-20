@@ -128,15 +128,17 @@ def test_create_table(session):
 
 
 def test_from_pandas():
-    Label.parse_obj({
-        'name': None,
-        'group_name': 'dbt Models',
-        'group_rank': math.nan,
-        'label_created_at': pd.Timestamp('2023-09-20 09:55:43.469000'),
-        'condition': "tools.qtag_value(qtag_filter, 'dbt', 'node_id')",
-        'enabled': True,
-        'label_modified_at': pd.Timestamp('2023-09-20 09:55:43.469000'),
-        'is_dynamic': True}
+    Label.parse_obj(
+        {
+            "name": None,
+            "group_name": "dbt Models",
+            "group_rank": math.nan,
+            "label_created_at": pd.Timestamp("2023-09-20 09:55:43.469000"),
+            "condition": "tools.qtag_value(qtag_filter, 'dbt', 'node_id')",
+            "enabled": True,
+            "label_modified_at": pd.Timestamp("2023-09-20 09:55:43.469000"),
+            "is_dynamic": True,
+        }
     )
 
 
