@@ -220,7 +220,12 @@ class Label:
             try:
                 with snowpark_session(self.snowflake) as sf:
                     # Make the old label, bypassing validation
-                    old_label = ModelLabel.construct(name=oldname)
+                    if is_dynamic:
+                        old_label = ModelLabel.construct(
+                            group_name=group, is_dynamic=True
+                        )
+                    else:
+                        old_label = ModelLabel.construct(name=oldname)
                     # Validate the new label before saving
                     new_label = ModelLabel.parse_obj(
                         {
@@ -248,7 +253,7 @@ class Label:
             else:
                 st.error(outcome)
 
-    def on_delete_click(self, name, is_dynamic):
+    def on_delete_click(self, name_or_group_name, is_dynamic):
         with st.spinner("Deleting label..."):
             _ = self.snowflake.call(
                 "INTERNAL.REPORT_ACTION",
@@ -257,7 +262,12 @@ class Label:
             )
             with snowpark_session(self.snowflake) as txn:
                 # Make the old label, bypassing validation
-                label_to_del = ModelLabel.construct(name=name)
+                if is_dynamic:
+                    label_to_del = ModelLabel.construct(
+                        group_name=name_or_group_name, is_dynamic=True
+                    )
+                else:
+                    label_to_del = ModelLabel.construct(name=name_or_group_name)
                 label_to_del.delete(txn)
 
             self.session.set_toast("Label deleted.")
