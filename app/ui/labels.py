@@ -253,7 +253,7 @@ class Label:
             else:
                 st.error(outcome)
 
-    def on_delete_click(self, name, is_dynamic):
+    def on_delete_click(self, name_or_group_name, is_dynamic):
         with st.spinner("Deleting label..."):
             _ = self.snowflake.call(
                 "INTERNAL.REPORT_ACTION",
@@ -264,10 +264,10 @@ class Label:
                 # Make the old label, bypassing validation
                 if is_dynamic:
                     label_to_del = ModelLabel.construct(
-                        group_name=name, is_dynamic=True
+                        group_name=name_or_group_name, is_dynamic=True
                     )
                 else:
-                    label_to_del = ModelLabel.construct(name=name)
+                    label_to_del = ModelLabel.construct(name=name_or_group_name)
                 label_to_del.delete(txn)
 
             self.session.set_toast("Label deleted.")
