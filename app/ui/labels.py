@@ -221,7 +221,9 @@ class Label:
                 with snowpark_session(self.snowflake) as sf:
                     # Make the old label, bypassing validation
                     if is_dynamic:
-                        old_label = ModelLabel.construct(group_name=group, is_dynamic=True)
+                        old_label = ModelLabel.construct(
+                            group_name=group, is_dynamic=True
+                        )
                     else:
                         old_label = ModelLabel.construct(name=oldname)
                     # Validate the new label before saving
@@ -261,7 +263,9 @@ class Label:
             with snowpark_session(self.snowflake) as txn:
                 # Make the old label, bypassing validation
                 if is_dynamic:
-                    label_to_del = ModelLabel.construct(group_name=name, is_dynamic=True)
+                    label_to_del = ModelLabel.construct(
+                        group_name=name, is_dynamic=True
+                    )
                 else:
                     label_to_del = ModelLabel.construct(name=name)
                 label_to_del.delete(txn)
