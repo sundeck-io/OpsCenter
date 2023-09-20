@@ -309,7 +309,7 @@ def test_create_grouped_then_ungrouped_label(conn, timestamp_string):
 
 
 def test_validate_predefined_label(conn, timestamp_string):
-    sql = "CALL INTERNAL.VALIDATE_PREDEFINED_LABELS();"
+    sql = "CALL INTERNAL_PYTHON.VALIDATE_PREDEFINED_LABELS();"
     assert run_proc(conn, sql) is None
 
 
