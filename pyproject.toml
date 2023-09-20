@@ -16,6 +16,7 @@ plotly = "~5.11"
 streamlit = "~1.22"
 snowflake-snowpark-python = { version = "^1.5.1", extras = ["pandas"] }
 pydantic = "==1.10.8"
+pytz = "==2023.3"
 
 [tool.poetry.group.dev.dependencies]
 watchdog = "^3.0.0"

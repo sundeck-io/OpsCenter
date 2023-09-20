@@ -3,6 +3,7 @@ import connection
 import config
 import sthelp
 import setup
+import pytz
 
 
 sthelp.chrome("Settings")
@@ -73,6 +74,9 @@ with config_tab:
             serverless_credit_cost = 3.00
         if tbcost is None:
             tbcost = 40.00
+        timezone_start = config.Config.get("default_timezone")
+        if timezone_start is None:
+            timezone_start = "America/Los_Angeles"
         compute = st.text_input(
             "Compute Credit Cost", value=compute_credit_cost, key="compute_credit_cost"
         )
@@ -82,6 +86,14 @@ with config_tab:
             key="serverless_credit_cost",
         )
         storage = st.text_input("Storage Cost (/tb)", value=tbcost, key="storage_cost")
+        timezone = st.selectbox(
+            "Default Timezone",
+            index=next(
+                i for i, v in enumerate(pytz.common_timezones) if v == timezone_start
+            ),
+            key="tz-select",
+            options=pytz.common_timezones,
+        )
         if st.form_submit_button("Save"):
 
             if (
@@ -91,8 +103,11 @@ with config_tab:
             ):
                 st.error("Please enter a valid number for all costs.")
 
+            elif timezone is None or timezone not in pytz.common_timezones:
+                st.error("Please enter a valid timezone.")
             else:
                 config.set_costs(compute, serverless, storage)
+                config.Config.set("default_timezone", timezone)
                 connection.execute(
                     f"""
                 BEGIN
