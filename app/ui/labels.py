@@ -271,9 +271,6 @@ class Label:
         rank = None
         name = None
 
-        if not is_dynamic:
-            name = st.text_input(key="NAME", label="Label Name")
-
         if grouped is not None:
             group = st.text_input(
                 key="GROUP_NAME",
@@ -281,6 +278,9 @@ class Label:
                 value=grouped,
                 disabled=(grouped != ""),
             )
+
+        if not is_dynamic:
+            name = st.text_input(key="NAME", label="Label Name")
 
         if grouped is not None and not is_dynamic:
             rank = st.number_input(
@@ -302,8 +302,6 @@ class Label:
         is_dynamic = update["is_dynamic"]
 
         name = None
-        if is_dynamic is False:
-            name = st.text_input(key="NAME", label="Label Name", value=update["name"])
         group = update["group_name"]
         rank = update["group_rank"]
 
@@ -314,6 +312,9 @@ class Label:
                 value=update["group_name"],
                 disabled=True,
             )
+
+        if is_dynamic is False:
+            name = st.text_input(key="NAME", label="Label Name", value=update["name"])
 
         if group is not None and is_dynamic is False:
             rank = st.number_input(
