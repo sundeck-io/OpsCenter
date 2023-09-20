@@ -1,13 +1,16 @@
+import { setup } from "../../support/setupUtils";
 import {
   checkNoErrorOnThePage,
   checkSuccessAlert,
-  fillInTheSettingsConfigForm,
+} from "../../support/alertUtils";
+import {
+  clickCheck,
   buttonOnTabClick,
   buttonClick,
-  checkForLoading,
-  clickCheck,
-  setup,
-} from "../support/utils";
+} from "../../support/clickUtils";
+import { checkForLoading } from "../../support/loadingUtils";
+import { fillInTheSettingsConfigForm } from "./utils/settingsUtils";
+import { MENU_TEXT } from "../Labels/utilsAndConstants/labelTestConstants";
 
 describe("Settings section", () => {
   before(() => {
@@ -22,7 +25,7 @@ describe("Settings section", () => {
     cy.visit("/");
     checkForLoading();
 
-    clickCheck({ clickElem: "span", contains: "Settings" });
+    clickCheck({ clickElem: "span", contains: MENU_TEXT.SETTINGS });
 
     clickCheck({ clickElem: 'button[role="tab"]', contains: "Config" });
     fillInTheSettingsConfigForm({
@@ -38,7 +41,7 @@ describe("Settings section", () => {
     cy.visit("/");
     checkForLoading();
 
-    clickCheck({ clickElem: "span", contains: "Settings" });
+    clickCheck({ clickElem: "span", contains: MENU_TEXT.SETTINGS });
     clickCheck({ clickElem: 'button[role="tab"]', contains: "Reset" });
 
     buttonClick("Reset and reload query history and warehouse events.");

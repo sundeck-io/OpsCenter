@@ -1,14 +1,17 @@
+import { checkNoErrorOnThePage } from "../../support/alertUtils";
 import {
-  checkNoErrorOnThePage,
-  setup,
-  fillInProbeForm,
+  clickCheck,
   buttonClick,
   buttonCheckExists,
-  generateUniqueName,
-  probeDelete,
-  checkForLoading,
-  clickCheck,
-} from "../support/utils";
+} from "../../support/clickUtils";
+import { generateUniqueName } from "../../support/formUtils";
+import { checkForLoading } from "../../support/loadingUtils";
+import { setup } from "../../support/setupUtils";
+import {
+  BUTTON_TEXT,
+  MENU_TEXT,
+} from "../Labels/utilsAndConstants/labelTestConstants";
+import { fillInProbeForm, probeDelete } from "./utils/probesUtils";
 
 describe("Probes section", () => {
   before(() => {
@@ -20,21 +23,21 @@ describe("Probes section", () => {
 
     checkForLoading();
 
-    clickCheck({ clickElem: "span", contains: "Probes" });
+    clickCheck({ clickElem: "span", contains: MENU_TEXT.PROBES });
 
     cy.get("span").contains("Query Probes").should("be.visible");
     checkNoErrorOnThePage();
 
     // Test #1: validate that clicking on "New" button starts page without error
-    buttonClick("New");
+    buttonClick(BUTTON_TEXT.NEW);
 
     // Test #2: validate that clicking on "Cancel" brings form back to "New" button
-    buttonClick("Cancel");
-    buttonCheckExists("New");
+    buttonClick(BUTTON_TEXT.CANCEL);
+    buttonCheckExists(BUTTON_TEXT.NEW);
     checkNoErrorOnThePage();
 
     // Test #3: Fill the form with valid values and save
-    buttonClick("New");
+    buttonClick(BUTTON_TEXT.NEW);
     const probe_1 = generateUniqueName("probe");
     fillInProbeForm({
       probeName: probe_1,
@@ -43,7 +46,7 @@ describe("Probes section", () => {
       cancelTheQuery: true,
       emailOthers: "vicky@sundeck.io, jinfeng@sundeck.io",
     });
-    buttonClick("Create");
+    buttonClick(BUTTON_TEXT.CREATE);
 
     cy.get("span")
       .contains("Query Probes", { timeout: 30000 })
@@ -54,7 +57,7 @@ describe("Probes section", () => {
     probeDelete(probe_1);
 
     // Test #4: Fill the form with valid values and save (checkboxes are unchecked)
-    buttonClick("New");
+    buttonClick(BUTTON_TEXT.NEW);
     checkNoErrorOnThePage();
     const probe_2 = generateUniqueName("probe");
     fillInProbeForm({
@@ -64,7 +67,7 @@ describe("Probes section", () => {
       cancelTheQuery: false,
       emailOthers: "vicky@sundeck.io, jinfeng@sundeck.io",
     });
-    buttonClick("Create");
+    buttonClick(BUTTON_TEXT.CREATE);
 
     cy.get("span")
       .contains("Query Probes", { timeout: 30000 })
@@ -75,6 +78,6 @@ describe("Probes section", () => {
     probeDelete(probe_2);
 
     // Among other things, "New" button should exist
-    buttonCheckExists("New");
+    buttonCheckExists(BUTTON_TEXT.NEW);
   });
 });

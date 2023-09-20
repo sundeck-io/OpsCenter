@@ -1,10 +1,8 @@
-import {
-  dropDownOpen,
-  dropDownElementClick,
-  setup,
-  checkForLoading,
-  clickCheck,
-} from "../support/utils";
+import { clickCheck, dropDownElementClick } from "../../support/clickUtils";
+import { dropDownOpen } from "../../support/formUtils";
+import { checkForLoading } from "../../support/loadingUtils";
+import { setup } from "../../support/setupUtils";
+import { MENU_TEXT } from "../Labels/utilsAndConstants/labelTestConstants";
 
 describe("Queries section", () => {
   before(() => {
@@ -16,7 +14,7 @@ describe("Queries section", () => {
 
     checkForLoading();
 
-    clickCheck({ clickElem: "span", contains: "Queries" });
+    clickCheck({ clickElem: "span", contains: MENU_TEXT.QUERIES });
 
     dropDownOpen("Select Report");
     dropDownElementClick("Top Spenders");
@@ -49,7 +47,7 @@ describe("Queries section", () => {
   it("Menu: Queries (dbt Summary)", () => {
     cy.visit("/");
 
-    clickCheck({ clickElem: "span", contains: "Queries" });
+    clickCheck({ clickElem: "span", contains: MENU_TEXT.QUERIES });
 
     dropDownOpen("Select Report");
     dropDownElementClick("dbt Summary");
@@ -77,7 +75,7 @@ describe("Queries section", () => {
   it("Menu: Queries (Query Activity)", () => {
     cy.visit("/");
 
-    clickCheck({ clickElem: "span", contains: "Queries" });
+    clickCheck({ clickElem: "span", contains: MENU_TEXT.QUERIES });
 
     // Loop over category dropdown list, check no error on the page
     const categorylList = [
