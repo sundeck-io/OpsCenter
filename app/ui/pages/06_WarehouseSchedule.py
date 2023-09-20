@@ -1,5 +1,6 @@
 import sthelp
-import warehouses
+
+# import warehouses
 
 sthelp.chrome("Warehouse Schedule")
-warehouses.display()
+# warehouses.display()
