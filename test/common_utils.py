@@ -37,6 +37,10 @@ def delete_list_of_labels(conn, sql):
             delete_label_statement = f"call ADMIN.DELETE_LABEL('{name[0]}');"
             assert run_proc(conn, delete_label_statement) is None, "Stored procedure output does not match expected result!"
 
+        # Also try to delete a label with an empty name which may be there from the current test run
+        _ = run_proc(conn, f"call ADMIN.DELETE_LABEL('')")
+
+
 
 def delete_list_of_probes(conn, sql):
     print(f"[INFO] SQL in delete function: {sql}")
