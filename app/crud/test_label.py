@@ -56,9 +56,9 @@ def test_none_label(session):
 
 
 def test_empty_label(session):
+    # The empty name for labels are allowed.
     test_label = _get_label(name="")
-    with pytest.raises(ValueError):
-        _ = Label.parse_obj(test_label)
+    _ = Label.parse_obj(test_label)
 
     assert len(session._sql) == 2, "Expected no sql statements for a None name"
     assert session._sql[0].lower() == _expected_condition_check_query(
