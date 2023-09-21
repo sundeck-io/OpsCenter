@@ -3,8 +3,8 @@ import streamlit as st
 from connection import Connection
 import session as general_session
 import connection
-from wh_sched import WarehouseSchedules
-from base import BaseOpsCenterModel
+from crud.wh_sched import WarehouseSchedules, _WAREHOUSE_SIZE_OPTIONS
+from crud.base import BaseOpsCenterModel
 from table import build_table, Actions
 from typing import Optional, List, Tuple
 import datetime
@@ -423,23 +423,3 @@ def time_filter(
         ]
     else:
         return base_times
-
-
-_WAREHOUSE_SIZE_OPTIONS = [
-    "X-Small",
-    "Small",
-    "Medium",
-    "Large",
-    "X-Large",
-    "2X-Large",
-    "3X-Large",
-    "4X-Large",
-    "5X-Large",
-    "6X-Large",
-    "Medium Snowpark",
-    "Large Snowpark",
-    "X-Large Snowpark",
-    "2X-Large Snowpark",
-    "3X-Large Snowpark",
-    "4X-Large Snowpark",
-]

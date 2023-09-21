@@ -1,5 +1,5 @@
 import streamlit as st
-from base import BaseOpsCenterModel
+from crud.base import BaseOpsCenterModel
 from typing import List
 import datetime
 import string
