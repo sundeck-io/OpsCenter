@@ -1,5 +1,7 @@
 import pytest
 from datetime import datetime
+import math
+import pandas as pd
 from .labels import Label
 
 
@@ -56,9 +58,9 @@ def test_none_label(session):
 
 
 def test_empty_label(session):
+    # The empty name for labels are allowed.
     test_label = _get_label(name="")
-    with pytest.raises(ValueError):
-        _ = Label.parse_obj(test_label)
+    _ = Label.parse_obj(test_label)
 
     assert len(session._sql) == 2, "Expected no sql statements for a None name"
     assert session._sql[0].lower() == _expected_condition_check_query(
@@ -123,6 +125,21 @@ def test_create_table(session):
         session._sql[1].lower()
         == "create or replace view catalog.labels as select * from internal.labels"
     ), "Expected create view statement, got {}".format(session._sql[1])
+
+
+def test_from_pandas():
+    Label.parse_obj(
+        {
+            "name": None,
+            "group_name": "dbt Models",
+            "group_rank": math.nan,
+            "label_created_at": pd.Timestamp("2023-09-20 09:55:43.469000"),
+            "condition": "tools.qtag_value(qtag_filter, 'dbt', 'node_id')",
+            "enabled": True,
+            "label_modified_at": pd.Timestamp("2023-09-20 09:55:43.469000"),
+            "is_dynamic": True,
+        }
+    )
 
 
 def _expected_condition_check_query(condition: str) -> str:

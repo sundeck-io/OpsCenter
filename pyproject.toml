@@ -28,3 +28,6 @@ filterwarnings = [
   # Suppress the deprecation warnings that are coming from Snowflake and Snowpark dependencies
 	"ignore::DeprecationWarning",
 ]
+markers = [
+	"smoke: tests basic functionality",
+]
