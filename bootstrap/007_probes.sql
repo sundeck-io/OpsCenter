@@ -73,21 +73,6 @@ EXCEPTION
         raise;
 END;
 
-CREATE OR REPLACE PROCEDURE INTERNAL.VALIDATE_PROBE_CONDITION(name string, condition string)
-RETURNS STRING
-AS
-BEGIN
-    let statement string := 'select case when \n' || condition || '\n then 1 else 0 end as "' || name || '" from INTERNAL.DUMMY_QUERY_HISTORY_UDTF';
-    execute immediate statement;
-    return null;
-EXCEPTION
-    when statement_error then
-        return 'Invalid condition SQL. Please check your syntax.' || :SQLERRM;
-    WHEN OTHER THEN
-        return 'Failure validating name & condition. Please check your syntax.' || :SQLERRM;
-END;
-
-
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_PROBE_MONITOR_RUNNING()
     RETURNS string
     LANGUAGE SQL
