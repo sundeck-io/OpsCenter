@@ -1,27 +1,24 @@
 import { buttonClick } from "../../../support/clickUtils";
 import { generateUniqueName } from "../../../support/formUtils";
-import { setup } from "../../../support/setupUtils";
+import { clickUpdateActionButton } from "../../../support/listingPageUtils";
+import { BUTTON_TEXT } from "../../../support/testConstants";
 import {
-  BUTTON_TEXT,
   DYNAMIC_GROUPED_LABEL_QUERY_TEXT_1,
   DYNAMIC_GROUPED_LABEL_QUERY_TEXT_2,
   LABEL_TYPES,
 } from "../utilsAndConstants/labelTestConstants";
 import {
+  checkLabelFormValues,
+  updateLabelForm,
+} from "../utilsAndConstants/labelsFormUtils";
+import {
   createNewLabel,
   deleteLabel,
-  labelUpdateClick,
-  updateLabelForm,
-  checkLabelFormValues,
   checkUpdatedLabelExists,
 } from "../utilsAndConstants/labelsUtils";
 
 export const SingleDynamicGroupedLabelCRUDTests = () =>
   describe("Single Dynamic Grouped Label Tests", () => {
-    before(() => {
-      setup();
-    });
-
     describe("Able to Create / Read / Update / Delete", () => {
       const groupName = generateUniqueName("initialDynamicGroupedCRUD");
 
@@ -34,7 +31,7 @@ export const SingleDynamicGroupedLabelCRUDTests = () =>
       });
 
       it("Read / Update an dynamic grouped label (can fail if previous test in this section failed)", () => {
-        labelUpdateClick({
+        clickUpdateActionButton({
           groupName: groupName,
           condition: DYNAMIC_GROUPED_LABEL_QUERY_TEXT_1,
         });

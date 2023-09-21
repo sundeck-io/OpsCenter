@@ -1,25 +1,11 @@
-import { checkNoErrorOnThePage } from "../../../support/alertUtils";
-import {
-  clickCheck,
-  buttonClick,
-  buttonCheckExists,
-} from "../../../support/clickUtils";
-import { checkForLoading } from "../../../support/loadingUtils";
+import { buttonClick, buttonCheckExists } from "../../../support/clickUtils";
 import { checkOnCorrectPage } from "../../../support/pageAssertionUtils";
 import { setup } from "../../../support/setupUtils";
-import {
-  BUTTON_TEXT,
-  HEADER_TEXT,
-  MENU_TEXT,
-} from "../utilsAndConstants/labelTestConstants";
+import { BUTTON_TEXT, HEADER_TEXT } from "../../../support/testConstants";
 import { checkPresenceOfGroupNameInput } from "../utilsAndConstants/labelsFormUtils";
 
 export const LabelsButtonTests = () =>
   describe("Label Buttons Tests", () => {
-    before(() => {
-      setup();
-    });
-
     it("Labels Buttons: Validate that New and Cancel buttons work anddon't fail to load the page", () => {
       buttonClick(BUTTON_TEXT.NEW);
       checkOnCorrectPage({ headerText: HEADER_TEXT.CREATE_LABEL });
