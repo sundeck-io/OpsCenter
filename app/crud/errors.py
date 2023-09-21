@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import pydantic
 
 
@@ -8,19 +8,35 @@ def summarize_error(base_msg: str, ve: pydantic.ValidationError) -> str:
 
 
 def error_to_markdown(base_msg: str, ve: pydantic.ValidationError) -> str:
-    errs = _parse_validation_error(ve)
+    errs = _parse_validation_error(ve, as_markdown=True)
     # Extra spaces are (allegedly) to get markdown to properly render newlines
     return base_msg + "  \n" + "  \n".join(errs)
 
 
-def _parse_validation_error(ve: pydantic.ValidationError) -> List:
+def _parse_validation_error(ve: pydantic.ValidationError, as_markdown=False) -> List:
     errs = []
+    formatter = MarkdownFormatter() if as_markdown else Formatter()
     for e in ve.errors():
         err_type = e.get("type", "")
         if err_type.startswith("assertion_error") or err_type.startswith("value_error"):
             for attr in e["loc"]:
                 if attr == "__root__":
-                    errs.append(f"- {e['msg']}")
-                else:
-                    errs.append(f"- `{attr}`: {e['msg']}")
+                    attr = None
+                errs.append(formatter.format(attr, e["msg"]))
     return errs
+
+
+class Formatter:
+    def format(self, attribute: Optional[str], message: str) -> str:
+        if attribute:
+            return f"{attribute}: {message}"
+        else:
+            return message
+
+
+class MarkdownFormatter(Formatter):
+    def format(self, attribute: Optional[str], message: str) -> str:
+        if attribute:
+            return f"- `{attribute}`: {message}"
+        else:
+            return f"- {message}"

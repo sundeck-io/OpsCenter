@@ -74,6 +74,21 @@ def test_probe_notify_other(session, method):
     ), "Unexpected probe condition query"
 
 
+@pytest.mark.parametrize("method", ["TEAMS", "Carrier Pidgeon"])
+def test_unknown_notification_method(method):
+    with pytest.raises(ValidationError):
+        _ = Probe.parse_obj(
+            {
+                "name": "test",
+                "condition": "TRUE",
+                "notify_writer": True,
+                "notify_writer_method": method,
+                "probe_created_at": datetime.datetime.now(),
+                "probe_modified_at": datetime.datetime.now(),
+            }
+        )
+
+
 def test_cannot_notify_writer_without_method():
     with pytest.raises(ValidationError):
         _ = Probe.parse_obj(
@@ -166,17 +181,6 @@ def test_modified_at_validation():
                 "probe_created_at": datetime.datetime.now(),
             }
         )
-
-
-def test_notification_enum():
-    for method in ("EMAIL", "SLACK"):
-        assert method == Probe.notification_method_is_valid(method)
-        assert method == Probe.notification_method_is_valid(method.lower())
-
-    with pytest.raises(AssertionError):
-        Probe.notification_method_is_valid("teams")
-    with pytest.raises(AssertionError):
-        Probe.notification_method_is_valid("carrier_pidgeon")
 
 
 def _expected_condition_verification_sql(p: Probe) -> str:

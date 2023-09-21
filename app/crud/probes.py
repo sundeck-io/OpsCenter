@@ -55,6 +55,8 @@ class Probe(BaseOpsCenterModel):
                 f"SELECT COUNT(*) = 1 FROM INTERNAL.{self.table_name} WHERE name = ?",
                 params=(self.name,),
             ).collect()[0][0]
+            assert old_probe_exists, "Probe not found."
+
             new_name_is_unique = session.sql(
                 f"SELECT COUNT(*) = 0 FROM INTERNAL.{self.table_name} WHERE name = ? and name <> ?",
                 params=(
@@ -63,8 +65,6 @@ class Probe(BaseOpsCenterModel):
                 ),
             ).collect()[0][0]
             assert new_name_is_unique, "Probe with this name already exists."
-
-            assert old_probe_exists, "Probe not found."
 
             super().update(txn, new_probe)
 
@@ -88,27 +88,23 @@ class Probe(BaseOpsCenterModel):
         assert value, "Probe condition cannot be empty"
         return value
 
-    @validator("notify_writer_method", "notify_other_method", allow_reuse=True)
-    @classmethod
-    def notification_method_is_valid(cls, value: str) -> str:
-        assert value is not None, "Notification method must be defined"
-        value = value.upper()
-        assert (
-            value in NotificationMethod.__members__
-        ), "Unsupported notification method"
-        return value
-
     @root_validator(allow_reuse=True)
     @classmethod
     def validate_notifications(cls, values: dict) -> dict:
+        # Only validate the notification method if that notification is enabled
         if values.get("notify_writer", False):
-            assert values.get(
-                "notify_writer_method", None
-            ), "Notification method must be supplied"
+            method = values.get("notify_writer_method", None)
+            assert method is not None, "Notify writer method must be defined"
+            assert (
+                method.upper() in NotificationMethod.__members__
+            ), f"Unsupported notification method {method}"
+
         if values.get("notify_other", False):
-            assert values.get(
-                "notify_other_method", None
-            ), "Notification method must be supplied"
+            method = values.get("notify_other_method", None)
+            assert method is not None, "Notify other method must be defined"
+            assert (
+                method.upper() in NotificationMethod.__members__
+            ), f"Unsupported notification method {method}"
 
         return values
 

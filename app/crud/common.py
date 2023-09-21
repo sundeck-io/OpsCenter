@@ -1,10 +1,11 @@
 from pydantic import ValidationError
 from .labels import Label
+from .probes import Probe
 from .errors import summarize_error
 from .session import snowpark_session
 
 # A "registry" of CRUD types and the implementation class
-_TYPES = {"LABEL": Label}
+_TYPES = {"LABEL": Label, "PROBE": Probe}
 
 
 def create_entity(session, entity_type, entity):
@@ -32,13 +33,14 @@ def update_entity(session, entity_type: str, old_name: str, new_obj: dict):
             # Assuming the old label is dynamic just because the new one is dynamic is wrong but what the code currently does.
             if not old_name:
                 return "Name must not be null"
+            # Special case for handling dynamic labels
             if new_obj.get("is_dynamic", False):
                 obj = t.construct(group_name=old_name, is_dynamic=True)
             else:
-                # label name is unique across all grouped/ungrouped labels
+                # Instantiate a new object with the old name
                 obj = t.construct(name=old_name)
-            new_label = Label.parse_obj(new_obj)
-            obj.update(txn, new_label)
+            new_obj = t.parse_obj(new_obj)
+            obj.update(txn, new_obj)
             return None
         except ValidationError as ve:
             return summarize_error(f"Failed to update {entity_type.lower()}", ve)

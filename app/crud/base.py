@@ -3,6 +3,7 @@ from snowflake.snowpark import Row
 from pydantic import BaseModel
 from typing import ClassVar, get_args, get_origin, Union, Dict, List
 import datetime
+from enum import Enum
 
 
 ## TODO
@@ -72,7 +73,7 @@ class BaseOpsCenterModel(BaseModel):
                 set_elements.append(f"{k} = NULL")
             else:
                 set_elements.append(f"{k} = ?")
-                params.append(v)
+                params.append(unwrap_value(v))
         set_clause = ", ".join(set_elements)
         params.append(self.get_id())
         stmt = f"UPDATE INTERNAL.{self.table_name} SET {set_clause} WHERE {self.get_id_col()} = ?"
@@ -97,6 +98,15 @@ class BaseOpsCenterModel(BaseModel):
         return arr
 
 
+def unwrap_value(v):
+    """
+    Unwraps the Enum value if `v` is an Enum. Else, returns the original value.
+    """
+    if isinstance(v, Enum):
+        return v.value
+    return v
+
+
 def handle_type(t):
     if t == str:
         return "STRING"
@@ -110,6 +120,11 @@ def handle_type(t):
         return "TIME"
     elif t == bool:
         return "BOOLEAN"
+    elif issubclass(t, Enum):
+        enum_values = list(t.__members__.values())
+        if len(enum_values) == 0:
+            raise ValueError(f"Enum {t} has no values")
+        return handle_type(type(enum_values[0].value))
     else:
         raise ValueError(f"Unknown type: {t}")
 

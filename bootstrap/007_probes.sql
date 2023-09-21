@@ -188,102 +188,54 @@ BEGIN
 END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_PROBE(name text, condition text, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean)
-    RETURNS text
-    LANGUAGE SQL
+    RETURNS TEXT
+    LANGUAGE PYTHON
+    runtime_version = "3.10"
+    handler = 'create_probe'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
-BEGIN
-    if (name is null) then
-      return 'Name must not be null.';
-    elseif (condition is null) then
-      return 'Condition must not be null.';
-    end if;
-    let outcome text := '';
-    outcome := (CALL INTERNAL.VALIDATE_PROBE_CONDITION(:name, :condition));
+$$
+import datetime
+from crud import create_entity
+def create_probe(session, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel):
+    return create_entity(session, 'PROBE', {'name': name, 'condition': condition, 'notify_writer': notify_writer, 'notify_writer_method': notify_writer_method, 'notify_other': notify_other, 'notify_other_method': notify_other_method, 'cancel': cancel, 'probe_created_at': datetime.datetime.now(), 'probe_modified_at': datetime.datetime.now()})
+$$;
 
-    if (outcome is not null) then
-      return outcome;
-    end if;
-
-    BEGIN TRANSACTION;
-        let cnt number := (SELECT COUNT(*) AS cnt FROM internal.probes WHERE name = :name);
-
-        IF (cnt > 0) THEN
-            outcome := 'A probe with this name already exists. Please choose a distinct name.';
-        ELSE
-          INSERT INTO internal.probes ("NAME", "CONDITION", "NOTIFY_WRITER", "NOTIFY_WRITER_METHOD", "NOTIFY_OTHER", "NOTIFY_OTHER_METHOD", "CANCEL", "PROBE_MODIFIED_AT")
-            VALUES (:name, :condition, :notify_writer, :notify_writer_method, :notify_other, :notify_other_method, :cancel, current_timestamp());
-          outcome := null;
-        END IF;
-
-    COMMIT;
-    call ADMIN.UPDATE_PROBE_MONITOR_RUNNING();
-    return outcome;
-END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_PROBE(name text)
-    RETURNS text
-    LANGUAGE SQL
+    RETURNS TEXT
+    LANGUAGE PYTHON
+    runtime_version = "3.10"
+    handler = 'delete_probe'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
-BEGIN
-    if (:name is null) then
-      return 'Name must not be null.';
-    end if;
+$$
+from crud import delete_entity
+def delete_probe(session, name):
+    return delete_entity(session, 'PROBE', name)
+$$;
 
-    DELETE FROM internal.probes where name = :name;
-    call ADMIN.UPDATE_PROBE_MONITOR_RUNNING();
-    return 'done';
-END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_PROBE(oldname text, name text, condition text, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean)
-    RETURNS text
-    LANGUAGE SQL
+    RETURNS TEXT
+    LANGUAGE PYTHON
+    runtime_version = "3.10"
+    handler = 'update_probe'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
-BEGIN
-    if (name is null) then
-      return 'Name must not be null.';
-    elseif (condition is null) then
-      return 'Condition must not be null.';
-    end if;
+$$
+import datetime
+from crud import update_entity
+def update_probe(session, oldname, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel):
+    return update_entity(session, 'PROBE', oldname, {'name': name, 'condition': condition, 'notify_writer': notify_writer, 'notify_writer_method': notify_writer_method, 'notify_other': notify_other, 'notify_other_method': notify_other_method, 'cancel': cancel, 'probe_created_at': datetime.datetime.now(), 'probe_modified_at': datetime.datetime.now()})
+$$;
 
-    let outcome text := '';
-    outcome := (CALL INTERNAL.VALIDATE_PROBE_CONDITION(:name, :condition));
-
-    if (outcome is not null) then
-      return outcome;
-    end if;
-
-    BEGIN TRANSACTION;
-
-    -- Make sure that the old name exists once and the new name doesn't exist (assuming it is different from the old name)
-    let oldcnt number := (SELECT COUNT(*) AS cnt FROM internal.probes WHERE name = :oldname);
-    let newcnt number := (SELECT COUNT(*) AS cnt FROM internal.probes WHERE name = :name AND name <> :oldname);
-
-    IF (oldcnt <> 1) THEN
-      outcome := 'Probe not found. Please refresh your page to see latest list of probes.';
-    ELSEIF (newcnt <> 0) THEN
-      outcome := 'A probe with this name already exists. Please choose a distinct name.';
-    ELSE
-      UPDATE internal.probes SET NAME = :name,
-                                 NOTIFY_WRITER = :notify_writer, NOTIFY_WRITER_METHOD = :notify_writer_method,
-                                 NOTIFY_OTHER = :notify_other, NOTIFY_OTHER_METHOD = :notify_other_method,
-                                 CANCEL = :cancel,
-                                 CONDITION = :condition,
-                                 PROBE_MODIFIED_AT = current_timestamp()
-                             WHERE NAME = :oldname;
-      outcome := null;
-    END IF;
-
-    COMMIT;
-    call ADMIN.UPDATE_PROBE_MONITOR_RUNNING();
-    return outcome;
-EXCEPTION
-  WHEN OTHER THEN
-      ROLLBACK;
-      RAISE;
-END;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.POPULATE_PREDEFINED_PROBES()
     RETURNS text
