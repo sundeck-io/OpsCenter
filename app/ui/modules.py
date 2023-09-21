@@ -7,7 +7,7 @@ def add_custom_modules() -> bool:
     Adds all OpsCenter python modules to sys.path.
     :return:
     """
-    if os.getenv('OPSCENTER_LOCAL_DEV'):
+    if os.getenv("OPSCENTER_LOCAL_DEV"):
         return _load_crud_locally()
 
     return _add_zip_to_path(_get_crud_zip_file())
@@ -19,7 +19,7 @@ def _load_crud_locally() -> bool:
     need for a devdeploy every time a change is made to the CRUD python module.
     :return: True if the local CRUD python module was added to sys.path, False otherwise.
     """
-    local_crud_path = os.path.join(os.path.dirname(__file__), '..')
+    local_crud_path = os.path.join(os.path.dirname(__file__), "..")
     if not os.path.isdir(local_crud_path):
         print(f"Could not find CRUD python module at {local_crud_path}")
         return False

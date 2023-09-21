@@ -7,7 +7,7 @@ from session import Mode
 import setup
 import config
 from crud.errors import error_to_markdown
-from crud.probes import Probe as ModelProbe, NotificationMethod
+from crud.probes import Probe as ModelProbe
 from crud.session import snowpark_session
 
 

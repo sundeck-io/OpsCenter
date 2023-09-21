@@ -9,5 +9,6 @@ st.sidebar.title("Sundeck OpsCenter")
 if not add_custom_modules():
     st.warning("Unable to load OpsCenter modules.")
 
-import probes
+import probes  # noqa E402
+
 probes.display()

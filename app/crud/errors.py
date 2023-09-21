@@ -19,7 +19,7 @@ def _parse_validation_error(ve: pydantic.ValidationError) -> List:
         err_type = e.get("type", "")
         if err_type.startswith("assertion_error") or err_type.startswith("value_error"):
             for attr in e["loc"]:
-                if attr == '__root__':
+                if attr == "__root__":
                     errs.append(f"- {e['msg']}")
                 else:
                     errs.append(f"- `{attr}`: {e['msg']}")

@@ -1,4 +1,3 @@
-
 import datetime
 from enum import Enum
 from pydantic import root_validator, validator
@@ -9,8 +8,8 @@ from .session import get_current_session
 
 
 class NotificationMethod(str, Enum):
-    EMAIL = 'EMAIL'
-    SLACK = 'SLACK'
+    EMAIL = "EMAIL"
+    SLACK = "SLACK"
 
 
 class Probe(BaseOpsCenterModel):
@@ -63,13 +62,9 @@ class Probe(BaseOpsCenterModel):
                     self.name,
                 ),
             ).collect()[0][0]
-            assert (
-                new_name_is_unique
-            ), "Probe with this name already exists."
+            assert new_name_is_unique, "Probe with this name already exists."
 
-            assert (
-                old_probe_exists
-            ), "Probe not found."
+            assert old_probe_exists, "Probe not found."
 
             super().update(txn, new_probe)
 
@@ -96,18 +91,24 @@ class Probe(BaseOpsCenterModel):
     @validator("notify_writer_method", "notify_other_method", allow_reuse=True)
     @classmethod
     def notification_method_is_valid(cls, value: str) -> str:
-        assert value is not None, 'Notification method must be defined'
+        assert value is not None, "Notification method must be defined"
         value = value.upper()
-        assert value in NotificationMethod.__members__, "Unsupported notification method"
+        assert (
+            value in NotificationMethod.__members__
+        ), "Unsupported notification method"
         return value
 
     @root_validator(allow_reuse=True)
     @classmethod
     def validate_notifications(cls, values: dict) -> dict:
         if values.get("notify_writer", False):
-            assert values.get("notify_writer_method", None), "Notification method must be supplied"
+            assert values.get(
+                "notify_writer_method", None
+            ), "Notification method must be supplied"
         if values.get("notify_other", False):
-            assert values.get("notify_other_method", None), "Notification method must be supplied"
+            assert values.get(
+                "notify_other_method", None
+            ), "Notification method must be supplied"
 
         return values
 
