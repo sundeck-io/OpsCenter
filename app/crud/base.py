@@ -38,8 +38,11 @@ class BaseOpsCenterModel(BaseModel):
                 f"CREATE OR REPLACE VIEW catalog.{cls.table_name} AS SELECT * FROM internal.{cls.table_name}"
             ).collect()
 
+    def to_row(self) -> Row:
+        return Row(**dict(self))
+
     def write(self, session):
-        df = session.create_dataframe([Row(**dict(self))])
+        df = session.create_dataframe([self.to_row()])
         df.write.mode("append").save_as_table(f"INTERNAL.{self.table_name}")
 
     def get_id(self) -> str:

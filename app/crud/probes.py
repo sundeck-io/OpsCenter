@@ -76,6 +76,15 @@ class Probe(BaseOpsCenterModel):
         session.call(self.on_success_proc)
         return None
 
+    def to_row(self) -> snowpark.Row:
+        as_dict = dict(self)
+        # Replace the Enum values as strings
+        if self.notify_writer_method is not None:
+            as_dict["notify_writer_method"] = self.notify_writer_method.value
+        if self.notify_other_method is not None:
+            as_dict["notify_other_method"] = self.notify_other_method.value
+        return snowpark.Row(**as_dict)
+
     @validator("name", allow_reuse=True)
     @classmethod
     def name_not_empty(cls, name: str) -> str:
