@@ -50,6 +50,4 @@ def delete_list_of_probes(conn, sql):
         cur = cnx.cursor()
         for name in cur.execute(sql).fetchall():
             delete_probe_statement = f"call ADMIN.DELETE_PROBE('{name[0]}');"
-            assert "done" in str(
-                run_proc(conn, delete_probe_statement)
-            ), "Stored procedure output does not match expected result!"
+            assert run_proc(conn, delete_probe_statement) is None

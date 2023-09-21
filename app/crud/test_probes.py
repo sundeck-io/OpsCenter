@@ -126,16 +126,15 @@ def test_name_validation():
             }
         )
 
-    # Must have a non-empty name
-    with pytest.raises(ValidationError):
-        _ = Probe.parse_obj(
-            {
-                "name": "",
-                "condition": "1=1",
-                "probe_created_at": datetime.datetime.now(),
-                "probe_modified_at": datetime.datetime.now(),
-            }
-        )
+    # Probe names may also be empty
+    _ = Probe.parse_obj(
+        {
+            "name": "",
+            "condition": "1=1",
+            "probe_created_at": datetime.datetime.now(),
+            "probe_modified_at": datetime.datetime.now(),
+        }
+    )
 
 
 def test_condition_validation():

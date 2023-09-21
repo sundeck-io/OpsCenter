@@ -43,7 +43,7 @@ class Probe(BaseOpsCenterModel):
                 params=(self.name,),
             ).collect()[0][0]
 
-            assert is_unique_name, "Probe name is not unique."
+            assert is_unique_name, "A probe with this name already exists."
             super().write(txn)
 
         session.call(self.on_success_proc)
@@ -64,7 +64,7 @@ class Probe(BaseOpsCenterModel):
                     self.name,
                 ),
             ).collect()[0][0]
-            assert new_name_is_unique, "Probe with this name already exists."
+            assert new_name_is_unique, "A probe with this name already exists."
 
             super().update(txn, new_probe)
 
@@ -88,12 +88,13 @@ class Probe(BaseOpsCenterModel):
     @validator("name", allow_reuse=True)
     @classmethod
     def name_not_empty(cls, name: str) -> str:
-        assert name, "Probe name cannot be empty"
+        assert name is not None, "Probe name cannot be null"
         return name
 
     @validator("condition", allow_reuse=True)
     @classmethod
     def condition_not_empty(cls, value: str) -> str:
+        assert value is not None, "Probe condition cannot be null"
         assert value, "Probe condition cannot be empty"
         return value
 
