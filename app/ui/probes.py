@@ -1,9 +1,14 @@
+import datetime
+import pydantic
 import streamlit as st
 from connection import Connection
 import session as general_session
 from session import Mode
 import setup
 import config
+from crud.errors import error_to_markdown
+from crud.probes import Probe as ModelProbe, NotificationMethod
+from crud.session import snowpark_session
 
 
 def display():
@@ -144,21 +149,31 @@ class Probe:
                 "probes",
                 "create",
             )
-            outcome = self.snowflake.call(
-                "ADMIN.CREATE_PROBE",
-                name,
-                condition,
-                notify_writer,
-                notify_writer_method.upper(),
-                notify_other,
-                notify_other_method.upper(),
-                cancel,
-            )
+            try:
+                with snowpark_session(self.snowflake) as txn:
+                    obj = ModelProbe.parse_obj(
+                        {
+                            "name": name,
+                            "condition": condition,
+                            "notify_writer": notify_writer,
+                            "notify_writer_method": notify_writer_method.upper(),
+                            "notify_other": notify_other,
+                            "notify_other_method": notify_other_method.upper(),
+                            "cancel": cancel,
+                            "probe_created_at": datetime.datetime.now(),
+                            "probe_modified_at": datetime.datetime.now(),
+                        }
+                    )
+                    outcome = obj.write(txn)
+                    if outcome is None:
+                        self.session.set_toast("New probe created.")
+                        self.session.do_list()
+                        return
 
-            if outcome is None:
-                self.session.set_toast("New probe created.")
-                self.session.do_list()
-                return
+            except pydantic.ValidationError as ve:
+                outcome = error_to_markdown("Error validating Probe.", ve)
+            except AssertionError as ae:
+                outcome = f"Error validating Probe. \n\n{str(ae)}"
 
         self.status.error(outcome)
 
@@ -173,29 +188,39 @@ class Probe:
         notify_other_method,
         cancel,
     ):
-        outcome = None
         with st.spinner("Updating probe..."):
             _ = self.snowflake.call(
                 "INTERNAL.REPORT_ACTION",
                 "probes",
                 "update",
             )
-            outcome = self.snowflake.call(
-                "ADMIN.UPDATE_PROBE",
-                oldname,
-                name,
-                condition,
-                notify_writer,
-                notify_writer_method.upper(),
-                notify_other,
-                notify_other_method.upper(),
-                cancel,
-            )
+            try:
+                with snowpark_session(self.snowflake) as txn:
+                    old_probe = ModelProbe.construct(name=oldname)
+                    new_probe = ModelProbe.parse_obj(
+                        {
+                            "name": name,
+                            "condition": condition,
+                            "notify_writer": notify_writer,
+                            "notify_writer_method": notify_writer_method.upper(),
+                            "notify_other": notify_other,
+                            "notify_other_method": notify_other_method.upper(),
+                            "cancel": cancel,
+                            # TODO Should not overwrite created_at
+                            "probe_created_at": datetime.datetime.now(),
+                            "probe_modified_at": datetime.datetime.now(),
+                        }
+                    )
+                    outcome = old_probe.update(txn, new_probe)
 
-            if outcome is None:
-                self.session.set_toast("Probe updated.")
-                self.session.do_list()
-                return
+                    if outcome is None:
+                        self.session.set_toast("Probe updated.")
+                        self.session.do_list()
+                        return
+            except pydantic.ValidationError as ve:
+                outcome = error_to_markdown("Error validating Probe.", ve)
+            except AssertionError as ae:
+                outcome = f"Error validating Probe. \n\n{str(ae)}"
 
         self.status.error(outcome)
 
@@ -206,7 +231,10 @@ class Probe:
                 "probes",
                 "delete",
             )
-            self.snowflake.call("ADMIN.DELETE_PROBE", name)
+            with snowpark_session(self.snowflake) as txn:
+                del_probe = ModelProbe.construct(name=name)
+                del_probe.delete(txn)
+
             self.session.set_toast("Probe deleted.")
             self.session.do_list()
 
