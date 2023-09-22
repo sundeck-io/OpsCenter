@@ -169,7 +169,6 @@ class Label(BaseOpsCenterModel):
         Validates that the label's name does not duplicate a column in account_usage.query_history.
         """
         session = get_current_session()
-        assert session, "Session must be present"
 
         # Check that the label [group] name does not conflict with any columns already in this view
         attr = "group name" if values.get("group_name") else "name"
