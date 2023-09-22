@@ -9,7 +9,7 @@ _custom_errors = {
 
 def summarize_error(base_msg: str, ve: pydantic.ValidationError) -> str:
     if not type(ve) == pydantic.ValidationError:
-        return f'{base_msg}: {str(ve)}'
+        return f"{base_msg}: {str(ve)}"
 
     errs = _parse_validation_error(ve)
     return f'{base_msg}: {", ".join(errs)}'
@@ -17,7 +17,7 @@ def summarize_error(base_msg: str, ve: pydantic.ValidationError) -> str:
 
 def error_to_markdown(base_msg: str, ve: pydantic.ValidationError) -> str:
     if not type(ve) == pydantic.ValidationError:
-        return f'{base_msg}: {str(ve)}'
+        return f"{base_msg}: {str(ve)}"
 
     errs = _parse_validation_error(ve, as_markdown=True)
     # Extra spaces are (allegedly) to get markdown to properly render newlines

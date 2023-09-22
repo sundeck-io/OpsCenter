@@ -10,4 +10,5 @@ if not add_custom_modules():
 
 
 import warehouses  # noqa E402
+
 warehouses.display()

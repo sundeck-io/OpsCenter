@@ -1,10 +1,15 @@
 import snowflake.snowpark
 
 # Make the entrypoints for SQL procedures available
-from .common import create_entity, create_table, update_entity, delete_entity  # noqa F401
+from .common import (  # noqa F401
+    create_entity,
+    create_table,
+    update_entity,
+    delete_entity,
+)
 from .labels import PredefinedLabel
 from .session import snowpark_session
-from .wh_sched import warehouse_schedule_task
+from .wh_sched import warehouse_schedule_task  # noqa F401
 
 
 def validate_predefined_labels(sess: snowflake.snowpark.Session):
