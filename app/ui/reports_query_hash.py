@@ -107,7 +107,7 @@ select sum(cost) as "Cost", sum(cnt) as "Count", case when "IsRepeated" then 'Re
 
         """
         )
-        if len(df) > 0:
+        if not df.empty:
             df["Query Text"] = df.apply(
                 lambda row: f"{row['Query Id']}: {row['Query Text'][:10000]}"
                 if len(row["Query Text"]) > 10000
