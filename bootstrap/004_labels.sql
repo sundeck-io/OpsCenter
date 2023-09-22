@@ -353,6 +353,19 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_WH_SCHEDULES()
+    RETURNS text
+    language python
+    runtime_version = "3.10"
+    handler = 'warehouse_schedule_task'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
+    EXECUTE AS OWNER
+ AS
+$$
+from crud import warehouse_schedule_task
+$$;
+
 -- Remove any outdated objects
 DROP PROCEDURE IF EXISTS INTERNAL.VALIDATE_LABEL_CONDITION(string, string);
 DROP PROCEDURE IF EXISTS INTERNAL.VALIDATE_LABEL_CONDITION(string, boolean);

@@ -1,7 +1,11 @@
 import uuid
 import streamlit as st
 import connection
-from crud.wh_sched import WarehouseSchedules, _WAREHOUSE_SIZE_OPTIONS
+from crud.wh_sched import (
+    WarehouseSchedules,
+    _WAREHOUSE_SIZE_OPTIONS,
+    warehouse_schedule_task,
+)
 from table import build_table, Actions
 from typing import Optional, List
 import datetime
@@ -84,7 +88,7 @@ class Warehouses(Container):
         size = st.selectbox(
             key="SIZE",
             label="Size",
-            options=_WAREHOUSE_SIZE_OPTIONS,
+            options=list(_WAREHOUSE_SIZE_OPTIONS.keys()),
         )
         start = st.selectbox(
             key="START",
@@ -273,3 +277,4 @@ class Warehouses(Container):
 
         st.write("For testing only")
         st.write(all_data)
+        st.write(warehouse_schedule_task(connection.Connection.get()))
