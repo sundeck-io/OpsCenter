@@ -210,7 +210,7 @@ class Warehouses(Container):
 
     def list(self):
         st.button(
-            "Clear State",
+            "Clear State (TODO, for testing only)",
             on_click=lambda: connection.execute(
                 f"delete from internal.{WarehouseSchedules.table_name}"
             ),
@@ -224,7 +224,17 @@ class Warehouses(Container):
         end;
                                                    """
         )
-        whfilter = st.selectbox("Warehouse Filter", options=warehouses, key="whfilter")
+        if st.session_state.get("warehouse") is None:
+            st.session_state["warehouse"] = warehouses.values[0][0]
+        idx = next(
+            i
+            for i, w in enumerate(warehouses["name"].values)
+            if w == st.session_state["warehouse"]
+        )
+        whfilter = st.selectbox(
+            "Warehouse Filter", options=warehouses, key="whfilter", index=idx
+        )
+        st.session_state["warehouse"] = whfilter
         all_data = populate_initial(whfilter)
 
         data = [i for i in all_data if i.weekday and i.name == whfilter]
@@ -235,7 +245,7 @@ class Warehouses(Container):
             "Enable Schedule",
             value=is_enabled,
             key="enabled",
-            on_change=lambda: flip_enabled(data) + flip_enabled(data_we),
+            on_change=lambda: flip_enabled(whfilter),
         )
 
         st.title("Weekdays")
@@ -261,4 +271,5 @@ class Warehouses(Container):
         )
         build_table(self.base_cls, data_we, cbs, has_empty=True)
 
+        st.write("For testing only")
         st.write(all_data)

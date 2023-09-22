@@ -84,10 +84,10 @@ def verify_and_clean(
     return None, [i for i in data if i._dirty]
 
 
-def flip_enabled(data: List[WarehouseSchedules]) -> List[WarehouseSchedules]:
-    for i in data:
-        i.enabled = not i.enabled
-    return data
+def flip_enabled(wh_name: str):
+    connection.execute(
+        f"update internal.{WarehouseSchedules.table_name} set enabled = not enabled where name = '{wh_name}'"
+    )
 
 
 def time_filter(

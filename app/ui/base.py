@@ -105,7 +105,7 @@ class Container:
         """
         Handle the create click, show a spinner, call analytics. Show appropriate errors if failure.
         """
-        with st.spinner("Creating new f{self.ui_name.lower()}..."):
+        with st.spinner(f"Creating new {self.ui_name.lower()}..."):
             _ = self.snowflake.call(
                 "INTERNAL.REPORT_ACTION",
                 f"{self.ui_name.lower()}s",
