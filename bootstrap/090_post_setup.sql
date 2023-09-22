@@ -69,6 +69,9 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
 -- create the query_hash functions in TOOLS
 call INTERNAL.ENABLE_QUERY_HASH();
 
+-- Create the WAREHOUSE_SCHEDULES table
+call internal_python.create_table('WAREHOUSE_SCHEDULES');
+
 -- Populate the list of predefined labels
 call INTERNAL.POPULATE_PREDEFINED_LABELS();
 
