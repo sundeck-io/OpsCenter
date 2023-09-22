@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from snowflake.snowpark import Row
 from pydantic import BaseModel
-from typing import ClassVar, get_args, get_origin, Union, Dict
+from typing import ClassVar, get_args, get_origin, Union, Dict, List
 import datetime
 
 
@@ -75,11 +75,26 @@ class BaseOpsCenterModel(BaseModel):
                 params.append(v)
         set_clause = ", ".join(set_elements)
         params.append(self.get_id())
+        stmt = f"UPDATE INTERNAL.{self.table_name} SET {set_clause} WHERE {self.get_id_col()} = ?"
         session.sql(
-            f"UPDATE INTERNAL.{self.table_name} SET {set_clause} WHERE {self.get_id_col()} = ?",
+            stmt,
             params=params,
         ).collect()
         return obj
+
+    @classmethod
+    def batch_read(cls, session, sortby=None) -> List["BaseOpsCenterModel"]:
+        """
+        Reads all rows from the table and returns them as a list of objects.
+        :param session:
+        :return:
+        """
+        df = session.table(f"INTERNAL.{cls.table_name}").to_pandas()
+        df.columns = [c.lower() for c in df.columns]
+        if sortby:
+            df.sort_values(by=[sortby], inplace=True)
+        arr = [cls(**dict(row)) for row in df.to_dict("records")]
+        return arr
 
 
 def handle_type(t):
@@ -91,6 +106,8 @@ def handle_type(t):
         return "NUMBER"
     elif t == datetime.datetime:
         return "TIMESTAMP"
+    elif t == datetime.time:
+        return "TIME"
     elif t == bool:
         return "BOOLEAN"
     else:
