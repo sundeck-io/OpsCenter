@@ -94,9 +94,13 @@ CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_PROBE_MONITOR_RUNNING()
     EXECUTE AS OWNER
 AS
 BEGIN
-    let probes_enabled boolean := (select count(*) > 0 from internal.probes where cancel or notify_writer or length(notify_other) > 3);
+    let cancel_probes_enabled boolean := (select count(*) > 0 from internal.probes where cancel);
+    let notify_probes_enabled boolean := (select count(*) > 0 from internal.probes where notify_writer or length(notify_other) > 3);
+    let notify_setup boolean := (select count(*) > 0 from internal.config where key in ('url','tenant_url'));
     let configured boolean := (select count(*) > 0 from internal.config where key = 'post_setup');
-    if (probes_enabled and configured) then
+    if (cancel_probes_enabled and configured) then
+        execute immediate 'alter task tasks.PROBE_MONITORING resume';
+    elseif (notify_probes_enabled and notify_setup and configured) then
         execute immediate 'alter task tasks.PROBE_MONITORING resume';
     else
         execute immediate 'alter task tasks.PROBE_MONITORING suspend';
