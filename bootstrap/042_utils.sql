@@ -22,18 +22,15 @@ as
 ;
     end;
     $$;
-else
-    execute immediate $$
-    begin
-create or replace function tools.is_reoccurring_query(qph varchar, size number)
-returns boolean
-as
-'false';
-create or replace function tools.is_ad_hoc_query(qph varchar, size number)
-returns boolean
-as
-'false';
-    end;
-    $$;
-end if;
+    end if;
 end;
+
+create function if not exists tools.is_reoccurring_query(qph varchar, size number)
+returns boolean
+as
+'false';
+
+create function if not exists tools.is_ad_hoc_query(qph varchar, size number)
+returns boolean
+as
+'false';
