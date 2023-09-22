@@ -9,6 +9,7 @@ from .common import (  # noqa F401
 )
 from .labels import PredefinedLabel
 from .session import snowpark_session
+from .wh_sched import WarehouseSchedulesTask  # noqa F401
 
 
 def validate_predefined_labels(sess: snowflake.snowpark.Session):

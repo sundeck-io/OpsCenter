@@ -1,7 +1,11 @@
 import uuid
 import streamlit as st
 import connection
-from crud.wh_sched import WarehouseSchedules, _WAREHOUSE_SIZE_OPTIONS
+from crud.wh_sched import (
+    WarehouseSchedules,
+    WarehouseSchedulesTask,
+    _WAREHOUSE_SIZE_OPTIONS,
+)
 from table import build_table, Actions
 from typing import Optional, List
 import datetime
@@ -84,7 +88,7 @@ class Warehouses(Container):
         size = st.selectbox(
             key="SIZE",
             label="Size",
-            options=_WAREHOUSE_SIZE_OPTIONS,
+            options=list(_WAREHOUSE_SIZE_OPTIONS.keys()),
         )
         start = st.selectbox(
             key="START",
@@ -272,4 +276,13 @@ class Warehouses(Container):
         build_table(self.base_cls, data_we, cbs, has_empty=True)
 
         st.write("For testing only")
+
+        st.markdown("# Raw WarehouseSchedules data")
         st.write(all_data)
+        st.markdown("# Running warehouse task")
+        st.write(WarehouseSchedulesTask(connection.Connection.get()).run())
+        st.markdown("# internal.task_warehouse_schedule raw data")
+        df = self.snowflake.sql(
+            "select * from internal.task_warehouse_schedule;"
+        ).to_pandas()
+        st.dataframe(df)
