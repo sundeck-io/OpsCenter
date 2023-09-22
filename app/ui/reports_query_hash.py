@@ -107,12 +107,13 @@ select sum(cost) as "Cost", sum(cnt) as "Count", case when "IsRepeated" then 'Re
 
         """
         )
-        df["Query Text"] = df.apply(
-            lambda row: f"{row['Query Id']}: {row['Query Text'][:10000]}"
-            if len(row["Query Text"]) > 10000
-            else row["Query Text"],
-            axis=1,
-        )
+        if len(df) > 0:
+            df["Query Text"] = df.apply(
+                lambda row: f"{row['Query Id']}: {row['Query Text'][:10000]}"
+                if len(row["Query Text"]) > 10000
+                else row["Query Text"],
+                axis=1,
+            )
         st.dataframe(df.drop(columns="Query Id"), use_container_width=True)
 
     is_enabled = connection.execute_select(
