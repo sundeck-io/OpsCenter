@@ -48,7 +48,7 @@ def build_table(
         cols.append(1)
     header = st.columns(cols)
     i = 0
-    for name in cls.model_fields.keys():
+    for name in cls.__fields__.keys():
         if name not in cls.col_widths:
             continue
         header[i].text(cls.col_widths[name][0])
@@ -60,7 +60,7 @@ def build_table(
         columns = st.columns(cols)
 
         i = 0
-        for name in cls.model_fields.keys():
+        for name in cls.__fields__.keys():
             if name not in cls.col_widths:
                 continue
             obj = getattr(row, name)

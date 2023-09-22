@@ -7,11 +7,18 @@ from crud.base import BaseOpsCenterModel
 
 
 class Container:
+    """
+    Base class for CRUD UI Elements
+    """
+
     base_cls: Optional[BaseOpsCenterModel] = None
     ui_name: Optional[str] = None
 
     @classmethod
     def display(cls):
+        """
+        Connect edit modes to the underlying class and display the UI for the given mode
+        """
         container = cls()
 
         if container.session.mode is Mode.LIST:
@@ -32,9 +39,15 @@ class Container:
         self.snowflake = Connection.get()
 
     def list(self):
-        pass
+        """
+        Display the list of items
+        """
+        raise NotImplementedError("Implement this method in your subclass")
 
     def create(self, create):
+        """
+        Display the create form
+        """
         st.title(f"Create {self.ui_name}")
         out = self.create_internal(create)
         st.button(
@@ -45,10 +58,16 @@ class Container:
         st.button("Cancel", on_click=self.session.do_list)
 
     def create_internal(self, create):
-        pass
+        """
+        Implement this method in your subclass to display the individual widgets for editing subclass objects
+        """
+        raise NotImplementedError("Implement this method in your subclass")
 
     def edit(self, update):
-        st.title("Edit {self.ui_name}")
+        """
+        Display the edit form
+        """
+        st.title(f"Edit {self.ui_name}")
         out = self.edit_internal(update)
         st.button(
             "Update",
@@ -59,18 +78,33 @@ class Container:
         pass
 
     def edit_internal(self, update):
-        pass
+        """
+        Implement this method in your subclass to display the individual widgets for editing subclass objects
+        """
+        raise NotImplementedError("Implement this method in your subclass")
 
     def on_update_click_internal(self, *args) -> Optional[str]:
-        pass
+        """
+        Implement this method in your subclass to handle the update click
+        """
+        raise NotImplementedError("Implement this method in your subclass")
 
     def on_delete_click_internal(self, *args) -> Optional[str]:
-        pass
+        """
+        Implement this method in your subclass to handle the delete click
+        """
+        raise NotImplementedError("Implement this method in your subclass")
 
     def on_create_click_internal(self, *args) -> Optional[str]:
-        pass
+        """
+        Implement this method in your subclass to handle the create click
+        """
+        raise NotImplementedError("Implement this method in your subclass")
 
     def on_create_click(self, *args):
+        """
+        Handle the create click, show a spinner, call analytics. Show appropriate errors if failure.
+        """
         with st.spinner("Creating new f{self.ui_name.lower()}..."):
             _ = self.snowflake.call(
                 "INTERNAL.REPORT_ACTION",
@@ -86,6 +120,9 @@ class Container:
         self.status.error(outcome)
 
     def on_delete_click(self, *args):
+        """
+        Handle the delete click, show a spinner, call analytics. Show appropriate errors if failure.
+        """
         with st.spinner("Deleting label..."):
             _ = self.snowflake.call(
                 "INTERNAL.REPORT_ACTION",
@@ -97,6 +134,9 @@ class Container:
             self.session.do_list()
 
     def on_update_click(self, *args):
+        """
+        Handle the update click, show a spinner, call analytics. Show appropriate errors if failure.
+        """
         with st.spinner(f"Updating {self.ui_name.lower()}..."):
             _ = self.snowflake.call(
                 "INTERNAL.REPORT_ACTION",

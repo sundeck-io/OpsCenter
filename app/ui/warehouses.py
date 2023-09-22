@@ -1,3 +1,4 @@
+import uuid
 import streamlit as st
 import connection
 from crud.wh_sched import WarehouseSchedules, _WAREHOUSE_SIZE_OPTIONS
@@ -13,6 +14,7 @@ from warehouse_utils import (
     populate_initial,
     flip_enabled,
 )
+from crud.errors import summarize_error
 
 # exclude cols from table
 def display():
@@ -25,7 +27,7 @@ class Warehouses(Container):
 
     def create_internal(self, create):
         current, data = create
-        if current.name == "" and current.size == "":
+        if current.name == "__empty__placeholder__" and current.size == "X-Small":
             # new bottom row
             row = data[-1]
         else:
@@ -33,16 +35,25 @@ class Warehouses(Container):
             row = current
         i = data.index(row)
         min_start = data[i].start_at if i != 0 else datetime.time(0, 0)
+        try:
+            max_finish = data[i + 1].start_at
+        except IndexError:
+            max_finish = datetime.time(23, 59)
 
-        start_time_filter = time_filter(datetime.time(23, 59), min_start, True)
-        finish_time_filter = time_filter(datetime.time(23, 59), min_start, False)
-        new_row = self.form(
-            row,
-            start_time_filter,
-            finish_time_filter,
-            is_create=True,
-        )
-        return new_row, data, current
+        start_time_filter = time_filter(max_finish, min_start, True)
+        finish_time_filter = time_filter(max_finish, min_start, False)
+        try:
+            new_row = self.form(
+                row,
+                start_time_filter,
+                finish_time_filter,
+                is_create=True,
+            )
+            comment = None
+        except Exception as e:
+            comment = summarize_error("Verify failed", e)
+            new_row = None
+        return new_row, data, current, comment
 
     def edit_internal(self, update_obj):
         update, data = update_obj
@@ -55,8 +66,13 @@ class Warehouses(Container):
         else:
             start_time_filter = [min_start.strftime("%I:%M %p")]
         finish_time_filter = time_filter(datetime.time(23, 59), min_start, False)
-        new_update = self.form(update, start_time_filter, finish_time_filter)
-        return update, new_update
+        try:
+            new_update = self.form(update, start_time_filter, finish_time_filter)
+            comment = None
+        except Exception as e:
+            comment = summarize_error("Verify failed", e)
+            new_update = None
+        return new_update, data, update, comment
 
     def form(
         self,
@@ -129,23 +145,29 @@ class Warehouses(Container):
             value=update.resume,
         )
 
-        new_update = WarehouseSchedules(
-            name=update.name,
-            size=size,
-            suspend_minutes=suspend_minutes,
-            resume=resume,
-            scale_min=autoscale_min,
-            scale_max=autoscale_max,
-            warehouse_mode=autoscale_mode,
-            comment=comment if comment != "" else None,
-            start_at=convert_time_str(start),
-            finish_at=convert_time_str(finish),
+        new_update = WarehouseSchedules.parse_obj(
+            dict(
+                id_val=update.id_val,
+                name=update.name,
+                size=size,
+                suspend_minutes=suspend_minutes,
+                resume=resume,
+                scale_min=autoscale_min,
+                scale_max=autoscale_max,
+                warehouse_mode=autoscale_mode,
+                comment=comment if comment != "" else None,
+                start_at=convert_time_str(start),
+                finish_at=convert_time_str(finish),
+            )
         )
         return new_update
 
     def on_create_click_internal(self, *args) -> Optional[str]:
-        row, data, current = args
-        if current.name == "" and current.size == "":
+        row, data, current, outcome = args
+        if outcome is not None:
+            return outcome
+
+        if current.name == "__empty__placeholder__" and current.size == "X-Small":
             # new bottom row
             data.append(row)
         else:
@@ -153,39 +175,43 @@ class Warehouses(Container):
             i = data.index(current)
             data.insert(i + 1, row)
 
+        row.id_val = ""
         outcome, new_data = verify_and_clean(data)
+        print(new_data)
         if outcome is not None:
             return outcome
-        old_warehouses = WarehouseSchedules.batch_read(connection.Connection.get())
-        old_warehouses_new = [i for i in old_warehouses if i.name != row.name]
-        old_warehouses_we = [
-            i for i in old_warehouses if i.name == row.name and i.weekday != row.weekday
-        ]
-        new_warehouses = old_warehouses_new + old_warehouses_we + new_data
-        WarehouseSchedules.batch_write(connection.Connection.get(), new_warehouses)
+        [i.update(connection.Connection.get(), i) for i in new_data if i.id_val != ""]
+        new_row = next(i for i in new_data if i.id_val == "")
+        new_row.id_val = uuid.uuid4().hex
+        new_row.write(connection.Connection.get())
 
     def on_delete_click_internal(self, *args) -> Optional[str]:
-        warehouses = WarehouseSchedules.batch_read(connection.Connection.get())
-        i = warehouses.index(args[0])
-        del warehouses[i]
-        comment, new_warehouses = verify_and_clean(warehouses, ignore_errors=True)
+        row = args[0][0]
+        data = args[0][1]
+        index = data.index(row)
+        del data[index]
+        row.delete(connection.Connection.get())
+        comment, new_warehouses = verify_and_clean(data, ignore_errors=True)
         if comment is not None:
             return comment
-        WarehouseSchedules.batch_write(connection.Connection.get(), new_warehouses)
+        [i.update(connection.Connection.get(), i) for i in new_warehouses]
 
     def on_update_click_internal(self, *args) -> Optional[str]:
-        warehouses = WarehouseSchedules.batch_read(connection.Connection.get())
-        i = warehouses.index(args[0])
-        warehouses[i] = args[1]
+        if args[3] is not None:
+            return args[3]
+        warehouses = args[1]
+        i = warehouses.index(args[2])
+        warehouses[i] = args[0]
+        warehouses[i]._dirty = True
         comment, new_warehouses = verify_and_clean(warehouses)
         if comment is not None:
             return comment
-        WarehouseSchedules.batch_write(connection.Connection.get(), new_warehouses)
+        [i.update(connection.Connection.get(), i) for i in new_warehouses]
 
     def list(self):
         st.button(
             "Clear State",
-            on_click=lambda: connection.Connection.get().sql(
+            on_click=lambda: connection.execute(
                 f"delete from internal.{WarehouseSchedules.table_name}"
             ),
         )
@@ -199,8 +225,7 @@ class Warehouses(Container):
                                                    """
         )
         whfilter = st.selectbox("Warehouse Filter", options=warehouses, key="whfilter")
-        populate_initial(whfilter)
-        all_data = WarehouseSchedules.batch_read(connection.Connection.get())
+        all_data = populate_initial(whfilter)
 
         data = [i for i in all_data if i.weekday and i.name == whfilter]
         data_we = [i for i in all_data if not i.weekday and i.name == whfilter]
@@ -216,7 +241,7 @@ class Warehouses(Container):
         st.title("Weekdays")
         cbs = Actions(
             lambda x: self.session.do_edit(create_callback(data, x, weekday=True)),
-            self.on_delete_click,
+            lambda row: self.on_delete_click(create_callback(data, row, weekday=True)),
             lambda row: self.session.do_create(
                 create_callback(data, row, weekday=True)
             ),
@@ -227,11 +252,13 @@ class Warehouses(Container):
             lambda row: self.session.do_edit(
                 create_callback(data_we, row, weekday=False)
             ),
-            self.on_delete_click,
+            lambda row: self.on_delete_click(
+                create_callback(data_we, row, weekday=False)
+            ),
             lambda row: self.session.do_create(
                 create_callback(data_we, row, weekday=False)
             ),
         )
         build_table(self.base_cls, data_we, cbs, has_empty=True)
 
-        st.write(WarehouseSchedules.batch_read(connection.Connection.get()))
+        st.write(all_data)

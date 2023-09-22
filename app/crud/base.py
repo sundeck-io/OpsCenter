@@ -75,14 +75,15 @@ class BaseOpsCenterModel(BaseModel):
                 params.append(v)
         set_clause = ", ".join(set_elements)
         params.append(self.get_id())
+        stmt = f"UPDATE INTERNAL.{self.table_name} SET {set_clause} WHERE {self.get_id_col()} = ?"
         session.sql(
-            f"UPDATE INTERNAL.{self.table_name} SET {set_clause} WHERE {self.get_id_col()} = ?",
+            stmt,
             params=params,
         ).collect()
         return obj
 
     @classmethod
-    def batch_read(cls, session) -> List["BaseOpsCenterModel"]:
+    def batch_read(cls, session, sortby=None) -> List["BaseOpsCenterModel"]:
         """
         Reads all rows from the table and returns them as a list of objects.
         :param session:
@@ -90,19 +91,10 @@ class BaseOpsCenterModel(BaseModel):
         """
         df = session.table(f"INTERNAL.{cls.table_name}").to_pandas()
         df.columns = [c.lower() for c in df.columns]
+        if sortby:
+            df.sort_values(by=[sortby], inplace=True)
         arr = [cls(**dict(row)) for row in df.to_dict("records")]
         return arr
-
-    @classmethod
-    def batch_write(cls, session, objs: List["BaseOpsCenterModel"]):
-        """
-        Writes all rows to the table.
-        :param session:
-        :param objs:
-        :return:
-        """
-        df = session.create_dataframe([Row(**dict(obj)) for obj in objs])
-        df.write.mode("overwrite").save_as_table(f"INTERNAL.{cls.table_name}")
 
 
 def handle_type(t):

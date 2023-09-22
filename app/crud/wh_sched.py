@@ -1,10 +1,8 @@
+import uuid
 from typing import Optional, ClassVar
 import datetime
 from .base import BaseOpsCenterModel
-from pydantic import (
-    validator,
-    root_validator,
-)
+from pydantic import validator, root_validator, Field
 
 
 def format_suspend_minutes(value):
@@ -30,6 +28,7 @@ class WarehouseSchedules(BaseOpsCenterModel):
         "warehouse_mode": ("Mode", 1),
         "comment": ("Comment", 1),
     }
+    id_val: str = Field(default_factory=lambda: uuid.uuid4().hex)
     name: str
     start_at: datetime.time = datetime.time.min
     finish_at: datetime.time = datetime.time.max.replace(microsecond=0, second=0)
@@ -43,12 +42,17 @@ class WarehouseSchedules(BaseOpsCenterModel):
     weekday: bool = True
     day: Optional[str] = None
     enabled: bool = False
+    _dirty: bool = False
+
+    class Config:
+        underscore_attrs_are_private = True
+        # allow_mutation = False
 
     def get_id_col(self) -> str:
-        return "name"
+        return "id_val"
 
     def get_id(self) -> str:
-        return self.name
+        return self.id_val
 
     @validator("name", allow_reuse=True)
     def verify_name(cls, v):
@@ -59,6 +63,8 @@ class WarehouseSchedules(BaseOpsCenterModel):
 
     @validator("start_at", "finish_at", allow_reuse=True)
     def verify_time(cls, v):
+        if v is None:
+            raise ValueError("Time is required")
         assert isinstance(v, datetime.time)
         assert (
             datetime.time.min <= v <= datetime.time.max.replace(microsecond=0, second=0)
@@ -75,7 +81,7 @@ class WarehouseSchedules(BaseOpsCenterModel):
 
     @validator("suspend_minutes", allow_reuse=True)
     def verify_suspend_minutes(cls, v):
-        if not v:
+        if v is None:
             raise ValueError("Suspend minutes is required")
         assert isinstance(v, int)
         assert v >= 0
@@ -83,7 +89,7 @@ class WarehouseSchedules(BaseOpsCenterModel):
 
     @validator("resume", "weekday", "enabled", allow_reuse=True)
     def verify_resume(cls, v):
-        if not v:
+        if v is None:
             raise ValueError("Resume is required")
         assert isinstance(v, bool)
         return v
@@ -107,8 +113,10 @@ class WarehouseSchedules(BaseOpsCenterModel):
     @root_validator(allow_reuse=True)
     @classmethod
     def verify_start_finish(cls, values):
-        start_at = values.get("start_at")
-        finish_at = values.get("finish_at")
+        start_at = values.get("start_at", datetime.time.min)
+        finish_at = values.get(
+            "finish_at", datetime.time.max.replace(microsecond=0, second=0)
+        )
         if start_at and finish_at and start_at >= finish_at:
             raise ValueError("Start time must be before finish time")
         return values
@@ -116,8 +124,8 @@ class WarehouseSchedules(BaseOpsCenterModel):
     @root_validator(allow_reuse=True)
     @classmethod
     def verify_scales(cls, values):
-        scale_min = values.get("scale_min")
-        scale_max = values.get("scale_max")
+        scale_min = values.get("scale_min", 0)
+        scale_max = values.get("scale_max", 0)
         if scale_min >= 0 and scale_max >= 0 and scale_min > scale_max:
             raise ValueError("Scale min must be less than scale max")
         return values

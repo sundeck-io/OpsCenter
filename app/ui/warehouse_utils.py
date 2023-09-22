@@ -1,14 +1,15 @@
 import connection
 from crud.wh_sched import WarehouseSchedules
+from crud.errors import summarize_error
 from typing import Optional, List, Tuple
 import datetime
 
 
 def create_callback(data, row, **additions):
     if row is None:
-        row = WarehouseSchedules(
-            name="",
-            size="",
+        row = WarehouseSchedules.construct(
+            name="__empty__placeholder__",
+            size="X-Small",
             suspend_minutes=0,
             resume=True,
             scale_min=1,
@@ -21,15 +22,17 @@ def create_callback(data, row, **additions):
 
 
 def populate_initial(warehouse):
-    WarehouseSchedules.create_table(connection.Connection.get())
-    warehouses = WarehouseSchedules.batch_read(connection.Connection.get())
+    # WarehouseSchedules.create_table(connection.Connection.get())
+    warehouses = WarehouseSchedules.batch_read(connection.Connection.get(), "start_at")
     if any(i for i in warehouses if i.name == warehouse) == 0:
         wh = describe_warehouse(warehouse)
+        wh.write(connection.Connection.get())
         warehouses.append(wh)
-        wh = describe_warehouse(warehouse)
-        wh.weekday = False
-        warehouses.append(wh)
-    WarehouseSchedules.batch_write(connection.Connection.get(), warehouses)
+        wh2 = describe_warehouse(warehouse)
+        wh2.weekday = False
+        wh2.write(connection.Connection.get())
+        warehouses.append(wh2)
+    return warehouses
 
 
 def describe_warehouse(warehouse):
@@ -56,21 +59,29 @@ def verify_and_clean(
     if data[0].start_at != datetime.time(0, 0):
         if ignore_errors:
             data[0].start_at = datetime.time(0, 0)
+            data[0]._dirty = True
         else:
             return "First row must start at midnight.", data
     if data[-1].finish_at != datetime.time(23, 59):
         if ignore_errors:
             data[-1].finish_at = datetime.time(23, 59)
+            data[0]._dirty = True
         else:
             return "Last row must end at midnight.", data
     next_start = data[0]
     for row in data[1:]:
         if row.start_at != next_start.finish_at:
             next_start.finish_at = row.start_at
+            next_start._dirty = True
         if row.warehouse_mode == "Inherit":
             row.warehouse_mode = next_start.warehouse_mode
+            row._dirty = True
         next_start = row
-    return None, data
+    try:
+        [i.validate(i.dict()) for i in data]
+    except Exception as e:
+        return summarize_error("Verify failed", e), data
+    return None, [i for i in data if i._dirty]
 
 
 def flip_enabled(data: List[WarehouseSchedules]) -> List[WarehouseSchedules]:
