@@ -7,32 +7,27 @@ declare global {
        * Custom command to select DOM element by data-cy attribute.
        * @example cy.dataCy('greeting')
        */
-      dataCy(options: {
-        value: string;
-        timeout?: number;
-      }): Chainable<JQuery<HTMLElement>>;
-      dataId(options: {
-        value: string;
-        timeout?: number;
-      }): Chainable<JQuery<HTMLElement>>;
+      dataCy(value: string, timeout?: number): Chainable<JQuery<HTMLElement>>;
+      dataId(value: string, timeout?: number): Chainable<JQuery<HTMLElement>>;
+      dataBW(value: string, timeout?: number): Chainable<JQuery<HTMLElement>>;
     }
   }
 }
 
-Cypress.Commands.add(
-  "dataCy",
-  (options: { value: string; timeout?: number }) => {
-    return cy.get(`[data-cy=${options.value}]`, {
-      timeout: options.timeout ? options.timeout : 10000,
-    });
-  }
-);
+Cypress.Commands.add("dataCy", (value, timeout) => {
+  return cy.get(`[data-cy=${value}]`, {
+    timeout: timeout ? timeout : 10000,
+  });
+});
 
-Cypress.Commands.add(
-  "dataId",
-  (options: { value: string; timeout?: number }) => {
-    return cy.get(`[data-testid=${options.value}]`, {
-      timeout: options.timeout ? options.timeout : 10000,
-    });
-  }
-);
+Cypress.Commands.add("dataId", (value, timeout) => {
+  return cy.get(`[data-testid=${value}]`, {
+    timeout: timeout ? timeout : 10000,
+  });
+});
+
+Cypress.Commands.add("dataBW", (value, timeout) => {
+  return cy.get(`[data-baseweb=${value}]`, {
+    timeout: timeout ? timeout : 10000,
+  });
+});

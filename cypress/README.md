@@ -2,7 +2,7 @@
 
 ## To install tests cypress on macOS
 
-`yarn install`
+`npm install`
 `poetry run streamlit run app/ui/Home.py`
 
 ## Running all the tests in non-interactive mode

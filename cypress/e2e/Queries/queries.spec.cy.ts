@@ -2,7 +2,7 @@ import { clickCheck, dropDownElementClick } from "../../support/clickUtils";
 import { dropDownOpen } from "../../support/formUtils";
 import { checkForLoading } from "../../support/loadingUtils";
 import { setup } from "../../support/setupUtils";
-import { MENU_TEXT } from "../Labels/utilsAndConstants/labelTestConstants";
+import { MENU_TEXT } from "../../support/testConstants";
 
 describe("Queries section", () => {
   before(() => {

@@ -2,16 +2,14 @@ import { checkNoErrorOnThePage } from "../../../support/alertUtils";
 import { buttonClick } from "../../../support/clickUtils";
 import { generateUniqueName } from "../../../support/formUtils";
 import { checkOnCorrectPage } from "../../../support/pageAssertionUtils";
-import { setup } from "../../../support/setupUtils";
+import { HEADER_TEXT, BUTTON_TEXT } from "../../../support/testConstants";
 import {
-  BUTTON_TEXT,
-  HEADER_TEXT,
   QUERY_TEXT_1,
   QUERY_TEXT_2,
   UNGROUPED,
 } from "../utilsAndConstants/labelTestConstants";
+import { fillInNewLabelForm } from "../utilsAndConstants/labelsFormUtils";
 import {
-  fillInNewLabelForm,
   addNewLabelToGroup,
   labelDelete,
   checkLabelExists,
@@ -19,10 +17,6 @@ import {
 
 export const MultipleLabelsCRUDTests = () =>
   describe("Multiple label Creation/Deletion tests", () => {
-    before(() => {
-      setup();
-    });
-
     describe("Able to Create / Delete an ungrouped label with multiple labels", () => {
       const label_1 = generateUniqueName("firstLabel");
       const label_2 = generateUniqueName("secondLabel");

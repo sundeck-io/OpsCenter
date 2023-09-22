@@ -3,16 +3,16 @@ import { clickCheck } from "../../support/clickUtils";
 import { checkForLoading } from "../../support/loadingUtils";
 import { checkOnCorrectPage } from "../../support/pageAssertionUtils";
 import { setup } from "../../support/setupUtils";
+import {
+  BUTTON_TEXT,
+  HEADER_TEXT,
+  MENU_TEXT,
+} from "../../support/testConstants";
 import { LabelsButtonTests } from "./tests/labelsButtonsTests";
 import { MultipleLabelsCRUDTests } from "./tests/multipleLabelsCRUDTests";
 import { SingleDynamicGroupedLabelCRUDTests } from "./tests/singleDynamicGroupedLabelCRUDTests";
 import { SingleGroupedLabelCRUDTests } from "./tests/singleGroupedLabelCRUDTests";
 import { SingleUngroupedLabelCRUDTests } from "./tests/singleUngroupedLabelCRUDTests";
-import {
-  BUTTON_TEXT,
-  HEADER_TEXT,
-  MENU_TEXT,
-} from "./utilsAndConstants/labelTestConstants";
 
 describe("Labels section", () => {
   before(() => {

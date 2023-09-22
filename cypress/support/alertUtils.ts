@@ -33,7 +33,9 @@ export function checkNoErrorOnThePage() {
 export function checkSuccessAlert(notificationText: string) {
   cy.get('div[role="alert"][data-baseweb="notification"]', {
     timeout: 60000,
-  }).and("contain", notificationText);
+  })
+    .and("contain", notificationText)
+    .should("exist");
 }
 
 // Check for failure notification with particular text presence

@@ -299,7 +299,7 @@ class Probe:
                 key="CANCEL", label="Cancel the query", value=update["cancel"]
             )
             st.divider()
-            notify_other = st.text_input(
+            notify_other = st.text_area(
                 key="NOTIFY_OTHER",
                 label="Notify others (comma delimited)",
                 value=update["notify_other"],

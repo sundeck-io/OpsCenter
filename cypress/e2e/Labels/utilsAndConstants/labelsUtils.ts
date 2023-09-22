@@ -5,52 +5,9 @@ import {
   buttonClick,
 } from "../../../support/clickUtils";
 import { checkOnCorrectPage } from "../../../support/pageAssertionUtils";
-import {
-  BUTTON_TEXT,
-  HEADER_TEXT,
-  LABEL_TYPES,
-  UNGROUPED,
-} from "./labelTestConstants";
-
-export const fillInNewUngroupedLabelForm = (options: {
-  labelName: string;
-  condition: string;
-}) => {
-  const { labelName, condition } = options;
-  if (labelName) {
-    cy.get('input[aria-label="Label Name"]').clear().type(labelName);
-  }
-
-  if (condition) {
-    cy.get('textarea[aria-label="Condition"]')
-      .clear()
-      .type(condition)
-      .type("{command+enter}");
-  }
-};
-
-export const fillInNewLabelForm = (options: {
-  groupName?: string;
-  labelName?: string;
-  condition: string;
-  rank?: string;
-}) => {
-  const { groupName, labelName, condition, rank } = options;
-
-  labelName && cy.get('input[aria-label="Label Name"]').clear().type(labelName);
-
-  groupName &&
-    groupName !== UNGROUPED &&
-    cy.get('input[aria-label="Group Name"]').clear().type(groupName);
-
-  rank &&
-    cy.get('input[aria-label="Group Rank"]').clear().type(rank).type("{enter}");
-
-  cy.get('textarea[aria-label="Condition"]')
-    .clear()
-    .type(condition)
-    .type("{command+enter}");
-};
+import { BUTTON_TEXT, HEADER_TEXT } from "../../../support/testConstants";
+import { LABEL_TYPES, UNGROUPED } from "./labelTestConstants";
+import { fillInNewLabelForm } from "./labelsFormUtils";
 
 export const addNewLabelToGroup = (options: {
   groupName: string;
@@ -155,11 +112,11 @@ export function checkLabelExists(options: {
   });
 
   if (labelName) {
-    cy.dataId({ value: "stMarkdownContainer" })
+    cy.dataId("stMarkdownContainer")
       .contains(labelName)
       .should(doesExist ? "exist" : "not.exist");
   } else if (condition) {
-    cy.dataId({ value: "stVerticalBlock" })
+    cy.dataId("stVerticalBlock")
       .contains(condition)
       .should(doesExist ? "exist" : "not.exist");
   }
@@ -180,28 +137,19 @@ export function checkUpdatedLabelExists(options: {
   });
 
   if (labelName) {
-    cy.dataId({ value: "stHorizontalBlock" })
+    cy.dataId("stHorizontalBlock")
       .should("exist")
       .contains(labelName)
       .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
       .should("exist")
       .within(() => {
         condition &&
-          cy
-            .dataId({ value: "stVerticalBlock" })
-            .contains(condition)
-            .should("exist");
+          cy.dataId("stVerticalBlock").contains(condition).should("exist");
 
-        rank &&
-          cy
-            .dataId({ value: "stVerticalBlock" })
-            .contains(rank)
-            .should("exist");
+        rank && cy.dataId("stVerticalBlock").contains(rank).should("exist");
       });
   } else if (condition) {
-    cy.dataId({ value: "stHorizontalBlock" })
-      .should("exist")
-      .contains(condition);
+    cy.dataId("stHorizontalBlock").should("exist").contains(condition);
   }
 }
 
@@ -214,74 +162,6 @@ export const clickLabelGroupTab = (groupName: string) => {
     .as("labelGroupTab");
 
   clickCheck({ clickElem: "@labelGroupTab" });
-};
-
-export const labelUpdateClick = (options: {
-  labelName?: string;
-  condition?: string;
-  groupName?: string;
-}) => {
-  const { labelName, condition, groupName } = options;
-  if (groupName) {
-    clickLabelGroupTab(groupName);
-  }
-  cy.get('div[data-testid="stHorizontalBlock"]')
-    .should("exist")
-    .contains(labelName ? labelName : condition)
-    .should("exist")
-    .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with labelName
-    .should("exist")
-    .within(() => {
-      // Only searches within specific stHorizontalBlock that has probeName
-      clickCheck({
-        clickElem: 'div[data-testid="column"]',
-        contains: "✏️",
-      });
-    });
-};
-
-export const updateLabelForm = (options: {
-  newLabelName?: string;
-  newCondition?: string;
-  newRank?: string;
-}) => {
-  const { newLabelName, newCondition, newRank } = options;
-
-  newLabelName &&
-    cy
-      .get('input[aria-label="Label Name"]')
-      .clear()
-      .type(newLabelName)
-      .type("{enter}");
-
-  newRank &&
-    cy
-      .get('input[aria-label="Group Rank"]')
-      .clear()
-      .type(newRank)
-      .type("{enter}");
-
-  newCondition &&
-    cy
-      .get('textarea[aria-label="Condition"]')
-      .clear()
-      .type(newCondition)
-      .type("{command+enter}");
-};
-
-export const checkLabelFormValues = (options: {
-  labelName?: string;
-  condition: string;
-  groupName?: string;
-  rank?: string;
-}) => {
-  const { labelName, condition, groupName, rank } = options;
-  labelName &&
-    cy.get('input[aria-label="Label Name"]').should("have.value", labelName);
-  cy.get('textarea[aria-label="Condition"]').should("have.value", condition);
-  groupName &&
-    cy.get('input[aria-label="Group Name"]').should("have.value", groupName);
-  rank && cy.get('input[aria-label="Group Rank"]').should("have.value", rank);
 };
 
 export const createNewLabel = (options: {

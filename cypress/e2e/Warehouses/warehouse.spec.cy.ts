@@ -1,7 +1,7 @@
 import { clickCheck } from "../../support/clickUtils";
 import { checkForLoading } from "../../support/loadingUtils";
 import { setup } from "../../support/setupUtils";
-import { MENU_TEXT } from "../Labels/utilsAndConstants/labelTestConstants";
+import { MENU_TEXT } from "../../support/testConstants";
 
 describe("Warehouse section", () => {
   before(() => {

@@ -11,8 +11,8 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
         with:
-          python-version: '3.8'
-          cache: 'pip'
+          python-version: "3.8"
+          cache: "pip"
       - uses: pre-commit/action@v3.0.0
   test-deploy:
     runs-on: ubuntu-latest
@@ -22,8 +22,8 @@ jobs:
           submodules: recursive
       - uses: actions/setup-python@v3
         with:
-          python-version: '3.8'
-          cache: 'pip'
+          python-version: "3.8"
+          cache: "pip"
       - name: install dependencies
         run: |
           pip install poetry
@@ -57,16 +57,15 @@ jobs:
           submodules: recursive
       - uses: actions/setup-python@v3
         with:
-          python-version: '3.8'
-          cache: 'pip'
+          python-version: "3.8"
+          cache: "pip"
       - name: install opscenter dependencies
         run: |
           pip install poetry
           poetry install
       - name: Get suffix
         id: shell-command
-        run:
-          echo SUFFIX=$(echo ${GITHUB_HEAD_REF} | sed "s/\./_/g" | sed "s/-/_/g" | sed "s\/\_\g")_${GITHUB_RUN_ID} >> $GITHUB_ENV
+        run: echo SUFFIX=$(echo ${GITHUB_HEAD_REF} | sed "s/\./_/g" | sed "s/-/_/g" | sed "s\/\_\g")_${GITHUB_RUN_ID} >> $GITHUB_ENV
       - name: set config
         env:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
@@ -84,7 +83,7 @@ jobs:
         run: |
           echo "CYPRESS_SNOWFLAKE_ACCOUNT=${{ secrets.SNOWFLAKE_ACCOUNT }}" >> $GITHUB_ENV
       - name: Cypress run
-        uses: cypress-io/github-action@v4
+        uses: cypress-io/github-action@v6
         with:
           start: yarn run cypress
           browser: chrome

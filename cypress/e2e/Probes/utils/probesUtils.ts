@@ -1,50 +1,94 @@
-export const fillInProbeForm = (options: {
+import { checkSuccessAlert } from "../../../support/alertUtils";
+import { clickCheck } from "../../../support/clickUtils";
+import { checkForLoading } from "../../../support/loadingUtils";
+import { PROBE_DELETED_NOTIFICATION_TEXT } from "./probeTestConstants";
+
+export const checkProbeAndValuesExistInProbesList = (options: {
+  doesExist: boolean;
   probeName: string;
-  condition: string;
-  emailTheAuthor: boolean;
-  cancelTheQuery: boolean;
-  emailOthers: string;
+  condition?: string;
+  notifyTheAuthor?: boolean;
+  cancelTheQuery?: boolean;
+  notifyOthers?: string;
 }) => {
-  const { probeName, condition, emailTheAuthor, cancelTheQuery, emailOthers } =
-    options;
-  cy.get('input[aria-label="Probe Name"]').clear().type(probeName);
+  const {
+    doesExist,
+    probeName,
+    condition,
+    notifyTheAuthor,
+    cancelTheQuery,
+    notifyOthers,
+  } = options;
 
-  cy.get('textarea[aria-label="Condition"]').clear().type(condition);
+  cy.dataId("stHorizontalBlock").should("exist").as("probeList");
 
-  if (emailTheAuthor) {
-    // check({force: true}) - explanation below
-    // https://docs.cypress.io/guides/references/error-messages#cy-failed-because-the-element-cannot-be-interacted-with
-    cy.get('input[aria-label="Notify the author"]')
+  cy.get("@probeList")
+    .contains(probeName)
+    .should(doesExist ? "exist" : "not.exist");
+
+  if (doesExist) {
+    cy.get('div[data-testid="stMarkdownContainer"]')
       .should("exist")
-      .check({ force: true });
-  }
-
-  if (cancelTheQuery) {
-    cy.get('input[aria-label="Cancel the query"]')
+      .contains(probeName)
+      .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with probeName
       .should("exist")
-      .check({ force: true });
-  }
+      .within(() => {
+        condition && cy.dataId("column").contains(condition).should("exist");
 
-  cy.get('textarea[aria-label="Notify others (comma delimited)"]')
-    .clear()
-    .type(emailOthers);
+        notifyTheAuthor !== undefined &&
+          cy
+            .dataId("column")
+            .dataBW("checkbox")
+            .get(`input[aria-checked="${notifyTheAuthor ? true : false}"]`)
+            .should("exist");
+
+        cancelTheQuery !== undefined &&
+          cy
+            .dataId("column")
+            .dataBW("checkbox")
+            .get(`input[aria-checked="${cancelTheQuery ? true : false}"]`)
+            .should("exist");
+
+        notifyOthers &&
+          cy.dataId("column").contains(notifyOthers).should("exist");
+      });
+  }
 };
 
-export const probeDelete = (probeName: string) => {
-  cy.log("Deleting probe: ", probeName);
+export const deleteProbe = (probeNameList: string[]) => {
+  for (const probeName of probeNameList) {
+    cy.get('div[data-testid="stHorizontalBlock"]')
+      .should(($elem) => {
+        return $elem;
+      })
+      .then(($elem) => {
+        if ($elem.text().includes(probeName)) {
+          cy.dataId("stMarkdownContainer")
+            .should("exist")
+            .contains(probeName)
+            .should("exist")
+            .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with probeName
+            .should("exist")
+            .within(() => {
+              // Only searches within specific stHorizontalBlock that has probeName
+              clickCheck({
+                clickElem: '[data-testid="stMarkdownContainer"]',
+                contains: "🗑️",
+                forceClick: true,
+              });
+            });
 
-  cy.get('div[data-testid="stMarkdownContainer"]')
-    .should("exist")
-    .contains(probeName)
-    .should("exist")
-    .parents('div[data-testid="stHorizontalBlock"]') // finds all the parents of the element with probeName
-    .should("exist")
-    .within(() => {
-      // Only searches within specific stHorizontalBlock that has probeName
-      cy.get('div[data-testid="column"]')
-        //.contains("&#x1F5D1;") // Does not work. This is unicode HTML representation of the wastebasket icon.
-        .eq(-2) // Brute force solution: chose second before last column (wastebasket)
-        .should("exist")
-        .click();
-    });
+          checkSuccessAlert(PROBE_DELETED_NOTIFICATION_TEXT);
+
+          // needed because there is some residue left post deleting that causes the test to fail without reloading
+          cy.reload();
+          checkForLoading();
+
+          checkProbeAndValuesExistInProbesList({
+            doesExist: false,
+            probeName: probeName,
+          });
+        }
+      });
+  }
 };

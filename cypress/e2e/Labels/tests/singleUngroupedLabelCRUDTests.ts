@@ -1,27 +1,25 @@
 import { buttonClick } from "../../../support/clickUtils";
 import { generateUniqueName } from "../../../support/formUtils";
+import { clickUpdateActionButton } from "../../../support/listingPageUtils";
 import { setup } from "../../../support/setupUtils";
+import { BUTTON_TEXT } from "../../../support/testConstants";
 import {
-  BUTTON_TEXT,
   LABEL_TYPES,
   QUERY_TEXT_1,
   QUERY_TEXT_2,
 } from "../utilsAndConstants/labelTestConstants";
 import {
+  checkLabelFormValues,
+  updateLabelForm,
+} from "../utilsAndConstants/labelsFormUtils";
+import {
   createNewLabel,
   deleteLabel,
-  labelUpdateClick,
-  updateLabelForm,
-  checkLabelFormValues,
   checkUpdatedLabelExists,
 } from "../utilsAndConstants/labelsUtils";
 
 export const SingleUngroupedLabelCRUDTests = () =>
   describe("Single Ungrouped Label Tests", () => {
-    before(() => {
-      setup();
-    });
-
     describe("Able to Create / Read / Update / Delete", () => {
       const label_1 = generateUniqueName("initialUnGroupedLabelCRUD");
       const label_2 = generateUniqueName("newLabelCRUD");
@@ -35,7 +33,7 @@ export const SingleUngroupedLabelCRUDTests = () =>
       });
 
       it("Update an ungrouped label (can fail if previous test in this section failed)", () => {
-        labelUpdateClick({ labelName: label_1 });
+        clickUpdateActionButton({ name: label_1 });
         checkLabelFormValues({
           labelName: label_1,
           condition: QUERY_TEXT_1,
