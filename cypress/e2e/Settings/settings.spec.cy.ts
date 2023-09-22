@@ -10,7 +10,7 @@ import {
 } from "../../support/clickUtils";
 import { checkForLoading } from "../../support/loadingUtils";
 import { fillInTheSettingsConfigForm } from "./utils/settingsUtils";
-import { MENU_TEXT } from "../Labels/utilsAndConstants/labelTestConstants";
+import { MENU_TEXT } from "../../support/testConstants";
 
 describe("Settings section", () => {
   before(() => {
