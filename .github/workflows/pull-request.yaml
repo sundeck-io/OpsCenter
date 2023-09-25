@@ -71,7 +71,7 @@ jobs:
         run: poetry run python deploy/devdeploy.py --profile opscenter
   unit-tests:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    if: ${{ always() }}
     needs: [devdeploy-with-materialization, cypress-tests]
     steps:
       - uses: actions/checkout@v3
