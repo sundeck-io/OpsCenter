@@ -3,9 +3,19 @@ from .labels import Label
 from .probes import Probe
 from .errors import summarize_error
 from .session import snowpark_session
+from .wh_sched import WarehouseSchedules
 
 # A "registry" of CRUD types and the implementation class
-_TYPES = {"LABEL": Label, "PROBE": Probe}
+_TYPES = {"LABEL": Label, "PROBE": Probe, "WAREHOUSE_SCHEDULES": WarehouseSchedules}
+
+
+def create_table(session, entity_type):
+    with snowpark_session(session) as txn:
+        t = _TYPES.get(entity_type)
+        if not t:
+            raise ValueError(f"Unknown entity type: {entity_type}")
+        t.create_table(txn)
+        return None
 
 
 def create_entity(session, entity_type, entity):

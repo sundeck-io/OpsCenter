@@ -1,7 +1,12 @@
 import snowflake.snowpark
 
 # Make the entrypoints for SQL procedures available
-from .common import create_entity, update_entity, delete_entity  # noqa F401
+from .common import (  # noqa F401
+    create_entity,
+    create_table,
+    update_entity,
+    delete_entity,
+)
 from .labels import PredefinedLabel
 from .session import snowpark_session
 
