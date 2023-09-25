@@ -6,7 +6,7 @@ from .session import snowpark_session
 from .wh_sched import WarehouseSchedules
 
 # A "registry" of CRUD types and the implementation class
-_TYPES = {"LABEL": Label, "PROBE": Probe, 'WAREHOUSE_SCHEDULES': WarehouseSchedules}
+_TYPES = {"LABEL": Label, "PROBE": Probe, "WAREHOUSE_SCHEDULES": WarehouseSchedules}
 
 
 def create_table(session, entity_type):
