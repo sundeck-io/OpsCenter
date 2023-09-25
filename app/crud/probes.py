@@ -43,7 +43,7 @@ class Probe(BaseOpsCenterModel):
                 params=(self.name,),
             ).collect()[0][0]
 
-            assert is_unique_name, "Probe name is not unique."
+            assert is_unique_name, "A probe with this name already exists."
             super().write(txn)
 
         session.call(self.on_success_proc)
@@ -55,6 +55,8 @@ class Probe(BaseOpsCenterModel):
                 f"SELECT COUNT(*) = 1 FROM INTERNAL.{self.table_name} WHERE name = ?",
                 params=(self.name,),
             ).collect()[0][0]
+            assert old_probe_exists, "Probe not found."
+
             new_name_is_unique = session.sql(
                 f"SELECT COUNT(*) = 0 FROM INTERNAL.{self.table_name} WHERE name = ? and name <> ?",
                 params=(
@@ -62,9 +64,7 @@ class Probe(BaseOpsCenterModel):
                     self.name,
                 ),
             ).collect()[0][0]
-            assert new_name_is_unique, "Probe with this name already exists."
-
-            assert old_probe_exists, "Probe not found."
+            assert new_name_is_unique, "A probe with this name already exists."
 
             super().update(txn, new_probe)
 
@@ -76,39 +76,45 @@ class Probe(BaseOpsCenterModel):
         session.call(self.on_success_proc)
         return None
 
+    def to_row(self) -> snowpark.Row:
+        as_dict = dict(self)
+        # Replace the Enum values as strings
+        if self.notify_writer_method is not None:
+            as_dict["notify_writer_method"] = self.notify_writer_method.value
+        if self.notify_other_method is not None:
+            as_dict["notify_other_method"] = self.notify_other_method.value
+        return snowpark.Row(**as_dict)
+
     @validator("name", allow_reuse=True)
     @classmethod
     def name_not_empty(cls, name: str) -> str:
-        assert name, "Probe name cannot be empty"
+        assert name is not None, "Probe name cannot be null"
         return name
 
     @validator("condition", allow_reuse=True)
     @classmethod
     def condition_not_empty(cls, value: str) -> str:
+        assert value is not None, "Probe condition cannot be null"
         assert value, "Probe condition cannot be empty"
-        return value
-
-    @validator("notify_writer_method", "notify_other_method", allow_reuse=True)
-    @classmethod
-    def notification_method_is_valid(cls, value: str) -> str:
-        assert value is not None, "Notification method must be defined"
-        value = value.upper()
-        assert (
-            value in NotificationMethod.__members__
-        ), "Unsupported notification method"
         return value
 
     @root_validator(allow_reuse=True)
     @classmethod
     def validate_notifications(cls, values: dict) -> dict:
+        # Only validate the notification method if that notification is enabled
         if values.get("notify_writer", False):
-            assert values.get(
-                "notify_writer_method", None
-            ), "Notification method must be supplied"
+            method = values.get("notify_writer_method", None)
+            assert method is not None, "Notify writer method must be defined"
+            assert (
+                method.upper() in NotificationMethod.__members__
+            ), f"Unsupported notification method {method}"
+
         if values.get("notify_other", False):
-            assert values.get(
-                "notify_other_method", None
-            ), "Notification method must be supplied"
+            method = values.get("notify_other_method", None)
+            assert method is not None, "Notify other method must be defined"
+            assert (
+                method.upper() in NotificationMethod.__members__
+            ), f"Unsupported notification method {method}"
 
         return values
 
