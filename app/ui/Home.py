@@ -54,7 +54,7 @@ else:
         """
 ## Warehouse Heatmap
 This heatmap helps you understand how busy your Snowflake warehouses are. Ideally, warehouses should be 100%
-utilized as anything less represents cost for active warehouses that are not running queries and generating values.
+utilized as anything less represents cost for active warehouses that are not running queries and delivering value.
 """
     )
 
