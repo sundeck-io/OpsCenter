@@ -72,6 +72,39 @@ def test_basic_task(session, wh_sched_fixture):
         assert wh_sched_fixture.task_log[0].get("success"), "Task should have succeeded"
 
 
+def test_noop_weekday_task(session, wh_sched_fixture):
+    """
+    Over the weekend, the task should do nothing if the warehouse doesn't need change.
+    """
+    # Set the last time the task ran and "now" to a weekend day that matches the test data.
+    wh_sched_fixture.last_task_run = datetime.datetime.combine(
+        datetime.date(2023, 9, 26), datetime.time(8, 0)
+    )
+    wh_sched_fixture.now = datetime.datetime.combine(
+        datetime.date(2023, 9, 27), datetime.time(8, 15)
+    )
+
+    # Schedule expects Small during the week before 0900
+    wh_sched_fixture.override_warehouse_state(
+        "COMPUTE_WH",
+        WarehouseSchedules(
+            name="COMPUTE_WH",
+            size="Small",
+            suspend_minutes=1,
+            resume=True,
+            scale_min=0,
+            scale_max=0,
+            warehouse_mode="Standard",
+        ),
+    )
+
+    with _mock_task(session, wh_sched_fixture) as task:
+        # Run the task
+        alter_warehouse_block = task.run()
+        # The task should not have made any changes
+        assert _no_task_action(alter_warehouse_block, wh_sched_fixture.task_log)
+
+
 def test_noop_weekend_task(session, wh_sched_fixture):
     """
     Over the weekend, the task should do nothing if the warehouse doesn't need change.
@@ -92,6 +125,9 @@ def test_noop_weekend_task(session, wh_sched_fixture):
 
 
 def test_basic_weekend_task(session, wh_sched_fixture):
+    """
+    Make sure the task chooses the weekend schedule instead of the weekday task.
+    """
     # First task run on the weekend.
     wh_sched_fixture.last_task_run = datetime.datetime.combine(
         datetime.date(2023, 9, 29), datetime.time(23, 45)
