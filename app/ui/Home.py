@@ -29,6 +29,16 @@ if config.has_tenant_url():
             [Go to my Sundeck account]({tenant_url})
         """
     )
+else:
+    if config.has_sundeck():
+        st.markdown(
+            """
+                To explore the Sundeck account, right-click on the link below and choose "Open link in new tab/window."
+                Then log in with your Sundeck credentials.
+
+                [Go to my Sundeck account](https://sundeck.io/sign-in)
+                """
+        )
 
 if not config.get_materialization_complete():
     st.info("Please wait for materialization to complete before running reports.")
