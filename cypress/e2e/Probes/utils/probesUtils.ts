@@ -1,6 +1,5 @@
 import { checkSuccessAlert } from "../../../support/alertUtils";
 import { clickCheck } from "../../../support/clickUtils";
-import { checkForLoading } from "../../../support/loadingUtils";
 import { PROBE_DELETED_NOTIFICATION_TEXT } from "./probeTestConstants";
 
 export const checkProbeAndValuesExistInProbesList = (options: {
@@ -81,8 +80,7 @@ export const deleteProbe = (probeNameList: string[]) => {
           checkSuccessAlert(PROBE_DELETED_NOTIFICATION_TEXT);
 
           // needed because there is some residue left post deleting that causes the test to fail without reloading
-          cy.reload();
-          checkForLoading();
+          cy.reloadWait();
 
           checkProbeAndValuesExistInProbesList({
             doesExist: false,

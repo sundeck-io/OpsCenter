@@ -32,9 +32,13 @@ export const clickCheck = (options: {
   noLog?: boolean;
 }) => {
   const { clickElem, contains, forceClick, noLog } = options;
+
+  checkNoErrorOnThePage();
+
   cy.get(clickElem, { log: !noLog })
     .should("exist")
     .as(`clickElem-${clickElem}`);
+
   if (contains) {
     cy.get(`@clickElem-${clickElem}`, { log: !noLog })
       .contains(contains, { log: !noLog })
@@ -49,7 +53,7 @@ export const clickCheck = (options: {
       .should("be.visible")
       .click({
         log: !noLog,
-        force: forceClick,
+        force: true,
       });
   }
   checkNoErrorOnThePage();

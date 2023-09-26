@@ -1,14 +1,4 @@
 export const checkForLoading = () => {
-  // In initial load, the page will say "Please wait...".We need to wait for that
-  // to disappear before we check for the running spinner to disappear as well.
-  // After the initial load, this will be a split second since it will not exist
-  // and move on.
-  cy.get('[data-testid="stMarkdownContainer"]', {
-    timeout: 240000,
-  })
-    .contains("Please wait...")
-    .should("not.exist");
-
   // presently, the for loop needs to be outside the then() to work
   for (let i = 0; i < 5; i++) {
     cy.get('[data-testid="stStatusWidget"]', { log: false })
@@ -28,4 +18,22 @@ export const checkForLoading = () => {
   cy.get('[data-testid="stStatusWidget"]', {
     timeout: 440000,
   }).should("not.exist");
+};
+
+export const checkInitialLoading = () => {
+  // In initial load, the page will say "Please wait...".We need to wait for that
+  // to disappear before we check for the running spinner to disappear as well.
+  // After the initial load, this will be a split second since it will not exist
+  // and move on.
+  cy.get('[data-testid="stMarkdownContainer"]', {
+    timeout: 240000,
+    log: false,
+  }).as("pleaseWaitContainer");
+  cy.get("@pleaseWaitContainer")
+    .contains("Please wait...", { log: false })
+    .should(($el) => {
+      if ($el.length > 0) {
+        throw new Error("Please wait... screen timed out");
+      }
+    });
 };

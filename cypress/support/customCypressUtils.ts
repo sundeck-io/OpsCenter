@@ -1,3 +1,5 @@
+import { checkForLoading, checkInitialLoading } from "./loadingUtils";
+
 export {};
 
 declare global {
@@ -10,6 +12,7 @@ declare global {
       dataCy(value: string, timeout?: number): Chainable<JQuery<HTMLElement>>;
       dataId(value: string, timeout?: number): Chainable<JQuery<HTMLElement>>;
       dataBW(value: string, timeout?: number): Chainable<JQuery<HTMLElement>>;
+      reloadWait(): void;
     }
   }
 }
@@ -29,5 +32,12 @@ Cypress.Commands.add("dataId", (value, timeout) => {
 Cypress.Commands.add("dataBW", (value, timeout) => {
   return cy.get(`[data-baseweb=${value}]`, {
     timeout: timeout ? timeout : 10000,
+  });
+});
+
+Cypress.Commands.add("reloadWait", () => {
+  cy.reload().then(() => {
+    checkInitialLoading();
+    checkForLoading();
   });
 });

@@ -1,6 +1,9 @@
 import { clickCheck, dropDownElementClick } from "../../support/clickUtils";
 import { dropDownOpen } from "../../support/formUtils";
-import { checkForLoading } from "../../support/loadingUtils";
+import {
+  checkForLoading,
+  checkInitialLoading,
+} from "../../support/loadingUtils";
 import { setup } from "../../support/setupUtils";
 import { MENU_TEXT } from "../../support/testConstants";
 
@@ -12,7 +15,7 @@ describe("Queries section", () => {
   it("Menu: Queries (Top Spenders)", () => {
     cy.visit("/");
 
-    checkForLoading();
+    checkInitialLoading();
 
     clickCheck({ clickElem: "span", contains: MENU_TEXT.QUERIES });
 

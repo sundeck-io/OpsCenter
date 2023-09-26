@@ -1,6 +1,6 @@
 import { checkNoErrorOnThePage } from "../../support/alertUtils";
 import { clickCheck } from "../../support/clickUtils";
-import { checkForLoading } from "../../support/loadingUtils";
+import { checkInitialLoading } from "../../support/loadingUtils";
 import { checkOnCorrectPage } from "../../support/pageAssertionUtils";
 import { setup } from "../../support/setupUtils";
 import {
@@ -22,16 +22,16 @@ describe("Labels section", () => {
   beforeEach(() => {
     cy.visit("/");
 
-    checkForLoading();
+    checkNoErrorOnThePage();
 
     clickCheck({ clickElem: "span", contains: MENU_TEXT.LABELS });
+    checkNoErrorOnThePage();
 
     checkOnCorrectPage({
       headerText: HEADER_TEXT.LABELS,
       notRightPageText: [HEADER_TEXT.CREATE_LABEL, HEADER_TEXT.UPDATE_LABEL],
       notRightPageButton: BUTTON_TEXT.CANCEL,
     });
-    checkNoErrorOnThePage();
   });
 
   LabelsButtonTests();
