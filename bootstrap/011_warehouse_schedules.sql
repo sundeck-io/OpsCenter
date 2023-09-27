@@ -1,6 +1,5 @@
 
--- Create the WAREHOUSE_SCHEDULES table
-call internal_python.create_table('WAREHOUSE_SCHEDULES');
+-- NB. Table is created in 090_post_setup.sql because you cannot call python procs from the setup.sql
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_WH_SCHEDULES()
     RETURNS text
