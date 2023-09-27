@@ -69,7 +69,11 @@ dbname = "..."
 ```
 
 Then run the following commands:
+
 ```
+# Get node modules for the UI
+npm install
+
 # Create dev database
 poetry run python deploy/devdeploy.py -p local_dev
 
@@ -78,6 +82,7 @@ OPSCENTER_PROFILE=local_dev poetry run streamlit run app/ui/Home.py
 ```
 
 ### Versioned App Development
+
 If you want to confirm functioning of behavior such as email integration, you should install the application package and application using "versioned" mode. You can do this by passing deploy a versioned
 identifier. For example:
 
