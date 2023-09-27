@@ -1,5 +1,5 @@
 from session import Mode
-from connection import Connection
+import connection
 import session as general_session
 import streamlit as st
 from typing import Optional
@@ -35,8 +35,6 @@ class Container:
         self.status = st.empty()
         self.session = general_session.Sessions.get(self.base_cls.table_name)
         self.session.show_toast(self.status)
-
-        self.snowflake = Connection.get()
 
     def list(self):
         """
@@ -106,11 +104,12 @@ class Container:
         Handle the create click, show a spinner, call analytics. Show appropriate errors if failure.
         """
         with st.spinner(f"Creating new {self.ui_name.lower()}..."):
-            _ = self.snowflake.call(
-                "INTERNAL.REPORT_ACTION",
-                f"{self.ui_name.lower()}s",
-                "create",
-            )
+            with connection.Connection().get() as conn:
+                _ = conn.call(
+                    "INTERNAL.REPORT_ACTION",
+                    f"{self.ui_name.lower()}s",
+                    "create",
+                )
             outcome = self.on_create_click_internal(*args)
             if outcome is None:
                 self.session.set_toast(f"New {self.ui_name.lower()} created.")
@@ -124,11 +123,12 @@ class Container:
         Handle the delete click, show a spinner, call analytics. Show appropriate errors if failure.
         """
         with st.spinner("Deleting label..."):
-            _ = self.snowflake.call(
-                "INTERNAL.REPORT_ACTION",
-                f"{self.ui_name.lower()}s",
-                "delete",
-            )
+            with connection.Connection().get() as conn:
+                _ = conn.call(
+                    "INTERNAL.REPORT_ACTION",
+                    f"{self.ui_name.lower()}s",
+                    "delete",
+                )
             self.on_delete_click_internal(*args)
             self.session.set_toast(f"{self.ui_name} deleted.")
             self.session.do_list()
@@ -138,11 +138,12 @@ class Container:
         Handle the update click, show a spinner, call analytics. Show appropriate errors if failure.
         """
         with st.spinner(f"Updating {self.ui_name.lower()}..."):
-            _ = self.snowflake.call(
-                "INTERNAL.REPORT_ACTION",
-                f"{self.ui_name.lower()}s",
-                "update",
-            )
+            with connection.Connection().get() as conn:
+                _ = conn.call(
+                    "INTERNAL.REPORT_ACTION",
+                    f"{self.ui_name.lower()}s",
+                    "update",
+                )
             outcome = self.on_update_click_internal(*args)
 
             if outcome is None:

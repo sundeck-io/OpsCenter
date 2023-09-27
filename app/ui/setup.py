@@ -58,7 +58,8 @@ def setup_permissions():
         perms.request_account_privileges(missing_privileges)
     else:
         if not config.up_to_date():
-            connection.Connection.get().call(f"{db}.ADMIN.FINALIZE_SETUP")
+            with connection.Connection.get() as conn:
+                conn.call(f"{db}.ADMIN.FINALIZE_SETUP")
 
 
 def setup_block():
@@ -79,7 +80,8 @@ def setup_block():
 
     region = get_region(sf_region_without_public)
     external_func_url = get_api_gateway_url(sf_region_without_public, sd_deployment)
-    connection.Connection.get().call("INTERNAL.SETUP_EF_URL", external_func_url)
+    with connection.Connection.get() as conn:
+        conn.call("INTERNAL.SETUP_EF_URL", external_func_url)
 
     def expander(num: int, title: str, finished: bool) -> st.expander:
         c = "[Pending]"
@@ -140,9 +142,8 @@ def sundeck_signup_with_email(account, user, region, db, sd_deployment):
             msg.error("Invalid token format")
             return
         sndk_token = f"sndk_{token}"
-        connection.Connection.get().call(
-            "INTERNAL.SETUP_SUNDECK_TOKEN", url, sndk_token
-        )
+        with connection.Connection.get() as conn:
+            conn.call("INTERNAL.SETUP_SUNDECK_TOKEN", url, sndk_token)
         api_integration_name = "OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS"
         if sd_deployment != "prod":
             api_integration_name = f"OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS_{db.upper()}"

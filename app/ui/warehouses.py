@@ -180,21 +180,23 @@ class Warehouses(Container):
         print(new_data)
         if outcome is not None:
             return outcome
-        [i.update(connection.Connection.get(), i) for i in new_data if i.id_val != ""]
-        new_row = next(i for i in new_data if i.id_val == "")
-        new_row.id_val = uuid.uuid4().hex
-        new_row.write(connection.Connection.get())
+        with connection.Connection.get() as conn:
+            [i.update(conn, i) for i in new_data if i.id_val != ""]
+            new_row = next(i for i in new_data if i.id_val == "")
+            new_row.id_val = uuid.uuid4().hex
+            new_row.write(conn)
 
     def on_delete_click_internal(self, *args) -> Optional[str]:
         row = args[0][0]
         data = args[0][1]
         index = data.index(row)
         del data[index]
-        row.delete(connection.Connection.get())
-        comment, new_warehouses = verify_and_clean(data, ignore_errors=True)
-        if comment is not None:
-            return comment
-        [i.update(connection.Connection.get(), i) for i in new_warehouses]
+        with connection.Connection.get() as conn:
+            row.delete(conn)
+            comment, new_warehouses = verify_and_clean(data, ignore_errors=True)
+            if comment is not None:
+                return comment
+            [i.update(conn, i) for i in new_warehouses]
 
     def on_update_click_internal(self, *args) -> Optional[str]:
         if args[3] is not None:
@@ -206,7 +208,8 @@ class Warehouses(Container):
         comment, new_warehouses = verify_and_clean(warehouses)
         if comment is not None:
             return comment
-        [i.update(connection.Connection.get(), i) for i in new_warehouses]
+        with connection.Connection.get() as conn:
+            [i.update(conn, i) for i in new_warehouses]
 
     def list(self):
         st.button(

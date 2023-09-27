@@ -6,6 +6,7 @@ from configparser import ConfigParser
 import os
 from threading import Lock
 from cachetools import TTLCache, cached
+from contextlib import contextmanager
 
 # Add back once more things are supported in native apps.
 # class Runner:
@@ -43,49 +44,58 @@ class Connection:
         return execute(sql)
 
     @classmethod
+    @contextmanager
     def get(cls):
         if cls.session is not None:
-            return cls.session
+            with cls.session_lock:
+                yield cls.session
+        else:
 
-        with cls.session_lock:
-            if cls.session is None:
-                try:
-                    cls.session = get_active_session()
-                except SnowparkSessionException:
-                    # Assume local development env. Read config from snowsql.
+            with cls.session_lock:
+                if cls.session is None:
+                    try:
+                        cls.session = get_active_session()
+                    except SnowparkSessionException:
+                        # Assume local development env. Read config from snowsql.
 
-                    # Define the path to the SnowSQL config file
-                    config_path = os.path.expanduser("~/.snowsql/config")
-                    profile_name = os.getenv("OPSCENTER_PROFILE", "opscenter")
-                    section = f"connections.{profile_name}"
+                        # Define the path to the SnowSQL config file
+                        config_path = os.path.expanduser("~/.snowsql/config")
+                        profile_name = os.getenv("OPSCENTER_PROFILE", "opscenter")
+                        section = f"connections.{profile_name}"
 
-                    # Create a ConfigParser object and read the config file
-                    config = ConfigParser()
-                    config.read(config_path)
+                        # Create a ConfigParser object and read the config file
+                        config = ConfigParser()
+                        config.read(config_path)
 
-                    # Get the accountname, username, and password properties from the [connections] section
-                    accountname = Connection.remove_quotes(
-                        config.get(section, "accountname")
-                    )
-                    username = Connection.remove_quotes(config.get(section, "username"))
-                    password = Connection.remove_quotes(config.get(section, "password"))
-                    database = Connection.remove_quotes(config.get(section, "dbname"))
-                    # Matches the default in deploy/devdeploy.py
-                    schema = Connection.remove_quotes(
-                        config.get(section, "schemaname", fallback="PUBLIC")
-                    )
+                        # Get the accountname, username, and password properties from the [connections] section
+                        accountname = Connection.remove_quotes(
+                            config.get(section, "accountname")
+                        )
+                        username = Connection.remove_quotes(
+                            config.get(section, "username")
+                        )
+                        password = Connection.remove_quotes(
+                            config.get(section, "password")
+                        )
+                        database = Connection.remove_quotes(
+                            config.get(section, "dbname")
+                        )
+                        # Matches the default in deploy/devdeploy.py
+                        schema = Connection.remove_quotes(
+                            config.get(section, "schemaname", fallback="PUBLIC")
+                        )
 
-                    connection_parameters = {
-                        "account": accountname,
-                        "user": username,
-                        "password": password,
-                        "database": database,
-                        "schema": schema,
-                    }
+                        connection_parameters = {
+                            "account": accountname,
+                            "user": username,
+                            "password": password,
+                            "database": database,
+                            "schema": schema,
+                        }
 
-                    Session.builder.configs(connection_parameters).create()
-                    cls.session = get_active_session()
-            return cls.session
+                        Session.builder.configs(connection_parameters).create()
+                        cls.session = get_active_session()
+                yield cls.session
 
     @staticmethod
     def convert(v) -> str:
@@ -124,14 +134,16 @@ class Connection:
             #    return Runner(cls.get().sql(sql).to_pandas(block=False), is_select)
             # else:
             # print("Executing (select): " + sql)
-            return cls.get().sql(sql).to_pandas()
+            with cls.get() as conn:
+                return conn.sql(sql).to_pandas()
         else:
             # if asyncd:
             #    return Runner(cls.get().sql(sql).collect_nowait(), is_select)
             # else:
             # print("Executing (nonselect): " + sql)
-            rows = cls.get().sql(sql).collect()
-            return pd.DataFrame([row.as_dict() for row in rows])
+            with cls.get() as conn:
+                rows = conn.sql(sql).collect()
+                return pd.DataFrame([row.as_dict() for row in rows])
 
 
 def execute(sql: str, args: dict = None):
