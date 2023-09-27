@@ -22,17 +22,17 @@ def create_callback(data, row, **additions):
 
 
 def populate_initial(warehouse):
-    # WarehouseSchedules.create_table(connection.Connection.get())
-    warehouses = WarehouseSchedules.batch_read(connection.Connection.get(), "start_at")
-    if any(i for i in warehouses if i.name == warehouse) == 0:
-        wh = describe_warehouse(warehouse)
-        wh.write(connection.Connection.get())
-        warehouses.append(wh)
-        wh2 = describe_warehouse(warehouse)
-        wh2.weekday = False
-        wh2.write(connection.Connection.get())
-        warehouses.append(wh2)
-    return warehouses
+    with connection.Connection.get() as conn:
+        warehouses = WarehouseSchedules.batch_read(conn, "start_at")
+        if any(i for i in warehouses if i.name == warehouse) == 0:
+            wh = describe_warehouse(warehouse)
+            wh.write(conn)
+            warehouses.append(wh)
+            wh2 = describe_warehouse(warehouse)
+            wh2.weekday = False
+            wh2.write(conn)
+            warehouses.append(wh2)
+        return warehouses
 
 
 def describe_warehouse(warehouse):

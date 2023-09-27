@@ -16,14 +16,13 @@ class Label:
         self.session = general_session.labels()
         self.session.show_toast(self.status)
 
-        self.snowflake = Connection.get()
-
     def list_labels(self):
-        _ = self.snowflake.call(
-            "INTERNAL.REPORT_ACTION",
-            "labels",
-            "list",
-        )
+        with Connection.get() as conn:
+            _ = conn.call(
+                "INTERNAL.REPORT_ACTION",
+                "labels",
+                "list",
+            )
         st.title("Query Labels")
         st.write(
             """
@@ -49,9 +48,10 @@ class Label:
             """
             )
 
-        data = self.snowflake.sql(
-            "select * from internal.LABELS order by group_name, group_rank"
-        ).collect()
+        with Connection.get() as conn:
+            data = conn.sql(
+                "select * from internal.LABELS order by group_name, group_rank"
+            ).collect()
 
         if len(data) == 0:
             st.write(
@@ -73,18 +73,19 @@ class Label:
             )
             return
 
-        groups = self.snowflake.sql(
-            """
-            with groups as (
-                select distinct case when group_name is null then 'Ungrouped' else group_name end as g, is_dynamic
-                from internal.labels
-                union all
-                select 'Ungrouped', FALSE
-            )
-            select distinct g, is_dynamic
-            from groups
-            order by IFF(g = 'Ungrouped', 0, 1), g"""
-        ).collect()
+        with Connection.get() as conn:
+            groups = conn.sql(
+                """
+                with groups as (
+                    select distinct case when group_name is null then 'Ungrouped' else group_name end as g, is_dynamic
+                    from internal.labels
+                    union all
+                    select 'Ungrouped', FALSE
+                )
+                select distinct g, is_dynamic
+                from groups
+                order by IFF(g = 'Ungrouped', 0, 1), g"""
+            ).collect()
 
         items = list(map(lambda m: m[0], groups))
         dynamics = list(map(lambda m: m[1], groups))
@@ -177,13 +178,14 @@ class Label:
 
     def on_create_click(self, name, group, rank, condition, is_dynamic):
         with st.spinner("Creating new label..."):
-            _ = self.snowflake.call(
-                "INTERNAL.REPORT_ACTION",
-                "labels",
-                "create",
-            )
+            with Connection.get() as conn:
+                _ = conn.call(
+                    "INTERNAL.REPORT_ACTION",
+                    "labels",
+                    "create",
+                )
             try:
-                with snowpark_session(self.snowflake) as txn:
+                with snowpark_session(conn) as txn:
                     obj = ModelLabel.parse_obj(
                         {
                             "name": name,
@@ -211,14 +213,15 @@ class Label:
     def on_update_click(self, oldname, name, group, rank, condition, is_dynamic):
         outcome = None
         with st.spinner("Updating label..."):
-            _ = self.snowflake.call(
-                "INTERNAL.REPORT_ACTION",
-                "labels",
-                "update",
-            )
+            with Connection.get() as conn:
+                _ = conn.call(
+                    "INTERNAL.REPORT_ACTION",
+                    "labels",
+                    "update",
+                )
 
             try:
-                with snowpark_session(self.snowflake) as sf:
+                with snowpark_session(conn) as sf:
                     # Make the old label, bypassing validation
                     if is_dynamic:
                         old_label = ModelLabel.construct(
@@ -255,12 +258,13 @@ class Label:
 
     def on_delete_click(self, name_or_group_name, is_dynamic):
         with st.spinner("Deleting label..."):
-            _ = self.snowflake.call(
-                "INTERNAL.REPORT_ACTION",
-                "labels",
-                "delete",
-            )
-            with snowpark_session(self.snowflake) as txn:
+            with Connection.get() as conn:
+                _ = conn.call(
+                    "INTERNAL.REPORT_ACTION",
+                    "labels",
+                    "delete",
+                )
+            with snowpark_session(conn) as txn:
                 # Make the old label, bypassing validation
                 if is_dynamic:
                     label_to_del = ModelLabel.construct(

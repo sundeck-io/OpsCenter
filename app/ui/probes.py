@@ -31,14 +31,13 @@ class Probe:
         self.session = general_session.probes()
         self.session.show_toast(self.status)
 
-        self.snowflake = Connection.get()
-
     def list_probes(self):
-        _ = self.snowflake.call(
-            "INTERNAL.REPORT_ACTION",
-            "probes",
-            "list",
-        )
+        with Connection.get() as conn:
+            _ = conn.call(
+                "INTERNAL.REPORT_ACTION",
+                "probes",
+                "list",
+            )
         st.title("Query Probes")
         st.markdown(
             """
@@ -63,9 +62,8 @@ class Probe:
 
             """
             )
-        data = self.snowflake.sql(
-            "select * from internal.PROBES order by name"
-        ).collect()
+        with Connection.get() as conn:
+            data = conn.sql("select * from internal.PROBES order by name").collect()
 
         if len(data) == 0:
             st.write(
@@ -144,13 +142,14 @@ class Probe:
         cancel,
     ):
         with st.spinner("Creating new probe..."):
-            _ = self.snowflake.call(
-                "INTERNAL.REPORT_ACTION",
-                "probes",
-                "create",
-            )
+            with Connection.get() as conn:
+                _ = conn.call(
+                    "INTERNAL.REPORT_ACTION",
+                    "probes",
+                    "create",
+                )
             try:
-                with snowpark_session(self.snowflake) as txn:
+                with snowpark_session(conn) as txn:
                     obj = ModelProbe.parse_obj(
                         {
                             "name": name,
@@ -189,13 +188,14 @@ class Probe:
         cancel,
     ):
         with st.spinner("Updating probe..."):
-            _ = self.snowflake.call(
-                "INTERNAL.REPORT_ACTION",
-                "probes",
-                "update",
-            )
+            with Connection.get() as conn:
+                _ = conn.call(
+                    "INTERNAL.REPORT_ACTION",
+                    "probes",
+                    "update",
+                )
             try:
-                with snowpark_session(self.snowflake) as txn:
+                with snowpark_session(conn) as txn:
                     old_probe = ModelProbe.construct(name=oldname)
                     new_probe = ModelProbe.parse_obj(
                         {
@@ -226,12 +226,13 @@ class Probe:
 
     def on_delete_click(self, name):
         with st.spinner("Deleting probe..."):
-            _ = self.snowflake.call(
-                "INTERNAL.REPORT_ACTION",
-                "probes",
-                "delete",
-            )
-            with snowpark_session(self.snowflake) as txn:
+            with Connection.get() as conn:
+                _ = conn.call(
+                    "INTERNAL.REPORT_ACTION",
+                    "probes",
+                    "delete",
+                )
+            with snowpark_session(conn) as txn:
                 del_probe = ModelProbe.construct(name=name)
                 del_probe.delete(txn)
 
