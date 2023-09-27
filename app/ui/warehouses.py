@@ -1,9 +1,9 @@
+import os
 import uuid
 import streamlit as st
 import connection
 from crud.wh_sched import (
     WarehouseSchedules,
-    WarehouseSchedulesTask,
     _WAREHOUSE_SIZE_OPTIONS,
 )
 from table import build_table, Actions
@@ -231,12 +231,19 @@ class Warehouses(Container):
             update_task_state(conn)
 
     def list(self):
-        st.button(
-            "Clear State (TODO, for testing only)",
-            on_click=lambda: connection.execute(
-                f"delete from internal.{WarehouseSchedules.table_name}"
-            ),
-        )
+        if os.environ.get("OPSCENTER_LOCAL_DEV", False):
+            st.button(
+                "Clear Warehouse Schedules",
+                on_click=lambda: connection.execute(
+                    f"delete from internal.{WarehouseSchedules.table_name}"
+                ),
+            )
+            st.button(
+                "Clear Warehouse Schedules Task History",
+                on_click=lambda: connection.execute(
+                    "delete from internal.task_warehouse_schedule"
+                ),
+            )
         warehouses = connection.execute_with_cache(
             """
         begin
@@ -293,14 +300,12 @@ class Warehouses(Container):
         )
         build_table(self.base_cls, data_we, cbs, has_empty=True)
 
-        st.write("For testing only")
-
-        st.markdown("# Raw WarehouseSchedules data")
-        st.write(all_data)
-        st.markdown("# Running warehouse task")
-        st.write(WarehouseSchedulesTask(connection.Connection.get()).run())
-        st.markdown("# internal.task_warehouse_schedule raw data")
-        df = self.snowflake.sql(
-            "select * from internal.task_warehouse_schedule;"
-        ).to_pandas()
-        st.dataframe(df)
+        if os.environ.get("OPSCENTER_LOCAL_DEV", False):
+            st.markdown("# Raw WarehouseSchedules data")
+            st.write(all_data)
+            st.markdown("# internal.task_warehouse_schedule raw data")
+            with connection.Connection.get() as conn:
+                df = conn.sql(
+                    "select * from internal.task_warehouse_schedule;"
+                ).to_pandas()
+                st.dataframe(df, use_container_width=True)
