@@ -81,13 +81,10 @@ def verify_and_clean(
 
 def flip_enabled(wh_name: str):
     with connection.Connection.get() as conn:
-        print("Running update over schedules")
         _ = conn.sql(
             f"update internal.{WarehouseSchedules.table_name} set enabled = not enabled where name = '{wh_name}'"
         ).collect()
-        print("Update finished, updating task")
         update_task_state(conn)
-        print("Task update finished")
 
 
 def time_filter(
@@ -114,5 +111,4 @@ def update_task_state(session: Session) -> bool:
     :return: True if the task is enabled, False otherwise.
     """
     schedules = WarehouseSchedules.batch_read(session, sortby="start_at")
-    ret = crud_update_task_state(session, schedules)
-    print(f"""Task state was {"" if ret else "not "}updated""")
+    return crud_update_task_state(session, schedules)
