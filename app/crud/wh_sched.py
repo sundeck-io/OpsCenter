@@ -240,6 +240,7 @@ def _make_alter_task_statements(
     cron_schedule, should_run = _make_cron_schedule(schedules, offset)
     if should_run:
         return [
+            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} suspend;",
             f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} set schedule = 'using cron {cron_schedule}';",
             f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} resume;",
         ]

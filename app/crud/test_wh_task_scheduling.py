@@ -65,18 +65,21 @@ def test_weekday_schedules(session: MockSession):
     script = session._sql[0].lower()
 
     # _0 and _30 should be resumed
-    assert "alter task if exists tasks.warehouse_scheduling_0 resume;" in script
-    assert "alter task if exists tasks.warehouse_scheduling_30 resume;" in script
-
-    # _15 and _45 should be suspended
-    assert "alter task if exists tasks.warehouse_scheduling_15 suspend;" in script
-    assert "alter task if exists tasks.warehouse_scheduling_45 suspend;" in script
+    assert "alter task if exists tasks.warehouse_scheduling_0 suspend;" in script
 
     expected_cron_0 = "0 0,9 * * 1-5 america/los_angeles"
     assert (
         f"alter task if exists tasks.warehouse_scheduling_0 set schedule = 'using cron {expected_cron_0}';"
         in script
     )
+    assert "alter task if exists tasks.warehouse_scheduling_0 resume;" in script
+
+    assert "alter task if exists tasks.warehouse_scheduling_30 suspend;" in script
+    assert "alter task if exists tasks.warehouse_scheduling_30 resume;" in script
+
+    # _15 and _45 should be suspended
+    assert "alter task if exists tasks.warehouse_scheduling_15 suspend;" in script
+    assert "alter task if exists tasks.warehouse_scheduling_45 suspend;" in script
 
     expected_cron_30 = "30 17 * * 1-5 america/los_angeles"
     assert (
