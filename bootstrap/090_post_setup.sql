@@ -331,11 +331,12 @@ CREATE TASK IF NOT EXISTS TASKS.WAREHOUSE_SCHEDULING_45
     AS
     execute task TASKS.WAREHOUSE_SCHEDULING;
 
+-- The real warehouse scheduling logic cannot be in python with serverless task. Make a dummy task body.
 CREATE OR REPLACE TASK TASKS.WAREHOUSE_SCHEDULING
     ALLOW_OVERLAPPING_EXECUTION = FALSE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
     as
-    CALL ADMIN.UPDATE_WH_SCHEDULES();
+    select 1;
 
 -- This clarifies that the post setup script has been executed to match the current installed version.
 let version string := (select internal.get_version());
