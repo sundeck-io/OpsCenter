@@ -262,8 +262,10 @@ def _make_cron_schedule(
     schedules_for_offset = [sch for sch in schedules if sch.start_at.minute == offset]
 
     if len(schedules_for_offset) > 0:
-        # Collect all the hours that start at this offset
-        cron_hours = ",".join([str(sch.start_at.hour) for sch in schedules_for_offset])
+        # Collect all the unique hours that start at this offset
+        all_hours = set([sch.start_at.hour for sch in schedules_for_offset])
+        # Sort the hours and join them together
+        cron_hours = ",".join([str(hr) for hr in sorted(all_hours)])
     else:
         return "", False
 
