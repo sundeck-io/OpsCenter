@@ -87,6 +87,20 @@ class BaseOpsCenterModel(BaseModel):
         return obj
 
     @classmethod
+    def batch_write(cls, session, data: List["BaseOpsCenterModel"], overwrite=False):
+        """
+        Writes a list of objects to the table. If overwrite is True, the table is truncated before writing.
+        :param session:
+        :param data:
+        :param overwrite:
+        :return:
+        """
+        df = session.create_dataframe([d.to_row() for d in data])
+        df.write.mode("overwrite" if overwrite else "append").save_as_table(
+            f"INTERNAL.{cls.table_name}"
+        )
+
+    @classmethod
     def batch_read(cls, session, sortby=None) -> List["BaseOpsCenterModel"]:
         """
         Reads all rows from the table and returns them as a list of objects.

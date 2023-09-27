@@ -69,8 +69,9 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
 -- create the query_hash functions in TOOLS
 call INTERNAL.ENABLE_QUERY_HASH();
 
--- Create the WAREHOUSE_SCHEDULES table
+-- Create the tables defined in python
 call internal_python.create_table('WAREHOUSE_SCHEDULES');
+call internal_python.create_table('WAREHOUSE_ALTER_STATEMENTS');
 
 -- Populate the list of predefined labels
 call INTERNAL.POPULATE_PREDEFINED_LABELS();
@@ -336,7 +337,8 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_SCHEDULING
     ALLOW_OVERLAPPING_EXECUTION = FALSE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
     as
-    select 1;
+    call INTERNAL.UPDATE_WAREHOUSE_SCHEDULES(NULL, NULL);
+
 
 -- This clarifies that the post setup script has been executed to match the current installed version.
 let version string := (select internal.get_version());
