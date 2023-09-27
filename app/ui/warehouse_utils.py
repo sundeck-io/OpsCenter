@@ -1,5 +1,8 @@
 import connection
-from crud.wh_sched import WarehouseSchedules
+from crud.wh_sched import (
+    WarehouseSchedules,
+    describe_warehouse as crud_describe_warehouse,
+)
 from crud.errors import summarize_error
 from typing import Optional, List, Tuple
 import datetime
@@ -36,17 +39,7 @@ def populate_initial(warehouse):
 
 
 def describe_warehouse(warehouse):
-    wh_df = connection.execute(f"show warehouses like '{warehouse}'")
-    wh_dict = wh_df.T[0].to_dict()
-    return WarehouseSchedules(
-        name=warehouse,
-        size=wh_dict["size"],
-        suspend_minutes=int(wh_dict["auto_suspend"] or 0) // 60,
-        resume=wh_dict["auto_resume"],
-        scale_min=wh_dict.get("min_cluster_count", 0),
-        scale_max=wh_dict.get("max_cluster_count", 0),
-        warehouse_mode=wh_dict.get("scaling_policy", "Standard"),
-    )
+    return crud_describe_warehouse(connection.Connection.get(), warehouse)
 
 
 def convert_time_str(time_str) -> datetime.time:
