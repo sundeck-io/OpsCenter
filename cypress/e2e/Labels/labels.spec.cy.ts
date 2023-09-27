@@ -20,11 +20,9 @@ describe("Labels section", () => {
   });
 
   beforeEach(() => {
-    cy.visit("/");
+    cy.visit("/Labels");
 
-    checkNoErrorOnThePage();
-
-    clickCheck({ clickElem: "span", contains: MENU_TEXT.LABELS });
+    checkInitialLoading();
     checkNoErrorOnThePage();
 
     checkOnCorrectPage({
