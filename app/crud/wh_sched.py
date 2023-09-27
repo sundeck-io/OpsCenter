@@ -203,6 +203,15 @@ def update_warehouse(warehouse_now, warehouse_next):
 
 
 class WarehouseSchedulesTask:
+    """
+    WarehouseSchedulesTask encapsulates the logic to apply the warehouse schedules against the warehouses
+    in the Snowflake Account. The logic in this class is stateless and does not need the encapsulation that the class
+    provides; however, this class eases the injection of test data via unittest.mock.
+
+    TODO move the logic in this class to functions in this file and figure out how to updated the mocking invocations to
+         override the methods which execute queries against Snowflake.
+    """
+
     session: Session = None
 
     def __init__(self, session: Session):
