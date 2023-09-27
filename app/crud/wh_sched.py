@@ -206,28 +206,81 @@ def update_task_state(session: Session, schedules: List[WarehouseSchedules]) -> 
     # Make sure we have at least one enabled schedule.
     enabled_schedules = [sch for sch in schedules if sch.enabled]
     if len(enabled_schedules) == 0:
-        session.sql(
-            f"alter task if exists {WarehouseSchedulesTask.task_name} suspend"
-        ).collect()
+        WarehouseSchedulesTask.disable_all_tasks(session)
         return False
 
     # Build the cron list for the enabled schedules
-    cron_schedule = _make_cron_schedule_string(enabled_schedules)
+    alter_statements = []
+    for offset in WarehouseSchedulesTask.task_offsets:
+        # For each "offset", generate two statements
+        #   1. ALTER TASK ... SET SCHEDULE = 'USING CRON ...'
+        #   2. ALTER TASK ... RESUME
+        alter_statements.extend(_make_alter_task_statements(schedules, offset))
 
-    # Update the schedule and start the task
+    # Collect the statements together
+    alter_body = "\n".join(alter_statements)
+
+    # Join all the statements together into one scripting block
     alter_task_sql = f"""begin
-        alter task if exists {WarehouseSchedulesTask.task_name} SET SCHEDULE = 'USING CRON {cron_schedule}';
-        alter task if exists {WarehouseSchedulesTask.task_name} resume;
+        {alter_body}
     end;"""
+
+    # Run the whole block.
     session.sql(alter_task_sql).collect()
     return True
 
 
-def _make_cron_schedule_string(schedules: List[WarehouseSchedules]) -> str:
+def _make_alter_task_statements(
+    schedules: List[WarehouseSchedules], offset: int
+) -> List[str]:
+    """
+    Generates a list of ALTER TASK statements given the list of WarehouseSchedules and the task offset (the quarterly
+    minute offset from the hour).
+    """
+    cron_schedule, should_run = _make_cron_schedule(schedules, offset)
+    if should_run:
+        return [
+            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} set schedule = 'using cron {cron_schedule}';",
+            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} resume;",
+        ]
+    else:
+        return [
+            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} suspend;"
+        ]
+
+
+def _make_cron_schedule(
+    schedules: List[WarehouseSchedules], offset: int
+) -> (str, bool):
     """
     Takes a list of schedules and returns the cron schedule string which cover all schedule boundaries.
+    :param schedules: A list of enabled WarehouseSchedules.
     """
-    return ""
+    assert offset in WarehouseSchedulesTask.task_offsets
+
+    # Collect the schedules that start at the given offset "minutes"
+    schedules_for_offset = [sch for sch in schedules if sch.start_at.minute == offset]
+
+    if len(schedules_for_offset) > 0:
+        # Collect all the hours that start at this offset
+        cron_hours = ",".join([str(sch.start_at.hour) for sch in schedules_for_offset])
+    else:
+        return "", False
+
+    weekdays_on_schedules = set([sch.weekday for sch in schedules_for_offset])
+    # Using `weekday: bool` on the WarehouseSchedule, determine if we need to...
+    if len(weekdays_on_schedules) > 1:
+        # Execute weekdays and weekends
+        days_of_week = "*"
+    elif True in weekdays_on_schedules:
+        # Execute only weekdays
+        days_of_week = "1-5"
+    else:
+        # Execute only weekends
+        days_of_week = "0,6"
+
+    # TODO use the configured timezone
+    return f"{offset} {cron_hours} * * {days_of_week} America/Los_Angeles", True
 
 
 class WarehouseSchedulesTask:
@@ -241,6 +294,17 @@ class WarehouseSchedulesTask:
     """
 
     task_name: ClassVar[str] = "TASKS.WAREHOUSE_SCHEDULING"
+    task_offsets: ClassVar[List[int]] = [0, 15, 30, 45]
+
+    @classmethod
+    def disable_all_tasks(cls, session: Session):
+        statements = [
+            f"alter task if exists {cls.task_name}_{offset} suspend;"
+            for offset in cls.task_offsets
+        ]
+        statements.insert(0, "begin")
+        statements.append("end;")
+        session.sql("\n".join(statements)).collect()
 
     session: Session = None
 
