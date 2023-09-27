@@ -1,13 +1,8 @@
 import { checkNoErrorOnThePage } from "../../support/alertUtils";
-import { clickCheck } from "../../support/clickUtils";
 import { checkInitialLoading } from "../../support/loadingUtils";
 import { checkOnCorrectPage } from "../../support/pageAssertionUtils";
 import { setup } from "../../support/setupUtils";
-import {
-  BUTTON_TEXT,
-  HEADER_TEXT,
-  MENU_TEXT,
-} from "../../support/testConstants";
+import { BUTTON_TEXT, HEADER_TEXT } from "../../support/testConstants";
 import { LabelsButtonTests } from "./tests/labelsButtonsTests";
 import { MultipleLabelsCRUDTests } from "./tests/multipleLabelsCRUDTests";
 import { SingleDynamicGroupedLabelCRUDTests } from "./tests/singleDynamicGroupedLabelCRUDTests";
