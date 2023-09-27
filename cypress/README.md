@@ -13,4 +13,4 @@
 
 `yarn run cypress open`
 
-All the cypress tests are executed when your PR is submitted.
+All the cypress tests are always executed when your PR is submitted.
