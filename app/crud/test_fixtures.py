@@ -1,6 +1,6 @@
 import datetime
 import pandas as pd
-from typing import List
+from typing import List, Callable, Optional
 import uuid
 from snowflake.snowpark.exceptions import SnowparkSQLException
 from .wh_sched import WarehouseSchedules
@@ -37,6 +37,7 @@ class WarehouseScheduleFixture:
     statements_executed: List[str]
     last_task_run: datetime.datetime
     now: datetime.datetime
+    schedule_filter: Optional[Callable[[pd.DataFrame], pd.DataFrame]]
 
     def __init__(self):
         # Make sure each test method gets a fresh fixture
@@ -44,6 +45,7 @@ class WarehouseScheduleFixture:
         self.statements_executed = []
         self.last_task_run = datetime.datetime.now() - datetime.timedelta(minutes=15)
         self.now = datetime.datetime.now()
+        self.schedule_filter = None
 
     _schedules_columns = [
         "id_val",
@@ -59,7 +61,8 @@ class WarehouseScheduleFixture:
         "weekday",
         "enabled",
     ]
-    _schedules = [
+
+    _compute_wh_schedules = [
         # Small during weekday, non-work hours.
         {
             "id_val": uuid.uuid4().hex,
@@ -121,6 +124,67 @@ class WarehouseScheduleFixture:
         },
     ]
 
+    _autoscale_wh_schedules = [
+        {
+            "id_val": uuid.uuid4().hex,
+            "name": "AUTOSCALE_WH",
+            "start_at": datetime.time(0, 0),
+            "finish_at": datetime.time(9, 0),
+            "size": "X-Small",
+            "suspend_minutes": 1,
+            "resume": True,
+            "scale_min": 1,
+            "scale_max": 1,
+            "warehouse_mode": "Inherit",
+            "weekday": True,
+            "enabled": True,
+        },
+        {
+            "id_val": uuid.uuid4().hex,
+            "name": "AUTOSCALE_WH",
+            "start_at": datetime.time(9, 0),
+            "finish_at": datetime.time(12, 0),
+            "size": "X-Small",
+            "suspend_minutes": 1,
+            "resume": True,
+            "scale_min": 1,
+            "scale_max": 2,
+            "warehouse_mode": "Inherit",
+            "weekday": True,
+            "enabled": True,
+        },
+        {
+            "id_val": uuid.uuid4().hex,
+            "name": "AUTOSCALE_WH",
+            "start_at": datetime.time(12, 0),
+            "finish_at": datetime.time(17, 0),
+            "size": "X-Small",
+            "suspend_minutes": 1,
+            "resume": True,
+            "scale_min": 2,
+            "scale_max": 4,
+            "warehouse_mode": "Inherit",
+            "weekday": True,
+            "enabled": True,
+        },
+        {
+            "id_val": uuid.uuid4().hex,
+            "name": "AUTOSCALE_WH",
+            "start_at": datetime.time(17, 0),
+            "finish_at": datetime.time(23, 59),
+            "size": "X-Small",
+            "suspend_minutes": 1,
+            "resume": True,
+            "scale_min": 1,
+            "scale_max": 1,
+            "warehouse_mode": "Inherit",
+            "weekday": True,
+            "enabled": True,
+        },
+    ]
+
+    _schedules = _compute_wh_schedules + _autoscale_wh_schedules
+
     _warehouses = {
         "COMPUTE_WH": WarehouseSchedules(
             name="COMPUTE_WH",
@@ -157,7 +221,10 @@ class WarehouseScheduleFixture:
             columns={col_name: col_name.upper() for col_name in df.axes[1]},
             inplace=True,
         )
-        return df[df["WEEKDAY"] == is_weekday]
+        if self.schedule_filter:
+            df = self.schedule_filter(df)
+        df = df.loc[df["WEEKDAY"] == is_weekday]
+        return df.loc[df["ENABLED"]]
 
     def override_warehouse_state(self, wh_name: str, state: WarehouseSchedules):
         """

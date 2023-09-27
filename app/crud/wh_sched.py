@@ -189,6 +189,7 @@ def compare_warehouses(
     if (
         warehouse_now.warehouse_mode != warehouse_next.warehouse_mode
         and not is_standard
+        and not warehouse_next.warehouse_mode == "Inherit"
     ):
         changes.append(f"SCALING_POLICY = {warehouse_next.warehouse_mode}")
     return ", ".join(changes)
