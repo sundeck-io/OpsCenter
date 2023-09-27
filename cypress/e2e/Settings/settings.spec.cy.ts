@@ -8,13 +8,20 @@ import {
   buttonOnTabClick,
   buttonClick,
 } from "../../support/clickUtils";
-import { checkForLoading } from "../../support/loadingUtils";
+import {
+  checkForLoading,
+  checkInitialLoading,
+} from "../../support/loadingUtils";
 import { fillInTheSettingsConfigForm } from "./utils/settingsUtils";
 import { MENU_TEXT } from "../../support/testConstants";
 
 describe("Settings section", () => {
   before(() => {
     setup();
+
+    cy.intercept("GET", "*/stcore/*", (req) => {}).then(() => {
+      checkForLoading();
+    });
   });
 
   beforeEach(() => {
@@ -23,7 +30,7 @@ describe("Settings section", () => {
 
   it("Menu: Settings. Tab: Config. Validate that we can set and save credits values.", () => {
     cy.visit("/");
-    checkForLoading();
+    checkInitialLoading();
 
     clickCheck({ clickElem: "span", contains: MENU_TEXT.SETTINGS });
 
@@ -39,7 +46,7 @@ describe("Settings section", () => {
 
   it.skip("Menu: Settings. Tab: Reset. Validate that we can click 'Reload' button and no exception is thrown .", () => {
     cy.visit("/");
-    checkForLoading();
+    checkInitialLoading();
 
     clickCheck({ clickElem: "span", contains: MENU_TEXT.SETTINGS });
     clickCheck({ clickElem: 'button[role="tab"]', contains: "Reset" });

@@ -1,3 +1,4 @@
+import { checkNoErrorOnThePage } from "../../../support/alertUtils";
 import { buttonClick, buttonCheckExists } from "../../../support/clickUtils";
 import { checkOnCorrectPage } from "../../../support/pageAssertionUtils";
 import { setup } from "../../../support/setupUtils";
@@ -13,6 +14,7 @@ export const LabelsButtonTests = () =>
 
       cy.log("~~~ Clicking Cancel button");
       buttonClick(BUTTON_TEXT.CANCEL);
+      checkNoErrorOnThePage();
       buttonCheckExists(BUTTON_TEXT.NEW);
       checkOnCorrectPage({
         headerText: HEADER_TEXT.LABELS,
@@ -21,13 +23,14 @@ export const LabelsButtonTests = () =>
       });
     });
 
-    it("Labels Buttons: Validate that New (in group) and Cancel buttons work anddon't fail to load the page", () => {
+    it("Labels Buttons: Validate that New (in group) and Cancel buttons work and don't fail to load the page", () => {
       buttonClick(BUTTON_TEXT.NEW_GROUPED);
       checkOnCorrectPage({ headerText: HEADER_TEXT.CREATE_LABEL });
       checkPresenceOfGroupNameInput({ isPresent: true });
 
       cy.log("~~~ Clicking Cancel button");
       buttonClick(BUTTON_TEXT.CANCEL);
+      checkNoErrorOnThePage();
       buttonCheckExists(BUTTON_TEXT.NEW);
       checkOnCorrectPage({
         headerText: HEADER_TEXT.LABELS,

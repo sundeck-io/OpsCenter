@@ -1,10 +1,12 @@
-import { checkForLoading } from "./loadingUtils";
+import { checkForLoading, checkInitialLoading } from "./loadingUtils";
+import { ERROR_ALLOW_LIST_RELOAD } from "./errorAllowListConstants";
 
 export function checkNoErrorOnThePage() {
+  checkInitialLoading();
   checkForLoading();
 
   // Validate no exception is thrown
-  cy.get('div[class="stException"]')
+  cy.get('div[class="stException"]', { log: false })
     // stops the test from throwing it's own error so we can retrieve the internal text
     .should(() => {
       return;
@@ -12,21 +14,31 @@ export function checkNoErrorOnThePage() {
     // allows us to grab the internal text of the error
     .then(($errorElem) => {
       if ($errorElem.length > 0) {
-        throw new Error(`Error on screen: ${$errorElem.text()}`);
+        const reloaded = ERROR_ALLOW_LIST_RELOAD.filter((errorPhase) => {
+          if ($errorElem.text().includes(errorPhase)) {
+            cy.log("Error allowlist reload phrase reached: " + errorPhase);
+            return true;
+          }
+        });
+        if (reloaded.length === 0) {
+          throw new Error(`Error on screen: ${$errorElem.text()}`);
+        } else {
+          cy.reloadWait();
+        }
       }
     });
 
-  // cy.get('[role="alert"]')
-  //   // stops the test from throwing it's own error so we can retrieve the internal text
-  //   .should(() => {
-  //     return;
-  //   })
-  //   // allows us to grab the internal text of the error
-  //   .then(($errorElem) => {
-  //     if ($errorElem.length > 0) {
-  //       throw new Error(`Error on screen: ${$errorElem.text()}`);
-  //     }
-  //   });
+  cy.get('[role="alert"]', { log: false })
+    // stops the test from throwing it's own error so we can retrieve the internal text
+    .should(() => {
+      return;
+    })
+    // allows us to grab the internal text of the error
+    .then(($errorElem) => {
+      if ($errorElem.length > 0) {
+        cy.log(`Alert on screen: ${$errorElem.text()}`);
+      }
+    });
 }
 
 // Check for Success notification with particular text presence

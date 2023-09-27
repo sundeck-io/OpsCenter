@@ -1,6 +1,6 @@
 import { checkNoErrorOnThePage } from "../../support/alertUtils";
 import { clickCheck } from "../../support/clickUtils";
-import { checkForLoading } from "../../support/loadingUtils";
+import { checkInitialLoading } from "../../support/loadingUtils";
 import { checkOnCorrectPage } from "../../support/pageAssertionUtils";
 import { setup } from "../../support/setupUtils";
 import {
@@ -11,7 +11,7 @@ import {
 import { ProbesButtonTests } from "./tests/probesButtonTests";
 import { ProbesCRUDTests } from "./tests/probesPageTests";
 
-describe("Labels section", () => {
+describe("Probes section", () => {
   before(() => {
     setup();
   });
@@ -19,7 +19,7 @@ describe("Labels section", () => {
   beforeEach(() => {
     cy.visit("/");
 
-    checkForLoading();
+    checkInitialLoading();
 
     clickCheck({ clickElem: "span", contains: MENU_TEXT.PROBES });
 

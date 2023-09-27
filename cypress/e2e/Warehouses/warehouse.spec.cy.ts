@@ -1,5 +1,5 @@
 import { clickCheck } from "../../support/clickUtils";
-import { checkForLoading } from "../../support/loadingUtils";
+import { checkInitialLoading } from "../../support/loadingUtils";
 import { setup } from "../../support/setupUtils";
 import { MENU_TEXT } from "../../support/testConstants";
 
@@ -11,7 +11,7 @@ describe("Warehouse section", () => {
   it("Menu: Warehouses (Warehouse Activity)", () => {
     cy.visit("/");
 
-    checkForLoading();
+    checkInitialLoading();
 
     const stringList = ["365", "90", "30", "7"];
 
@@ -45,7 +45,7 @@ describe("Warehouse section", () => {
   it("Menu: Warehouses (Heatmap)", () => {
     cy.visit("/");
 
-    checkForLoading();
+    checkInitialLoading();
 
     const stringList = ["365", "90", "30", "7"];
 

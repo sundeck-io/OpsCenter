@@ -4,6 +4,7 @@ import {
   buttonCheckExists,
   buttonClick,
 } from "../../../support/clickUtils";
+import { checkInitialLoading } from "../../../support/loadingUtils";
 import { checkOnCorrectPage } from "../../../support/pageAssertionUtils";
 import { BUTTON_TEXT, HEADER_TEXT } from "../../../support/testConstants";
 import { LABEL_TYPES, UNGROUPED } from "./labelTestConstants";
@@ -106,10 +107,16 @@ export function checkLabelExists(options: {
 }) {
   const { labelName, groupName, doesExist, condition } = options;
 
-  clickCheck({
-    clickElem: '[data-testid="stMarkdownContainer"]',
-    contains: groupName,
-  });
+  if (doesExist || groupName === UNGROUPED) {
+    clickCheck({
+      clickElem: '[data-testid="stMarkdownContainer"]',
+      contains: groupName,
+    });
+  } else {
+    cy.get('[data-testid="stMarkdownContainer"]', { log: false })
+      .contains(groupName)
+      .should("not.exist");
+  }
 
   if (labelName) {
     cy.dataId("stMarkdownContainer")
@@ -131,10 +138,12 @@ export function checkUpdatedLabelExists(options: {
 }) {
   const { labelName, groupName, condition, rank, doesExist } = options;
 
-  clickCheck({
-    clickElem: '[data-testid="stMarkdownContainer"]',
-    contains: groupName ? groupName : UNGROUPED,
-  });
+  if (doesExist) {
+    clickCheck({
+      clickElem: '[data-testid="stMarkdownContainer"]',
+      contains: groupName ? groupName : UNGROUPED,
+    });
+  }
 
   if (labelName) {
     cy.dataId("stHorizontalBlock")
@@ -220,6 +229,7 @@ export const deleteLabel = (options: {
     condition: condition,
   });
 
+  checkNoErrorOnThePage();
   checkLabelExists({
     labelName: labelName,
     condition: condition,
