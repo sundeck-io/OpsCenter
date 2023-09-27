@@ -150,6 +150,7 @@ jobs:
           headless: true
           record: false
       - uses: actions/upload-artifact@v3
+        if: ${{ always() }}
         with:
           name: cypress-artifacts
           path: |
