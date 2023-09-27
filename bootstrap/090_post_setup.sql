@@ -304,6 +304,16 @@ exception
         RAISE;
 END;
 
+-- Create the WAREHOUSE_SCHEDULING task with a dummy schedule only if it doesn't exist.
+-- If we CREATE OR REPLACE this task, we will miss scheduling after upgrades because the
+-- previous schedule will be overwritten.
+CREATE TASK IF NOT EXISTS TASKS.WAREHOUSE_SCHEDULING
+    SCHEDULE = '60 minute'
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
+    AS
+    CALL ADMIN.UPDATE_WH_SCHEDULES();
+
 -- This clarifies that the post setup script has been executed to match the current installed version.
 let version string := (select internal.get_version());
 call internal.set_config('post_setup', :version);
@@ -316,6 +326,7 @@ call ADMIN.UPDATE_PROBE_MONITOR_RUNNING();
 alter task TASKS.SFUSER_MAINTENANCE resume;
 alter task TASKS.WAREHOUSE_EVENTS_MAINTENANCE resume;
 alter task TASKS.QUERY_HISTORY_MAINTENANCE resume;
+-- Do not enable the warehouse_scheduling task as
 
 -- Kick off the maintenance tasks.
 execute task TASKS.SFUSER_MAINTENANCE;

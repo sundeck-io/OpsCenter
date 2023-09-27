@@ -1,7 +1,9 @@
 import connection
+from snowflake.snowpark import Session
 from crud.wh_sched import (
     WarehouseSchedules,
     describe_warehouse as crud_describe_warehouse,
+    update_task_state as crud_update_task_state,
 )
 from crud.errors import summarize_error
 from typing import Optional, List, Tuple
@@ -99,3 +101,12 @@ def time_filter(
         ]
     else:
         return base_times
+
+
+def update_task_state(session: Session) -> bool:
+    """
+    Resumes or suspends the warehouse schedules task based on the current collection of schedules.
+    :return: True if the task is enabled, False otherwise.
+    """
+    schedules = WarehouseSchedules.batch_read(session, sortby="START_AT")
+    return crud_update_task_state(session, schedules)

@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional, ClassVar
+from typing import ClassVar, List, Optional
 import datetime
 from .base import BaseOpsCenterModel
 from pydantic import validator, root_validator, Field
@@ -202,6 +202,34 @@ def update_warehouse(warehouse_now, warehouse_next):
     return ""
 
 
+def update_task_state(session: Session, schedules: List[WarehouseSchedules]) -> bool:
+    # Make sure we have at least one enabled schedule.
+    enabled_schedules = [sch for sch in schedules if sch.enabled]
+    if len(enabled_schedules) == 0:
+        session.sql(
+            f"alter task if exists {WarehouseSchedulesTask.task_name} suspend"
+        ).collect()
+        return False
+
+    # Build the cron list for the enabled schedules
+    cron_schedule = _make_cron_schedule_string(enabled_schedules)
+
+    # Update the schedule and start the task
+    alter_task_sql = f"""begin
+        alter task if exists {WarehouseSchedulesTask.task_name} SET SCHEDULE = 'USING CRON {cron_schedule}';
+        alter task if exists {WarehouseSchedulesTask.task_name} resume;
+    end;"""
+    session.sql(alter_task_sql).collect()
+    return True
+
+
+def _make_cron_schedule_string(schedules: List[WarehouseSchedules]) -> str:
+    """
+    Takes a list of schedules and returns the cron schedule string which cover all schedule boundaries.
+    """
+    return ""
+
+
 class WarehouseSchedulesTask:
     """
     WarehouseSchedulesTask encapsulates the logic to apply the warehouse schedules against the warehouses
@@ -211,6 +239,8 @@ class WarehouseSchedulesTask:
     TODO move the logic in this class to functions in this file and figure out how to updated the mocking invocations to
          override the methods which execute queries against Snowflake.
     """
+
+    task_name: ClassVar[str] = "TASKS.WAREHOUSE_SCHEDULING"
 
     session: Session = None
 

@@ -17,6 +17,7 @@ from warehouse_utils import (
     verify_and_clean,
     populate_initial,
     flip_enabled,
+    update_task_state,
 )
 from crud.errors import summarize_error
 
@@ -57,6 +58,12 @@ class Warehouses(Container):
         except Exception as e:
             comment = summarize_error("Verify failed", e)
             new_row = None
+
+        # Twiddle the task state
+        if new_row:
+            with connection.Connection.get() as conn:
+                update_task_state(conn)
+
         return new_row, data, current, comment
 
     def edit_internal(self, update_obj):
@@ -76,6 +83,7 @@ class Warehouses(Container):
         except Exception as e:
             comment = summarize_error("Verify failed", e)
             new_update = None
+
         return new_update, data, update, comment
 
     def form(
@@ -189,6 +197,8 @@ class Warehouses(Container):
             new_row = next(i for i in new_data if i.id_val == "")
             new_row.id_val = uuid.uuid4().hex
             new_row.write(conn)
+            # Twiddle the task state after adding a new schedule
+            update_task_state(conn)
 
     def on_delete_click_internal(self, *args) -> Optional[str]:
         row = args[0][0]
@@ -202,6 +212,9 @@ class Warehouses(Container):
                 return comment
             [i.update(conn, i) for i in new_warehouses]
 
+            # Twiddle the task state after adding a new schedule
+            update_task_state(conn)
+
     def on_update_click_internal(self, *args) -> Optional[str]:
         if args[3] is not None:
             return args[3]
@@ -214,6 +227,8 @@ class Warehouses(Container):
             return comment
         with connection.Connection.get() as conn:
             [i.update(conn, i) for i in new_warehouses]
+            # Twiddle the task state after a schedule has changed
+            update_task_state(conn)
 
     def list(self):
         st.button(
