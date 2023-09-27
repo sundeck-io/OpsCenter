@@ -122,7 +122,7 @@ class Container:
         """
         Handle the delete click, show a spinner, call analytics. Show appropriate errors if failure.
         """
-        with st.spinner("Deleting label..."):
+        with st.spinner(f"Deleting {self.ui_name.lower()}..."):
             with connection.Connection().get() as conn:
                 _ = conn.call(
                     "INTERNAL.REPORT_ACTION",
