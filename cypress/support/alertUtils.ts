@@ -2,7 +2,6 @@ import { checkForLoading, checkInitialLoading } from "./loadingUtils";
 import { ERROR_ALLOW_LIST_RELOAD } from "./errorAllowListConstants";
 
 export function checkNoErrorOnThePage() {
-  checkInitialLoading();
   checkForLoading();
 
   // Validate no exception is thrown
