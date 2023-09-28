@@ -49,7 +49,7 @@ jobs:
           OPSCENTER_APP: ${{env.OPSCENTER_APP}}
         run: "poetry run python deploy/deploy.py"
   cypress-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4-cores
     steps:
       - uses: actions/checkout@v3
         with:
