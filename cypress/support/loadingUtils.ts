@@ -28,9 +28,8 @@ export const checkInitialLoading = () => {
   cy.get('[data-testid="stMarkdownContainer"]', {
     timeout: 240000,
     log: false,
-  }).as("pleaseWaitContainer");
-  cy.get("@pleaseWaitContainer")
-    .contains("Please wait...", { log: false })
+  })
+    .contains("Please wait...")
     .should(($el) => {
       if ($el.length > 0) {
         throw new Error("Please wait... screen timed out");

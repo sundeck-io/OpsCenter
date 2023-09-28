@@ -1,6 +1,7 @@
 import { checkNoErrorOnThePage } from "../../../support/alertUtils";
 import { buttonClick } from "../../../support/clickUtils";
 import { generateUniqueName } from "../../../support/formUtils";
+import { checkForLoading } from "../../../support/loadingUtils";
 import { checkOnCorrectPage } from "../../../support/pageAssertionUtils";
 import { HEADER_TEXT, BUTTON_TEXT } from "../../../support/testConstants";
 import {
@@ -127,6 +128,7 @@ Because this error occurred during a `after each` hook we are skipping the remai
           });
           if (i !== labelList.length - 2) {
             cy.log("Checking that label does not exist");
+            checkForLoading();
             checkLabelExists({
               labelName: labelList[i],
               groupName: groupName,
