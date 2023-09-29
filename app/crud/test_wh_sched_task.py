@@ -3,24 +3,22 @@ from typing import List
 from contextlib import contextmanager
 import pandas as pd
 from unittest.mock import patch
-from .wh_sched import WarehouseSchedules, WarehouseSchedulesTask
+from . import wh_sched
 from .test_fixtures import WarehouseScheduleFixture
 
 
 @contextmanager
-def _mock_task(session, fixtures: WarehouseScheduleFixture) -> WarehouseSchedulesTask:
-    with patch.object(
-        WarehouseSchedulesTask, "get_last_run"
-    ) as mocked_get_last_run, patch.object(
-        WarehouseSchedulesTask, "now"
+def _mock_task(session, fixtures: WarehouseScheduleFixture):
+    with patch.object(wh_sched, "get_last_run") as mocked_get_last_run, patch.object(
+        wh_sched, "now"
     ) as mocked_now, patch.object(
-        WarehouseSchedulesTask, "get_schedules"
+        wh_sched, "get_schedules"
     ) as mocked_get_schedules, patch.object(
-        WarehouseSchedulesTask, "describe_warehouse"
+        wh_sched, "describe_warehouse"
     ) as mock_describe_warehouse, patch.object(
-        WarehouseSchedulesTask, "log_to_table"
+        wh_sched, "log_to_table"
     ) as mock_log_to_table, patch.object(
-        WarehouseSchedulesTask, "run_statement"
+        wh_sched, "run_statement"
     ) as mock_run_statement:
         # self.now()
         mocked_now.return_value = fixtures.now
@@ -28,24 +26,22 @@ def _mock_task(session, fixtures: WarehouseScheduleFixture) -> WarehouseSchedule
         mocked_get_last_run.return_value = fixtures.last_task_run
         # self.get_schedules(is_weekday)
         mocked_get_schedules.side_effect = (
-            lambda *args, **kwards: fixtures.get_schedules(args[0])
+            lambda *args, **kwargs: fixtures.get_schedules(args[1])
         )
         # self.describe_warehouse(str)
         mock_describe_warehouse.side_effect = (
-            lambda *args, **kwargs: fixtures.describe_warehouse(args[0])
+            lambda *args, **kwargs: fixtures.describe_warehouse(args[1])
         )
         # self.log_to_table(this_run, success, obj)
         mock_log_to_table.side_effect = lambda *args, **kwargs: fixtures.log_task_run(
-            args[0], args[1], args[2]
+            args[1], args[2], args[3]
         )
         # self.run_statement(stmt)
         mock_run_statement.side_effect = lambda *args, **kwargs: fixtures.run_statement(
-            args[0]
+            args[1]
         )
 
-        task = WarehouseSchedulesTask(session)
-
-        yield task
+        yield wh_sched
 
 
 def test_basic_task(session, wh_sched_fixture):
@@ -59,7 +55,7 @@ def test_basic_task(session, wh_sched_fixture):
 
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
 
         # Verify the ALTER WAREHOUSE command was correct
         statements = _extract_alter_statements(
@@ -92,7 +88,7 @@ def test_noop_weekday_task(session, wh_sched_fixture):
     # Schedule expects Small during the week before 0900
     wh_sched_fixture.override_warehouse_state(
         "COMPUTE_WH",
-        WarehouseSchedules(
+        wh_sched.WarehouseSchedules(
             name="COMPUTE_WH",
             size="Small",
             suspend_minutes=1,
@@ -105,7 +101,7 @@ def test_noop_weekday_task(session, wh_sched_fixture):
 
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
         # The task should not have made any changes
         assert _no_task_action(alter_warehouse_block, wh_sched_fixture.task_log)
 
@@ -124,7 +120,7 @@ def test_noop_weekend_task(session, wh_sched_fixture):
 
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
         # The task should not have made any changes
         assert _no_task_action(alter_warehouse_block, wh_sched_fixture.task_log)
 
@@ -144,7 +140,7 @@ def test_basic_weekend_task(session, wh_sched_fixture):
     # Tweak the current state of COMPUTE_WH
     wh_sched_fixture.override_warehouse_state(
         "COMPUTE_WH",
-        WarehouseSchedules(
+        wh_sched.WarehouseSchedules(
             name="COMPUTE_WH",
             size="Medium",
             suspend_minutes=15,
@@ -156,7 +152,7 @@ def test_basic_weekend_task(session, wh_sched_fixture):
     )
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
 
         # Verify the ALTER WAREHOUSE command was correct
         statements = _extract_alter_statements(alter_warehouse_block)
@@ -185,7 +181,7 @@ def test_basic_weekday_task(session, wh_sched_fixture):
     # Tweak the current state of COMPUTE_WH so the task definitely does something.
     wh_sched_fixture.override_warehouse_state(
         "COMPUTE_WH",
-        WarehouseSchedules(
+        wh_sched.WarehouseSchedules(
             name="COMPUTE_WH",
             size="Medium",
             suspend_minutes=15,
@@ -197,7 +193,7 @@ def test_basic_weekday_task(session, wh_sched_fixture):
     )
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
 
         # Verify the ALTER WAREHOUSE command was correct
         statements = _extract_alter_statements(
@@ -230,7 +226,7 @@ def test_multi_cluster_warehouse(session, wh_sched_fixture):
     )
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
 
         # Verify the ALTER WAREHOUSE command was correct
         statements = _extract_alter_statements(alter_warehouse_block)
@@ -252,7 +248,7 @@ def test_multi_cluster_warehouse(session, wh_sched_fixture):
     # Update warehouse to last state
     wh_sched_fixture.override_warehouse_state(
         "AUTOSCALE_WH",
-        WarehouseSchedules(
+        wh_sched.WarehouseSchedules(
             name="AUTOSCALE_WH",
             size="X-Small",
             suspend_minutes=1,
@@ -264,7 +260,7 @@ def test_multi_cluster_warehouse(session, wh_sched_fixture):
     )
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
 
         # Verify the ALTER WAREHOUSE command was correct
         statements = _extract_alter_statements(alter_warehouse_block)
@@ -289,7 +285,7 @@ def test_multi_cluster_warehouse(session, wh_sched_fixture):
     # Update warehouse to last state
     wh_sched_fixture.override_warehouse_state(
         "AUTOSCALE_WH",
-        WarehouseSchedules(
+        wh_sched.WarehouseSchedules(
             name="AUTOSCALE_WH",
             size="X-Small",
             suspend_minutes=1,
@@ -301,7 +297,7 @@ def test_multi_cluster_warehouse(session, wh_sched_fixture):
     )
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
 
         # Verify the ALTER WAREHOUSE command was correct
         statements = _extract_alter_statements(alter_warehouse_block)
@@ -336,7 +332,7 @@ def test_missed_task_execution(session, wh_sched_fixture):
     # Override the COMPUTE_WH current state
     wh_sched_fixture.override_warehouse_state(
         "COMPUTE_WH",
-        WarehouseSchedules(
+        wh_sched.WarehouseSchedules(
             name="COMPUTE_WH",
             size="Medium",
             suspend_minutes=10,
@@ -348,7 +344,7 @@ def test_missed_task_execution(session, wh_sched_fixture):
     )
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
 
         # Verify the ALTER WAREHOUSE command was correct
         statements = _extract_alter_statements(alter_warehouse_block)
@@ -380,7 +376,7 @@ def test_disabled_schedules_do_nothing(session, wh_sched_fixture):
     # Change the current COMPUTE_WH so the schedule should make a change if it were enabled
     wh_sched_fixture.override_warehouse_state(
         "COMPUTE_WH",
-        WarehouseSchedules(
+        wh_sched.WarehouseSchedules(
             name="COMPUTE_WH",
             size="2X-Large",
             suspend_minutes=1,
@@ -393,7 +389,7 @@ def test_disabled_schedules_do_nothing(session, wh_sched_fixture):
 
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
         # The task should not have made any changes since we disabled all schedules
         assert _no_task_action(alter_warehouse_block, wh_sched_fixture.task_log)
 
@@ -415,7 +411,7 @@ def test_inherit_scaling_policy(session, wh_sched_fixture):
 
     wh_sched_fixture.override_warehouse_state(
         "AUTOSCALE_WH",
-        WarehouseSchedules(
+        wh_sched.WarehouseSchedules(
             name="AUTOSCALE_WH",
             size="X-Small",
             suspend_minutes=1,
@@ -427,7 +423,7 @@ def test_inherit_scaling_policy(session, wh_sched_fixture):
     )
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
 
         # Verify the ALTER WAREHOUSE command was correct
         statements = _extract_alter_statements(alter_warehouse_block)
@@ -471,7 +467,7 @@ def test_economy_scaling_policy(session, wh_sched_fixture):
 
     wh_sched_fixture.override_warehouse_state(
         "AUTOSCALE_WH",
-        WarehouseSchedules(
+        wh_sched.WarehouseSchedules(
             name="AUTOSCALE_WH",
             size="X-Small",
             suspend_minutes=1,
@@ -483,7 +479,7 @@ def test_economy_scaling_policy(session, wh_sched_fixture):
     )
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
 
         # Verify the ALTER WAREHOUSE command was correct
         statements = _extract_alter_statements(alter_warehouse_block)
@@ -517,7 +513,7 @@ def test_standard_scaling_policy(session, wh_sched_fixture):
 
     wh_sched_fixture.override_warehouse_state(
         "AUTOSCALE_WH",
-        WarehouseSchedules(
+        wh_sched.WarehouseSchedules(
             name="AUTOSCALE_WH",
             size="X-Small",
             suspend_minutes=1,
@@ -529,7 +525,7 @@ def test_standard_scaling_policy(session, wh_sched_fixture):
     )
     with _mock_task(session, wh_sched_fixture) as task:
         # Run the task
-        alter_warehouse_block = task.run()
+        alter_warehouse_block = task.run(session)
 
         # Verify the ALTER WAREHOUSE command was correct
         statements = _extract_alter_statements(alter_warehouse_block)
