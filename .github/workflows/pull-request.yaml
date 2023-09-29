@@ -105,7 +105,7 @@ jobs:
         run: cd test && poetry run python -m pytest unit --profile opscenter
   cypress-tests:
     needs: devdeploy-with-materialization
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4-cores
     steps:
       - uses: actions/checkout@v3
         with:
