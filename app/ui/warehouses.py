@@ -170,7 +170,11 @@ class Warehouses(Container):
                 comment=comment if comment != "" else None,
                 start_at=convert_time_str(start),
                 finish_at=convert_time_str(finish),
-                enabled=st.session_state["enabled"] or False,
+                enabled=(
+                    st.session_state["enabled"]
+                    if "enabled" in st.session_state
+                    else False
+                ),
             )
         )
         return new_update
@@ -276,7 +280,12 @@ class Warehouses(Container):
             value=is_enabled,
             key="enabled",
             on_change=lambda: set_enabled(
-                whfilter, st.session_state["enabled"] or False
+                whfilter,
+                (
+                    st.session_state["enabled"]
+                    if "enabled" in st.session_state
+                    else False
+                ),
             ),
         )
 
