@@ -134,17 +134,18 @@ class Warehouses(Container):
         autoscale_min = st.number_input(
             key="AUTOSCALE_MIN",
             label="Min Clusters",
-            value=max(update.scale_min, 1),
-            disabled=update.scale_min == 0,
-            min_value=1,
+            value=update.st_min_cluster_value(),
+            disabled=not update.autoscaling_enabled(),
+            min_value=update.st_min_cluster_minvalue(),
             max_value=update.scale_max,
         )
         autoscale_max = st.number_input(
             key="AUTOSCALE_MAX",
             label="Max Clusters",
-            value=max(update.scale_max, 1),
-            disabled=update.scale_max == 0,
+            value=update.st_max_cluster_value(),
+            disabled=not update.autoscaling_enabled(),
             min_value=autoscale_min,
+            max_value=update.st_max_cluster_maxvalue(),
         )
         comment = st.text_input(
             key="COMMENT",

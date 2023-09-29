@@ -31,6 +31,8 @@ class WarehouseSchedules(BaseOpsCenterModel):
         "warehouse_mode": ("Mode", 1),
         "comment": ("Comment", 1),
     }
+    max_cluster_size: ClassVar[int] = 10
+
     id_val: str = Field(default_factory=lambda: uuid.uuid4().hex)
     name: str
     start_at: datetime.time = datetime.time.min
@@ -56,6 +58,43 @@ class WarehouseSchedules(BaseOpsCenterModel):
 
     def get_id(self) -> str:
         return self.id_val
+
+    def autoscaling_enabled(self) -> bool:
+        """
+        If autoscaling is enabled on this warehouse.
+        """
+        # Sanity check that the instance is valid.
+        assert (self.scale_min == 0 and self.scale_max == 0) or (
+            self.scale_min > 0 and self.scale_max > 0
+        )
+        return self.scale_min > 0
+
+    def st_min_cluster_value(self) -> int:
+        """
+        For the "value" attribute of "Min Clusters" on the streamlit.number_input.
+        """
+        return self.scale_min if self.autoscaling_enabled() else 0
+
+    def st_min_cluster_minvalue(self) -> int:
+        """
+        For the "min_value" attribute of "Min Clusters" on the streamlit.number_input.
+        """
+        return 1 if self.autoscaling_enabled() else 0
+
+    def st_min_cluster_maxvalue(self) -> int:
+        """
+        For the "max_value" attribute of "Min Clusters" on the streamlit.number_input.
+        """
+        return WarehouseSchedules.max_cluster_size if self.autoscaling_enabled() else 0
+
+    def st_max_cluster_value(self) -> int:
+        """
+        For the "value" attribute of "Max Clusters" on the streamlit.number_input.
+        """
+        return self.scale_max if self.autoscaling_enabled() else 0
+
+    def st_max_cluster_maxvalue(self):
+        return WarehouseSchedules.max_cluster_size if self.autoscaling_enabled() else 0
 
     @validator("name", allow_reuse=True)
     def verify_name(cls, v):
@@ -102,7 +141,7 @@ class WarehouseSchedules(BaseOpsCenterModel):
         if v is None:
             raise ValueError("Scale is required")
         assert isinstance(v, int)
-        assert 10 >= v >= 0
+        assert cls.max_cluster_size >= v >= 0
         return v
 
     @validator("warehouse_mode", allow_reuse=True)

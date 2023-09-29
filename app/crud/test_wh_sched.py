@@ -49,3 +49,55 @@ def test_bad_scales():
     test_wh_sched = _get_wh_sched(scale_min=10)
     with pytest.raises(ValueError):
         _ = WarehouseSchedules.parse_obj(test_wh_sched)
+
+
+def test_streamlit_values_without_autoscaling():
+    no_autoscaling = WarehouseSchedules(
+        name="COMPUTE_WH",
+        size="X-Small",
+        suspend_minutes=1,
+        resume=True,
+        scale_min=0,
+        scale_max=0,
+        warehouse_mode="Standard",
+    )
+
+    assert not no_autoscaling.autoscaling_enabled()
+    assert (
+        no_autoscaling.st_min_cluster_value() == 0
+    ), "Zero should be preserved if autoscaling is not enabled"
+    assert (
+        no_autoscaling.st_min_cluster_minvalue() == 0
+    ), "Zero should be preserved if autoscaling is not enabled"
+    assert (
+        no_autoscaling.st_max_cluster_value() == 0
+    ), "Max cluster size should be zero if autoscaling is not enabled"
+    assert (
+        no_autoscaling.st_max_cluster_maxvalue() == 0
+    ), "Max value is zero if autoscaling is not enabled"
+
+
+def test_streamlit_values_with_autoscaling():
+    autoscaling = WarehouseSchedules(
+        name="COMPUTE_WH",
+        size="X-Small",
+        suspend_minutes=1,
+        resume=True,
+        scale_min=1,
+        scale_max=3,
+        warehouse_mode="Economy",
+    )
+
+    assert autoscaling.autoscaling_enabled()
+    assert (
+        autoscaling.st_min_cluster_value() == 1
+    ), "Should return the scale_min value when autoscaling is enabled"
+    assert (
+        autoscaling.st_min_cluster_minvalue() == 1
+    ), "With autoscaling enabled, one is the minimum size"
+    assert (
+        autoscaling.st_max_cluster_value() == 3
+    ), "Should return the scale_max value when autoscaling is enabled"
+    assert (
+        autoscaling.st_max_cluster_maxvalue() == 10
+    ), "10 is the largest allowed value"

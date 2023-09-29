@@ -29,6 +29,7 @@ def create_callback(data, row, **additions):
 def populate_initial(warehouse):
     with connection.Connection.get() as conn:
         warehouses = WarehouseSchedules.batch_read(conn, "start_at")
+        # There is no WarehouseSchedule defined for this warehouse yet.
         if any(i for i in warehouses if i.name == warehouse) == 0:
             wh = describe_warehouse(conn, warehouse)
             wh.write(conn)
