@@ -30,18 +30,18 @@ def populate_initial(warehouse):
     with connection.Connection.get() as conn:
         warehouses = WarehouseSchedules.batch_read(conn, "start_at")
         if any(i for i in warehouses if i.name == warehouse) == 0:
-            wh = describe_warehouse(warehouse)
+            wh = describe_warehouse(conn, warehouse)
             wh.write(conn)
             warehouses.append(wh)
-            wh2 = describe_warehouse(warehouse)
+            wh2 = describe_warehouse(conn, warehouse)
             wh2.weekday = False
             wh2.write(conn)
             warehouses.append(wh2)
         return warehouses
 
 
-def describe_warehouse(warehouse):
-    return crud_describe_warehouse(connection.Connection.get(), warehouse)
+def describe_warehouse(conn, warehouse):
+    return crud_describe_warehouse(conn, warehouse)
 
 
 def convert_time_str(time_str) -> datetime.time:
@@ -79,10 +79,11 @@ def verify_and_clean(
     return None, [i for i in data if i._dirty]
 
 
-def flip_enabled(wh_name: str):
+def set_enabled(wh_name: str, enabled: bool):
     with connection.Connection.get() as conn:
         _ = conn.sql(
-            f"update internal.{WarehouseSchedules.table_name} set enabled = not enabled where name = '{wh_name}'"
+            f"update internal.{WarehouseSchedules.table_name} set enabled = ? where name = ?",
+            params=[enabled, wh_name],
         ).collect()
         update_task_state(conn)
 
