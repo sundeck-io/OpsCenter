@@ -170,7 +170,7 @@ class Warehouses(Container):
                 comment=comment if comment != "" else None,
                 start_at=convert_time_str(start),
                 finish_at=convert_time_str(finish),
-                enabled=st.session_state["enabled"],
+                enabled=st.session_state["enabled"] or False,
             )
         )
         return new_update
