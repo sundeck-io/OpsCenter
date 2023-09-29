@@ -304,6 +304,40 @@ exception
         RAISE;
 END;
 
+-- Create the WAREHOUSE_SCHEDULING task without a schedule only if it doesn't exist.
+-- If we CREATE OR REPLACE this task, we will miss scheduling after upgrades because the
+-- previous schedule will be overwritten.
+CREATE TASK IF NOT EXISTS TASKS.WAREHOUSE_SCHEDULING_0
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
+    AS
+    execute task TASKS.WAREHOUSE_SCHEDULING;
+
+CREATE TASK IF NOT EXISTS TASKS.WAREHOUSE_SCHEDULING_15
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
+    AS
+    execute task TASKS.WAREHOUSE_SCHEDULING;
+
+CREATE TASK IF NOT EXISTS TASKS.WAREHOUSE_SCHEDULING_30
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
+    AS
+    execute task TASKS.WAREHOUSE_SCHEDULING;
+
+CREATE TASK IF NOT EXISTS TASKS.WAREHOUSE_SCHEDULING_45
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
+    AS
+    execute task TASKS.WAREHOUSE_SCHEDULING;
+
+-- The real warehouse scheduling logic cannot be in python with serverless task. Make a dummy task body.
+CREATE OR REPLACE TASK TASKS.WAREHOUSE_SCHEDULING
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
+    as
+    select 1;
+
 -- This clarifies that the post setup script has been executed to match the current installed version.
 let version string := (select internal.get_version());
 call internal.set_config('post_setup', :version);
@@ -316,6 +350,7 @@ call ADMIN.UPDATE_PROBE_MONITOR_RUNNING();
 alter task TASKS.SFUSER_MAINTENANCE resume;
 alter task TASKS.WAREHOUSE_EVENTS_MAINTENANCE resume;
 alter task TASKS.QUERY_HISTORY_MAINTENANCE resume;
+-- Do not enable any warehouse_scheduling tasks. They are programmatically resumed when a warehouse schedule is enabled.
 
 -- Kick off the maintenance tasks.
 execute task TASKS.SFUSER_MAINTENANCE;

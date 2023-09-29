@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional, ClassVar
+from typing import ClassVar, List, Optional
 import datetime
 from .base import BaseOpsCenterModel
 from pydantic import validator, root_validator, Field
@@ -202,6 +202,90 @@ def update_warehouse(warehouse_now, warehouse_next):
     return ""
 
 
+def update_task_state(session: Session, schedules: List[WarehouseSchedules]) -> bool:
+    # Make sure we have at least one enabled schedule.
+    enabled_schedules = [sch for sch in schedules if sch.enabled]
+    if len(enabled_schedules) == 0:
+        WarehouseSchedulesTask.disable_all_tasks(session)
+        return False
+
+    # Build the cron list for the enabled schedules
+    alter_statements = []
+    for offset in WarehouseSchedulesTask.task_offsets:
+        # For each "offset", generate two statements
+        #   1. ALTER TASK ... SET SCHEDULE = 'USING CRON ...'
+        #   2. ALTER TASK ... RESUME
+        alter_statements.extend(_make_alter_task_statements(schedules, offset))
+
+    # Collect the statements together
+    alter_body = "\n".join(alter_statements)
+
+    # Join all the statements together into one scripting block
+    alter_task_sql = f"""begin
+        {alter_body}
+    end;"""
+
+    # Run the whole block.
+    session.sql(alter_task_sql).collect()
+    return True
+
+
+def _make_alter_task_statements(
+    schedules: List[WarehouseSchedules], offset: int
+) -> List[str]:
+    """
+    Generates a list of ALTER TASK statements given the list of WarehouseSchedules and the task offset (the quarterly
+    minute offset from the hour).
+    """
+    cron_schedule, should_run = _make_cron_schedule(schedules, offset)
+    if should_run:
+        return [
+            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} suspend;",
+            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} set schedule = 'using cron {cron_schedule}';",
+            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} resume;",
+        ]
+    else:
+        return [
+            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} suspend;"
+        ]
+
+
+def _make_cron_schedule(
+    schedules: List[WarehouseSchedules], offset: int
+) -> (str, bool):
+    """
+    Takes a list of schedules and returns the cron schedule string which cover all schedule boundaries.
+    :param schedules: A list of enabled WarehouseSchedules.
+    """
+    assert offset in WarehouseSchedulesTask.task_offsets
+
+    # Collect the schedules that start at the given offset "minutes"
+    schedules_for_offset = [sch for sch in schedules if sch.start_at.minute == offset]
+
+    if len(schedules_for_offset) > 0:
+        # Collect all the unique hours that start at this offset
+        all_hours = set([sch.start_at.hour for sch in schedules_for_offset])
+        # Sort the hours and join them together
+        cron_hours = ",".join([str(hr) for hr in sorted(all_hours)])
+    else:
+        return "", False
+
+    weekdays_on_schedules = set([sch.weekday for sch in schedules_for_offset])
+    # Using `weekday: bool` on the WarehouseSchedule, determine if we need to...
+    if len(weekdays_on_schedules) > 1:
+        # Execute weekdays and weekends
+        days_of_week = "*"
+    elif True in weekdays_on_schedules:
+        # Execute only weekdays
+        days_of_week = "1-5"
+    else:
+        # Execute only weekends
+        days_of_week = "0,6"
+
+    # TODO use the configured timezone
+    return f"{offset} {cron_hours} * * {days_of_week} America/Los_Angeles", True
+
+
 class WarehouseSchedulesTask:
     """
     WarehouseSchedulesTask encapsulates the logic to apply the warehouse schedules against the warehouses
@@ -211,6 +295,19 @@ class WarehouseSchedulesTask:
     TODO move the logic in this class to functions in this file and figure out how to updated the mocking invocations to
          override the methods which execute queries against Snowflake.
     """
+
+    task_name: ClassVar[str] = "TASKS.WAREHOUSE_SCHEDULING"
+    task_offsets: ClassVar[List[int]] = [0, 15, 30, 45]
+
+    @classmethod
+    def disable_all_tasks(cls, session: Session):
+        statements = [
+            f"alter task if exists {cls.task_name}_{offset} suspend;"
+            for offset in cls.task_offsets
+        ]
+        statements.insert(0, "begin")
+        statements.append("end;")
+        session.sql("\n".join(statements)).collect()
 
     session: Session = None
 

@@ -1,7 +1,9 @@
 import connection
+from snowflake.snowpark import Session
 from crud.wh_sched import (
     WarehouseSchedules,
     describe_warehouse as crud_describe_warehouse,
+    update_task_state as crud_update_task_state,
 )
 from crud.errors import summarize_error
 from typing import Optional, List, Tuple
@@ -78,9 +80,11 @@ def verify_and_clean(
 
 
 def flip_enabled(wh_name: str):
-    connection.execute(
-        f"update internal.{WarehouseSchedules.table_name} set enabled = not enabled where name = '{wh_name}'"
-    )
+    with connection.Connection.get() as conn:
+        _ = conn.sql(
+            f"update internal.{WarehouseSchedules.table_name} set enabled = not enabled where name = '{wh_name}'"
+        ).collect()
+        update_task_state(conn)
 
 
 def time_filter(
@@ -99,3 +103,12 @@ def time_filter(
         ]
     else:
         return base_times
+
+
+def update_task_state(session: Session) -> bool:
+    """
+    Resumes or suspends the warehouse schedules task based on the current collection of schedules.
+    :return: True if the task is enabled, False otherwise.
+    """
+    schedules = WarehouseSchedules.batch_read(session, sortby="start_at")
+    return crud_update_task_state(session, schedules)

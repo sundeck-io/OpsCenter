@@ -1,9 +1,9 @@
+import os
 import uuid
 import streamlit as st
 import connection
 from crud.wh_sched import (
     WarehouseSchedules,
-    WarehouseSchedulesTask,
     _WAREHOUSE_SIZE_OPTIONS,
 )
 from table import build_table, Actions
@@ -17,6 +17,7 @@ from warehouse_utils import (
     verify_and_clean,
     populate_initial,
     flip_enabled,
+    update_task_state,
 )
 from crud.errors import summarize_error
 
@@ -57,6 +58,12 @@ class Warehouses(Container):
         except Exception as e:
             comment = summarize_error("Verify failed", e)
             new_row = None
+
+        # Twiddle the task state
+        if new_row:
+            with connection.Connection.get() as conn:
+                update_task_state(conn)
+
         return new_row, data, current, comment
 
     def edit_internal(self, update_obj):
@@ -76,6 +83,7 @@ class Warehouses(Container):
         except Exception as e:
             comment = summarize_error("Verify failed", e)
             new_update = None
+
         return new_update, data, update, comment
 
     def form(
@@ -189,6 +197,8 @@ class Warehouses(Container):
             new_row = next(i for i in new_data if i.id_val == "")
             new_row.id_val = uuid.uuid4().hex
             new_row.write(conn)
+            # Twiddle the task state after adding a new schedule
+            update_task_state(conn)
 
     def on_delete_click_internal(self, *args) -> Optional[str]:
         row = args[0][0]
@@ -202,6 +212,9 @@ class Warehouses(Container):
                 return comment
             [i.update(conn, i) for i in new_warehouses]
 
+            # Twiddle the task state after adding a new schedule
+            update_task_state(conn)
+
     def on_update_click_internal(self, *args) -> Optional[str]:
         if args[3] is not None:
             return args[3]
@@ -214,14 +227,23 @@ class Warehouses(Container):
             return comment
         with connection.Connection.get() as conn:
             [i.update(conn, i) for i in new_warehouses]
+            # Twiddle the task state after a schedule has changed
+            update_task_state(conn)
 
     def list(self):
-        st.button(
-            "Clear State (TODO, for testing only)",
-            on_click=lambda: connection.execute(
-                f"delete from internal.{WarehouseSchedules.table_name}"
-            ),
-        )
+        if os.environ.get("OPSCENTER_LOCAL_DEV", False):
+            st.button(
+                "Clear Warehouse Schedules",
+                on_click=lambda: connection.execute(
+                    f"delete from internal.{WarehouseSchedules.table_name}"
+                ),
+            )
+            st.button(
+                "Clear Warehouse Schedules Task History",
+                on_click=lambda: connection.execute(
+                    "delete from internal.task_warehouse_schedule"
+                ),
+            )
         warehouses = connection.execute_with_cache(
             """
         begin
@@ -278,14 +300,12 @@ class Warehouses(Container):
         )
         build_table(self.base_cls, data_we, cbs, has_empty=True)
 
-        st.write("For testing only")
-
-        st.markdown("# Raw WarehouseSchedules data")
-        st.write(all_data)
-        st.markdown("# Running warehouse task")
-        st.write(WarehouseSchedulesTask(connection.Connection.get()).run())
-        st.markdown("# internal.task_warehouse_schedule raw data")
-        df = self.snowflake.sql(
-            "select * from internal.task_warehouse_schedule;"
-        ).to_pandas()
-        st.dataframe(df)
+        if os.environ.get("OPSCENTER_LOCAL_DEV", False):
+            st.markdown("# Raw WarehouseSchedules data")
+            st.write(all_data)
+            st.markdown("# internal.task_warehouse_schedule raw data")
+            with connection.Connection.get() as conn:
+                df = conn.sql(
+                    "select * from internal.task_warehouse_schedule;"
+                ).to_pandas()
+                st.dataframe(df, use_container_width=True)
