@@ -78,8 +78,6 @@ def verify_and_clean(
 
 def set_enabled(wh_name: str, enabled: bool):
     with connection.Connection.get() as conn:
-        # TODO I saw a case where one warehouse was in an indeterminate state for enabled (some false, some true).
-        # Keep an eye on this. May have to push the explicitly bool value.
         _ = conn.sql(
             f"update internal.{WarehouseSchedules.table_name} set enabled = ? where name = ?",
             params=[enabled, wh_name],

@@ -3,19 +3,6 @@
 
 -- CREATE TABLE IF NOT EXISTS internal.task_warehouse_schedule(RUN TIMESTAMP_LTZ(9), SUCCESS BOOLEAN, OUTPUT VARIANT)
 
-CREATE OR REPLACE PROCEDURE INTERNAL.UPDATE_WAREHOUSE_SCHEDULES()
-    RETURNS VARIANT
-    language sql
- AS
-DECLARE
-    task_outcome variant;
-    this_run timestamp_ltz default (select current_timestamp());
-    last_run timestamp_ltz default (select run from internal.task_warehouse_schedule order by run desc limit 1);
-BEGIN
-    call internal.UPDATE_WAREHOUSE_SCHEDULES(:last_run, :this_run) into :task_outcome;
-    return task_outcome;
-END;
-
 CREATE OR REPLACE PROCEDURE INTERNAL.UPDATE_WAREHOUSE_SCHEDULES(last_run timestamp_ltz, this_run timestamp_ltz)
     RETURNS VARIANT
     language sql
@@ -23,6 +10,8 @@ CREATE OR REPLACE PROCEDURE INTERNAL.UPDATE_WAREHOUSE_SCHEDULES(last_run timesta
 DECLARE
     task_outcome variant default (select object_construct());
 BEGIN
+    -- The task calls this procedure with NULL and lets the procedure figure out the details.
+    -- The ability to specify timestamps is only to enable testing.
     if (this_run is NULL) then
         this_run := (select current_timestamp());
     end if;
@@ -36,6 +25,8 @@ BEGIN
         end if;
     end if;
 
+    -- TODO handle looking back over a weekend boundary (from python)
+    -- TODO handle the timestamp from config (from python)
     -- TODO the WEEK_START session parameter can alter what DAYOFWEEK returns.
     let is_weekday boolean := (select DAYOFWEEK(:this_run) not in (0, 6));
 
@@ -63,7 +54,6 @@ BEGIN
     task_outcome := (select object_insert(:task_outcome, 'num_candidates', array_size(:ids)));
     task_outcome := (select object_insert(:task_outcome, 'candidates', :ids));
     task_outcome := (select object_insert(:task_outcome, 'last_run', :last_run));
-    task_outcome := (select object_insert(:task_outcome, 'this_run', :this_run));
 
     let c1 cursor for res;
 
