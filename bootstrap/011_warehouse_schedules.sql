@@ -78,7 +78,8 @@ BEGIN
                 sch_outcome := 'No alter statement found for warehouse ' || schedule.name;
                 success := FALSE;
             else
-                sch_outcome := 'Successfully applied warehouse schedule for ' || schedule.name;
+                -- Return the actual alter statement to know what was executed.
+                sch_outcome := schedule.alter_statement;
                 execute immediate schedule.alter_statement;
                 warehouses_updated := warehouses_updated + 1;
             end if;
