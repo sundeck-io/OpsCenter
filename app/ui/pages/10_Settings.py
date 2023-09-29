@@ -4,17 +4,20 @@ import config
 import sthelp
 import setup
 import pytz
+from typing import Optional
 
 
 sthelp.chrome("Settings")
 
 
-def invalid_number(string):
+def invalid_number(string: str) -> Optional[str]:
     try:
-        float(string)  # Convert the string to float
-        return False
+        n = float(string)  # Convert the string to float
+        if n <= 0:
+            return
+        return string
     except ValueError:
-        return True
+        return
 
 
 def get_task_status(dbname):
@@ -97,16 +100,16 @@ with config_tab:
         if st.form_submit_button("Save"):
 
             if (
-                invalid_number(compute)
-                or invalid_number(serverless)
-                or invalid_number(storage)
+                (clean_compute := invalid_number(compute)) is None
+                or (clean_serverless := invalid_number(serverless)) is None
+                or (clean_storage := invalid_number(storage)) is None
             ):
                 st.error("Please enter a valid number for all costs.")
 
             elif timezone is None or timezone not in pytz.common_timezones:
                 st.error("Please enter a valid timezone.")
             else:
-                config.set_costs(compute, serverless, storage)
+                config.set_costs(clean_compute, clean_serverless, clean_storage)
                 config.Config.set("default_timezone", timezone)
                 connection.execute(
                     f"""
