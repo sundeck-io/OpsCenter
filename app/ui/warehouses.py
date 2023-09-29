@@ -16,7 +16,7 @@ from warehouse_utils import (
     convert_time_str,
     verify_and_clean,
     populate_initial,
-    flip_enabled,
+    set_enabled,
     update_task_state,
 )
 from crud.errors import summarize_error
@@ -170,6 +170,7 @@ class Warehouses(Container):
                 comment=comment if comment != "" else None,
                 start_at=convert_time_str(start),
                 finish_at=convert_time_str(finish),
+                enabled=st.session_state["enabled"],
             )
         )
         return new_update
@@ -274,7 +275,7 @@ class Warehouses(Container):
             "Enable Schedule",
             value=is_enabled,
             key="enabled",
-            on_change=lambda: flip_enabled(whfilter),
+            on_change=lambda: set_enabled(whfilter, st.session_state["enabled"]),
         )
 
         st.title("Weekdays")
