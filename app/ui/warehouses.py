@@ -275,7 +275,9 @@ class Warehouses(Container):
             "Enable Schedule",
             value=is_enabled,
             key="enabled",
-            on_change=lambda: set_enabled(whfilter, st.session_state["enabled"]),
+            on_change=lambda: set_enabled(
+                whfilter, st.session_state["enabled"] or False
+            ),
         )
 
         st.title("Weekdays")
