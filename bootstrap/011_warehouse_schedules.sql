@@ -10,23 +10,36 @@ CREATE OR REPLACE PROCEDURE INTERNAL.UPDATE_WAREHOUSE_SCHEDULES(last_run timesta
 DECLARE
     task_outcome variant default (select object_construct());
 BEGIN
+    -- Get the configured timezone or default to 'America/Los_Angeles'
+    let tz text;
+    call internal.get_config('default_timezone') into :tz;
+    if (tz is null) then
+        tz := 'America/Los_Angeles';
+    end if;
+    task_outcome := (select object_insert(:task_outcome, 'opscenter timezone', :tz));
+    task_outcome := (select object_insert(:task_outcome, 'account timezone', internal.get_current_timezone()));
+
     -- The task calls this procedure with NULL and lets the procedure figure out the details.
     -- The ability to specify timestamps is only to enable testing.
     if (this_run is NULL) then
-        this_run := (select current_timestamp());
+        this_run := (select CONVERT_TIMEZONE(internal.get_current_timezone(), :tz, current_timestamp()));
+    else
+        this_run := (select CONVERT_TIMEZONE(internal.get_current_timezone(), :tz, :this_run));
     end if;
+    task_outcome := (select object_insert(:task_outcome, 'this_run', :this_run));
 
     if (last_run is NULL) then
-        last_run := (select run from internal.task_warehouse_schedule order by run desc limit 1);
+        last_run := (select CONVERT_TIMEZONE(internal.get_current_timezone(), :tz, run) from internal.task_warehouse_schedule order by run desc limit 1);
         -- If we don't have any rows in internal.task_warehouse_schedule, rewind far enough that we will just pick
         -- the current WH schedule and not think it has already been run.
         if (last_run is NULL) then
-            last_run := (select timestampadd('days', -1, current_timestamp));
+            last_run := (select CONVERT_TIMEZONE(internal.get_current_timezone(), :tz, timestampadd('days', -1, current_timestamp)));
         end if;
+    else
+        last_run := (select CONVERT_TIMEZONE(internal.get_current_timezone(), :tz, :last_run));
     end if;
 
     -- TODO handle looking back over a weekend boundary (from python)
-    -- TODO handle the timestamp from config (from python)
     -- TODO the WEEK_START session parameter can alter what DAYOFWEEK returns.
     let is_weekday boolean := (select DAYOFWEEK(:this_run) not in (0, 6));
 
@@ -94,3 +107,12 @@ EXCEPTION
         INSERT INTO internal.task_warehouse_schedule SELECT :this_run, FALSE, :task_outcome;
         RAISE;
 END;
+
+-- owners rights procedures can't get the timezone from the session parameters.
+CREATE OR REPLACE FUNCTION INTERNAL.GET_CURRENT_TIMEZONE()
+RETURNS STRING
+LANGUAGE JAVASCRIPT
+AS
+$$
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+$$;
