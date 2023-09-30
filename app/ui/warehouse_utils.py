@@ -4,6 +4,7 @@ from crud.wh_sched import (
     WarehouseSchedules,
     describe_warehouse as crud_describe_warehouse,
     update_task_state as crud_update_task_state,
+    regenerate_alter_statements as crud_regenerate_alter_statements,
 )
 from crud.errors import summarize_error
 from typing import Optional, List, Tuple
@@ -31,18 +32,14 @@ def populate_initial(warehouse):
         warehouses = WarehouseSchedules.batch_read(conn, "start_at")
         # There is no WarehouseSchedule defined for this warehouse yet.
         if any(i for i in warehouses if i.name == warehouse) == 0:
-            wh = describe_warehouse(conn, warehouse)
+            wh = crud_describe_warehouse(conn, warehouse)
             wh.write(conn)
             warehouses.append(wh)
-            wh2 = describe_warehouse(conn, warehouse)
+            wh2 = crud_describe_warehouse(conn, warehouse)
             wh2.weekday = False
             wh2.write(conn)
             warehouses.append(wh2)
         return warehouses
-
-
-def describe_warehouse(conn, warehouse):
-    return crud_describe_warehouse(conn, warehouse)
 
 
 def convert_time_str(time_str) -> datetime.time:
@@ -86,7 +83,7 @@ def set_enabled(wh_name: str, enabled: bool):
             f"update internal.{WarehouseSchedules.table_name} set enabled = ? where name = ?",
             params=[enabled, wh_name],
         ).collect()
-        update_task_state(conn)
+        after_schedule_change(conn)
 
 
 def time_filter(
@@ -107,10 +104,17 @@ def time_filter(
         return base_times
 
 
-def update_task_state(session: Session) -> bool:
+def after_schedule_change(session: Session) -> bool:
     """
-    Resumes or suspends the warehouse schedules task based on the current collection of schedules.
-    :return: True if the task is enabled, False otherwise.
+    Takes the current collection of warehouse schedules, records the alter warehouse statement
+    for each schedule, and appropriately schedules the tasks to run.
+    :return: True if any task is scheduled to run (resumed), False otherwise.
     """
     schedules = WarehouseSchedules.batch_read(session, sortby="start_at")
-    return crud_update_task_state(session, schedules)
+
+    # Generate alter statements for each schedule
+    crud_regenerate_alter_statements(session, schedules)
+    # Update the task's state
+    task_started = crud_update_task_state(session, schedules)
+
+    return task_started

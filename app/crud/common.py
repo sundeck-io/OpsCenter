@@ -3,10 +3,15 @@ from .labels import Label
 from .probes import Probe
 from .errors import summarize_error
 from .session import snowpark_session
-from .wh_sched import WarehouseSchedules
+from .wh_sched import WarehouseSchedules, WarehouseAlterStatements
 
 # A "registry" of CRUD types and the implementation class
-_TYPES = {"LABEL": Label, "PROBE": Probe, "WAREHOUSE_SCHEDULES": WarehouseSchedules}
+_TYPES = {
+    "LABEL": Label,
+    "PROBE": Probe,
+    "WAREHOUSE_SCHEDULES": WarehouseSchedules,
+    "WAREHOUSE_ALTER_STATEMENTS": WarehouseAlterStatements,
+}
 
 
 def create_table(session, entity_type):

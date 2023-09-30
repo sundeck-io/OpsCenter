@@ -182,6 +182,41 @@ class WarehouseSchedules(BaseOpsCenterModel):
         ).collect()
 
 
+class WarehouseAlterStatements(BaseOpsCenterModel):
+    """
+    Stores the ALTER WAREHOUSE statements for a given schedule.
+    """
+
+    table_name: ClassVar[str] = "WAREHOUSE_ALTER_STATEMENTS"
+    id_val: str
+    alter_statement: str
+
+    def get_id_col(self) -> str:
+        return "id_val"
+
+    def get_id(self) -> str:
+        return self.id_val
+
+    @validator("id_val", allow_reuse=True)
+    def verify_id(cls, v):
+        if not v:
+            raise ValueError("ID is required")
+        assert isinstance(v, str)
+        return v
+
+    @validator("alter_statement", allow_reuse=True)
+    def verify_alter_statement(cls, v):
+        if not v:
+            raise ValueError("The alter statement SQL is required")
+        assert isinstance(v, str)
+        return v
+
+    @classmethod
+    def create_table(cls, session, with_catalog_views=False):
+        # Never create a catalog view for this table
+        super(WarehouseAlterStatements, cls).create_table(session, False)
+
+
 def describe_warehouse(session: Session, warehouse: str):
     wh_df = session.sql(f"show warehouses like '{warehouse}'").collect()
     wh_dict = wh_df[0].as_dict()
@@ -193,6 +228,34 @@ def describe_warehouse(session: Session, warehouse: str):
         scale_min=wh_dict.get("min_cluster_count", 0),
         scale_max=wh_dict.get("max_cluster_count", 0),
         warehouse_mode=wh_dict.get("scaling_policy", "Standard"),
+    )
+
+
+def generate_alter_from_schedule(
+    schedule: WarehouseSchedules,
+) -> WarehouseAlterStatements:
+    changes = []
+    if schedule.scale_min == 0 or schedule.scale_max == 0:
+        is_standard = True
+    else:
+        is_standard = False
+
+    changes.append(f"WAREHOUSE_SIZE = {_WAREHOUSE_SIZE_OPTIONS[schedule.size]}")
+    if "Snowpark" in schedule.size:
+        changes.append("WAREHOUSE_TYPE = SNOWPARK-OPTIMIZED")
+    else:
+        changes.append("WAREHOUSE_TYPE = STANDARD")
+    changes.append(f"AUTO_SUSPEND = {schedule.suspend_minutes}")
+    changes.append(f"AUTO_RESUME = {schedule.resume}")
+    if not is_standard:
+        changes.append(f"MIN_CLUSTER_COUNT = {schedule.scale_min}")
+        changes.append(f"MAX_CLUSTER_COUNT = {schedule.scale_max}")
+        if not schedule.warehouse_mode == "Inherit":
+            changes.append(f"SCALING_POLICY = {schedule.warehouse_mode}")
+
+    return WarehouseAlterStatements(
+        id_val=schedule.id_val,
+        alter_statement=f"alter warehouse {schedule.name} set {', '.join(changes)}",
     )
 
 
@@ -241,6 +304,21 @@ def update_warehouse(warehouse_now, warehouse_next):
     return ""
 
 
+def regenerate_alter_statements(session: Session, schedules: List[WarehouseSchedules]):
+    """
+    Given a list of WarehouseSchedules, generate the ALTER WAREHOUSE statements and write them to the
+    WAREHOUSE_ALTER_STATEMENTS table. Any rows in the WarehouseAlterStatements table which are not included in
+    the `schedules` will be deleted (e.g. `dataframe.write.mode('overwrite')`)
+    :param session: Snowpark session
+    :param schedules: List of WarehouseSessions
+    """
+    # Take the Schedule and generate the WarehouseAlterStatements object which contains the ALTER WAREHOUSE stmt.
+    alter_stmts = [generate_alter_from_schedule(schedule) for schedule in schedules]
+
+    # Write all the statements to the table, overwriting any existing statements.
+    WarehouseAlterStatements.batch_write(session, alter_stmts, overwrite=True)
+
+
 def update_task_state(session: Session, schedules: List[WarehouseSchedules]) -> bool:
     # Make sure we have at least one enabled schedule.
     enabled_schedules = [sch for sch in schedules if sch.enabled]
@@ -251,9 +329,10 @@ def update_task_state(session: Session, schedules: List[WarehouseSchedules]) -> 
     # Build the cron list for the enabled schedules
     alter_statements = []
     for offset in WarehouseSchedulesTask.task_offsets:
-        # For each "offset", generate two statements
-        #   1. ALTER TASK ... SET SCHEDULE = 'USING CRON ...'
-        #   2. ALTER TASK ... RESUME
+        # For each "offset", generate multiple statements
+        #   1. ALTER TASK ... SUSPEND
+        #   2. ALTER TASK ... SET SCHEDULE = 'USING CRON ...'
+        #   3. ALTER TASK ... RESUME
         alter_statements.extend(_make_alter_task_statements(schedules, offset))
 
     # Collect the statements together
