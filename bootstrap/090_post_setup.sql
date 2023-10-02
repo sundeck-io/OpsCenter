@@ -150,7 +150,7 @@ BEGIN
                 WHEN other THEN
                     outcome2 := SQLERRM;
             END;
-            outcome := (select outcome || coalesce(outcome2, ''));
+            outcome := (select :outcome || coalesce(:outcome2, ''));
         end if;
 
         -- Send slack messages
@@ -172,7 +172,7 @@ Query Text: {bt}{bt}{bt}{query_text}{bt}{bt}{bt}
            WHEN other THEN
                slackResult := SQLERRM;
            END;
-            outcome := (select outcome || coalesce(slackResult, ''));
+            outcome := (select :outcome || coalesce(:slackResult, ''));
        END IF;
 
        let name string := act.PROBE_NAME;
