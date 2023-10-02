@@ -75,8 +75,8 @@ def timestamp_string(conn):
     delete_list_of_probes(conn, sql)
 
     scheds = fetch_all_warehouse_schedules(conn)
-    scheds.insert(0, "Warehouse Schedules:")
-    print("\n".join(scheds))
+    str_scheds = [str(s) for s in scheds]
+    print("Warehouse Schedules:\n" + "\n".join(str_scheds))
 
 
 @pytest.fixture(autouse=True)
