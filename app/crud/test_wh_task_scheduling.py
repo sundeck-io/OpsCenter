@@ -1,6 +1,13 @@
 import datetime
+import pytest
+from pytz import timezone
 from .wh_sched import WarehouseSchedules, update_task_state, task_offsets
 from .test_fixtures import MockSession
+
+_pacific = timezone("America/Los_Angeles")
+_eastern = timezone("America/New_York")
+_london = timezone("Europe/London")
+_kolkata = timezone("Asia/Kolkata")
 
 
 def _make_schedule(
@@ -28,7 +35,7 @@ def _make_schedule(
 
 
 def test_no_schedules_disables_task(session: MockSession):
-    assert not update_task_state(session, [])
+    assert not update_task_state(session, [], tz=_pacific)
     assert len(session._sql) == 1
     for offset in task_offsets:
         assert (
@@ -44,7 +51,7 @@ def test_disabled_schedules_disables_task(session: MockSession):
         ),
     ]
 
-    assert not update_task_state(session, schedules)
+    assert not update_task_state(session, schedules, tz=_pacific)
     assert len(session._sql) == 1
     for offset in task_offsets:
         assert (
@@ -60,7 +67,7 @@ def test_weekday_schedules(session: MockSession):
         _make_schedule("COMPUTE_WH", datetime.time(17, 30), datetime.time(23, 59)),
     ]
 
-    assert update_task_state(session, schedules) is True
+    assert update_task_state(session, schedules, tz=_pacific) is True
     assert len(session._sql) == 1
     script = session._sql[0].lower()
 
@@ -112,7 +119,7 @@ def test_weekdays_and_weekends_schedule(session: MockSession):
         ),
     ]
 
-    assert update_task_state(session, schedules) is True
+    assert update_task_state(session, schedules, tz=_pacific) is True
     assert len(session._sql) == 1
     script = session._sql[0].lower()
 
@@ -161,7 +168,7 @@ def test_multiple_warehouses(session: MockSession):
         _make_schedule("BATCH_WH", datetime.time(12, 45), datetime.time(23, 59)),
     ]
 
-    assert update_task_state(session, schedules) is True
+    assert update_task_state(session, schedules, tz=_pacific) is True
     assert len(session._sql) == 1
     script = session._sql[0].lower()
 
@@ -193,5 +200,41 @@ def test_multiple_warehouses(session: MockSession):
     expected_cron_45 = "45 12,17 * * 1-5 america/los_angeles"
     assert (
         f"alter task if exists tasks.warehouse_scheduling_45 set schedule = 'using cron {expected_cron_45}';"
+        in script
+    )
+
+
+@pytest.mark.parametrize("tz", [_pacific, _eastern, _london, _kolkata])
+def test_timezones(session: MockSession, tz: timezone):
+    schedules = [
+        _make_schedule("COMPUTE_WH", datetime.time(0, 0), datetime.time(9, 0)),
+        _make_schedule("COMPUTE_WH", datetime.time(9, 0), datetime.time(17, 30)),
+        _make_schedule("COMPUTE_WH", datetime.time(17, 30), datetime.time(23, 59)),
+    ]
+
+    assert update_task_state(session, schedules, tz=tz) is True
+    assert len(session._sql) == 1
+    script = session._sql[0].lower()
+
+    # _0 and _30 should be resumed
+    assert "alter task if exists tasks.warehouse_scheduling_0 suspend;" in script
+
+    expected_cron_0 = f"0 0,9 * * 1-5 {tz.zone.lower()}"
+    assert (
+        f"alter task if exists tasks.warehouse_scheduling_0 set schedule = 'using cron {expected_cron_0}';"
+        in script
+    )
+    assert "alter task if exists tasks.warehouse_scheduling_0 resume;" in script
+
+    assert "alter task if exists tasks.warehouse_scheduling_30 suspend;" in script
+    assert "alter task if exists tasks.warehouse_scheduling_30 resume;" in script
+
+    # _15 and _45 should be suspended
+    assert "alter task if exists tasks.warehouse_scheduling_15 suspend;" in script
+    assert "alter task if exists tasks.warehouse_scheduling_45 suspend;" in script
+
+    expected_cron_30 = f"30 17 * * 1-5 {tz.zone.lower()}"
+    assert (
+        f"alter task if exists tasks.warehouse_scheduling_30 set schedule = 'using cron {expected_cron_30}';"
         in script
     )

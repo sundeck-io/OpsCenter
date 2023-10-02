@@ -2,7 +2,12 @@ import sys
 import datetime
 import pytest
 from contextlib import contextmanager
-from common_utils import delete_list_of_labels, delete_list_of_probes
+from common_utils import (
+    delete_list_of_labels,
+    delete_list_of_probes,
+    fetch_all_warehouse_schedules,
+    reset_timezone,
+)
 
 sys.path.append("../deploy")
 import helpers  # noqa E402
@@ -68,3 +73,13 @@ def timestamp_string(conn):
 
     # call a function that deletes all the labels that were created in the session
     delete_list_of_probes(conn, sql)
+
+    scheds = fetch_all_warehouse_schedules(conn)
+    str_scheds = [str(s) for s in scheds]
+    print("Warehouse Schedules:\n" + "\n".join(str_scheds))
+
+
+@pytest.fixture(autouse=True)
+def reset_timezone_before_test(conn):
+    with conn() as cnx:
+        reset_timezone(cnx)

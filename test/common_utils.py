@@ -1,4 +1,5 @@
 import uuid
+from typing import List, Dict
 
 
 def generate_unique_name(prefix, timestamp_string) -> str:
@@ -51,3 +52,17 @@ def delete_list_of_probes(conn, sql):
         for name in cur.execute(sql).fetchall():
             delete_probe_statement = f"call ADMIN.DELETE_PROBE('{name[0]}');"
             assert run_proc(conn, delete_probe_statement) is None
+
+
+def fetch_all_warehouse_schedules(conn) -> List[Dict]:
+    with conn() as cnx, cnx.cursor() as cur:
+        return cur.execute(
+            "select * from internal.wh_schedules order by name, weekday, start_at"
+        ).fetchall()
+
+
+def reset_timezone(conn):
+    with conn.cursor() as cur:
+        _ = cur.execute(
+            "call internal.set_config('default_timezone', 'America/Los_Angeles')"
+        ).fetchone()

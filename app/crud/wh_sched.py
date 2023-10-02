@@ -3,6 +3,8 @@ from typing import ClassVar, List, Optional
 import datetime
 from .base import BaseOpsCenterModel
 from pydantic import validator, root_validator, Field
+from pytz import timezone
+from pytz.exceptions import UnknownTimeZoneError
 from snowflake.snowpark.functions import col, max as sp_max
 from snowflake.snowpark import Row, Session
 import pandas as pd
@@ -319,12 +321,30 @@ def regenerate_alter_statements(session: Session, schedules: List[WarehouseSched
     WarehouseAlterStatements.batch_write(session, alter_stmts, overwrite=True)
 
 
-def update_task_state(session: Session, schedules: List[WarehouseSchedules]) -> bool:
+def get_schedule_timezone(session: Session) -> timezone:
+    """
+    Fetch the 'default_timezone' from the internal.config table. If there is no timezone set or the
+    timezone which is set fails to parse, this function will return the timezone for 'America/Los_Angeles'.
+    """
+    str_tz = session.call("get_config", "default_timezone") or "America/Los_Angeles"
+    try:
+        return timezone(str_tz)
+    except UnknownTimeZoneError:
+        return timezone("America/Los_Angeles")
+
+
+def update_task_state(
+    session: Session, schedules: List[WarehouseSchedules], tz=None
+) -> bool:
     # Make sure we have at least one enabled schedule.
     enabled_schedules = [sch for sch in schedules if sch.enabled]
     if len(enabled_schedules) == 0:
         disable_all_tasks(session)
         return False
+
+    # Indirection for unit tests. Caller is not expected to provide a timezone.
+    if not tz:
+        tz = get_schedule_timezone(session)
 
     # Build the cron list for the enabled schedules
     alter_statements = []
@@ -333,7 +353,7 @@ def update_task_state(session: Session, schedules: List[WarehouseSchedules]) -> 
         #   1. ALTER TASK ... SUSPEND
         #   2. ALTER TASK ... SET SCHEDULE = 'USING CRON ...'
         #   3. ALTER TASK ... RESUME
-        alter_statements.extend(_make_alter_task_statements(schedules, offset))
+        alter_statements.extend(_make_alter_task_statements(schedules, offset, tz))
 
     # Collect the statements together
     alter_body = "\n".join(alter_statements)
@@ -349,13 +369,15 @@ def update_task_state(session: Session, schedules: List[WarehouseSchedules]) -> 
 
 
 def _make_alter_task_statements(
-    schedules: List[WarehouseSchedules], offset: int
+    schedules: List[WarehouseSchedules],
+    offset: int,
+    tz: timezone,
 ) -> List[str]:
     """
     Generates a list of ALTER TASK statements given the list of WarehouseSchedules and the task offset (the quarterly
     minute offset from the hour).
     """
-    cron_schedule, should_run = _make_cron_schedule(schedules, offset)
+    cron_schedule, should_run = _make_cron_schedule(schedules, offset, tz)
     if should_run:
         return [
             f"alter task if exists {task_name}_{offset} suspend;",
@@ -367,7 +389,9 @@ def _make_alter_task_statements(
 
 
 def _make_cron_schedule(
-    schedules: List[WarehouseSchedules], offset: int
+    schedules: List[WarehouseSchedules],
+    offset: int,
+    tz: timezone,
 ) -> (str, bool):
     """
     Takes a list of schedules and returns the cron schedule string which cover all schedule boundaries.
@@ -398,8 +422,7 @@ def _make_cron_schedule(
         # Execute only weekends
         days_of_week = "0,6"
 
-    # TODO use the configured timezone
-    return f"{offset} {cron_hours} * * {days_of_week} America/Los_Angeles", True
+    return f"{offset} {cron_hours} * * {days_of_week} {tz.zone}", True
 
 
 def get_last_run(session: Session) -> datetime.datetime:
