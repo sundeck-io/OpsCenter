@@ -30,7 +30,7 @@ def create_callback(data, row, **additions):
 def populate_initial(session, warehouse):
     warehouses = WarehouseSchedules.batch_read(session, "start_at")
     if any(i for i in warehouses if i.name == warehouse) == 0:
-        wh =describe_warehouse(session, warehouse)
+        wh = describe_warehouse(session, warehouse)
         wh.write(session)
         warehouses.append(wh)
         wh2 = describe_warehouse(session, warehouse)
@@ -38,6 +38,7 @@ def populate_initial(session, warehouse):
         wh2.write(session)
         warehouses.append(wh2)
     return warehouses
+
 
 def convert_time_str(time_str) -> datetime.time:
     return datetime.datetime.strptime(time_str, "%I:%M %p").time()

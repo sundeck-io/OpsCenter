@@ -63,14 +63,10 @@ def display():
 
         credit_cost = config.get_compute_credit_cost()
         sql = f"""
-        with tmp as procedure()
-    returns table()
-    language sql
-    as $$
     begin
     show warehouses;
     with all_wh as (
-    select "name" as warehouse_name, "size" from table(result_scan(last_query_id()))
+    select "name" as warehouse_name, "size" as actual_size from table(result_scan(last_query_id()))
     ), util as (
     select warehouse_name, SUM(LOADED_CC * {credit_cost}) AS COST, IFF(SUM(LOADED_CC) = 0,null, SUM(UNLOADED_CC)/SUM(LOADED_CC)) AS UTILIZATION
      from reporting.warehouse_daily_utilization
@@ -90,20 +86,19 @@ def display():
      left join util on util.warehouse_name = all_wh.warehouse_name
       left join wh_agg on all_wh.warehouse_name = wh_agg.warehouse_name;
       let x resultset := (select warehouse_name as warehouse,
-            coalesce(size, "size") as size,
+            coalesce(size, actual_size) as size,
             coalesce(autoscale, false) as autoscale,
             to_varchar(coalesce(cost, 0),'999999999.00') as spend,
             to_varchar(coalesce(utilization, 0)*100,'999.00') as utilization,
             coalesce(enabled, false) as enabled
         from table(result_scan(last_query_id())));
       return table(x);
-    end;$$ call tmp();
+    end;
      """
 
         sql = connection.Connection.bind(sql, {"start": range[0], "end": range[1]})
         df = connection.execute_with_cache(sql)
-        df.columns = [c.lower() for c in df.columns]
-        data = [WarehouseSummary.parse_obj(dict(**i)) for i in df.to_dict("records")]
+        data = WarehouseSummary.from_df(df)
 
         def set_warehouse(x):
             st.session_state["warehouse"] = x

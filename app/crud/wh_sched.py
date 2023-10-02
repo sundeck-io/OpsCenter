@@ -218,7 +218,6 @@ class WarehouseAlterStatements(BaseOpsCenterModel):
 
 
 def describe_warehouse(session: Session, warehouse: str):
-    print(f"Describing warehouse {warehouse}")
     wh_df = session.sql(f"show warehouses like '{warehouse}'").collect()
     wh_dict = wh_df[0].as_dict()
     return WarehouseSchedules(
@@ -422,8 +421,8 @@ def get_schedules(session: Session, is_weekday: bool) -> pd.DataFrame:
     )
 
 
-task_name: ClassVar[str] = "TASKS.WAREHOUSE_SCHEDULING"
-task_offsets: ClassVar[List[int]] = [0, 15, 30, 45]
+task_name: str = "TASKS.WAREHOUSE_SCHEDULING"
+task_offsets: List[int] = [0, 15, 30, 45]
 
 
 def disable_all_tasks(session: Session):
@@ -474,8 +473,7 @@ def build_ts(today, now, schedule_start_time: datetime.time):
 
 def build_statement(session: Session, data):
     df = data
-    df.columns = [c.lower() for c in df.columns]
-    arr = [WarehouseSchedules(**dict(i)) for i in df.to_dict(orient="records")]
+    arr = WarehouseSchedules.from_df(df)
     allstmt = []
     wh_updated = []
     for wh in arr:

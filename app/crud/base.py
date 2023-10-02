@@ -114,6 +114,17 @@ class BaseOpsCenterModel(BaseModel):
         arr = [cls(**dict(row)) for row in df.to_dict("records")]
         return arr
 
+    @classmethod
+    def from_df(cls, df) -> List["BaseOpsCenterModel"]:
+        """
+        Reads all rows from the table and returns them as a list of objects.
+        :param session:
+        :return:
+        """
+        df.columns = [c.lower() for c in df.columns]
+        arr = [cls(**dict(row)) for row in df.to_dict("records")]
+        return arr
+
 
 def unwrap_value(v):
     """
