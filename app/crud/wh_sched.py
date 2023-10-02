@@ -323,12 +323,12 @@ def update_task_state(session: Session, schedules: List[WarehouseSchedules]) -> 
     # Make sure we have at least one enabled schedule.
     enabled_schedules = [sch for sch in schedules if sch.enabled]
     if len(enabled_schedules) == 0:
-        WarehouseSchedulesTask.disable_all_tasks(session)
+        disable_all_tasks(session)
         return False
 
     # Build the cron list for the enabled schedules
     alter_statements = []
-    for offset in WarehouseSchedulesTask.task_offsets:
+    for offset in task_offsets:
         # For each "offset", generate multiple statements
         #   1. ALTER TASK ... SUSPEND
         #   2. ALTER TASK ... SET SCHEDULE = 'USING CRON ...'
@@ -358,14 +358,12 @@ def _make_alter_task_statements(
     cron_schedule, should_run = _make_cron_schedule(schedules, offset)
     if should_run:
         return [
-            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} suspend;",
-            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} set schedule = 'using cron {cron_schedule}';",
-            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} resume;",
+            f"alter task if exists {task_name}_{offset} suspend;",
+            f"alter task if exists {task_name}_{offset} set schedule = 'using cron {cron_schedule}';",
+            f"alter task if exists {task_name}_{offset} resume;",
         ]
     else:
-        return [
-            f"alter task if exists {WarehouseSchedulesTask.task_name}_{offset} suspend;"
-        ]
+        return [f"alter task if exists {task_name}_{offset} suspend;"]
 
 
 def _make_cron_schedule(
@@ -375,7 +373,7 @@ def _make_cron_schedule(
     Takes a list of schedules and returns the cron schedule string which cover all schedule boundaries.
     :param schedules: A list of enabled WarehouseSchedules.
     """
-    assert offset in WarehouseSchedulesTask.task_offsets
+    assert offset in task_offsets
 
     # Collect the schedules that start at the given offset "minutes"
     schedules_for_offset = [sch for sch in schedules if sch.start_at.minute == offset]
@@ -404,155 +402,142 @@ def _make_cron_schedule(
     return f"{offset} {cron_hours} * * {days_of_week} America/Los_Angeles", True
 
 
-class WarehouseSchedulesTask:
-    """
-    WarehouseSchedulesTask encapsulates the logic to apply the warehouse schedules against the warehouses
-    in the Snowflake Account. The logic in this class is stateless and does not need the encapsulation that the class
-    provides; however, this class eases the injection of test data via unittest.mock.
+def get_last_run(session: Session) -> datetime.datetime:
+    return (
+        session.table("internal.task_warehouse_schedule")
+        .filter(col("success"))
+        .select(sp_max("run").as_("x"))
+        .collect()[0]
+        .X
+    )
 
-    TODO move the logic in this class to functions in this file and figure out how to updated the mocking invocations to
-         override the methods which execute queries against Snowflake.
-    """
 
-    task_name: ClassVar[str] = "TASKS.WAREHOUSE_SCHEDULING"
-    task_offsets: ClassVar[List[int]] = [0, 15, 30, 45]
+def get_schedules(session: Session, is_weekday: bool) -> pd.DataFrame:
+    return (
+        session.table("internal.wh_schedules")
+        .filter(col("weekday") == is_weekday)
+        .filter(col("enabled"))
+        .to_pandas()
+    )
 
-    @classmethod
-    def disable_all_tasks(cls, session: Session):
-        statements = [
-            f"alter task if exists {cls.task_name}_{offset} suspend;"
-            for offset in cls.task_offsets
-        ]
-        statements.insert(0, "begin")
-        statements.append("end;")
-        session.sql("\n".join(statements)).collect()
+
+task_name: str = "TASKS.WAREHOUSE_SCHEDULING"
+task_offsets: List[int] = [0, 15, 30, 45]
+
+
+def disable_all_tasks(session: Session):
+    statements = [
+        f"alter task if exists {task_name}_{offset} suspend;" for offset in task_offsets
+    ]
+    statements.insert(0, "begin")
+    statements.append("end;")
+    session.sql("\n".join(statements)).collect()
 
     session: Session = None
 
-    def __init__(self, session: Session):
-        self.session = session
 
-    def describe_warehouse(self, wh_name: str):
-        """
-        Indirection around the static method describe_warehouse for testing. Even if
-        we patch the static method, the task still refers to the unpatched method.
-        """
-        return describe_warehouse(self.session, wh_name)
+def build_task_table(session: Session, this_run, last_run: datetime.datetime):
+    today = this_run.date()
+    # TODO handle looking back over a weekend boundary
+    # TODO handle the timestamp from config
+    is_weekday = this_run.weekday() < 5
 
-    def get_last_run(self) -> datetime.datetime:
-        return (
-            self.session.table("internal.task_warehouse_schedule")
-            .filter(col("success"))
-            .select(sp_max("run").as_("x"))
-            .collect()[0]
-            .X
-        )
+    # Look for time of last successful run.
+    # If we have no successful past runs, claim the last run was from a day ago so we consider
+    # all schedules that are scheduled for "today"
+    if last_run is None:
+        last_run = this_run - datetime.timedelta(days=1)
 
-    def get_schedules(self, is_weekday: bool) -> pd.DataFrame:
-        return (
-            self.session.table("internal.wh_schedules")
-            .filter(col("weekday") == is_weekday)
-            .filter(col("enabled"))
-            .to_pandas()
-        )
+    # Find all schedules for weekend/weekday (whichever we're currently in)
+    scheds = get_schedules(session, is_weekday)
+    if scheds.empty:
+        return scheds
 
-    def build_task_table(self, this_run, last_run: datetime.datetime):
-        today = this_run.date()
-        # TODO handle looking back over a weekend boundary
-        # TODO handle the timestamp from config
-        is_weekday = this_run.weekday() < 5
+    # Convert a datetime from the start_time for this schedule, fixed on "today".
+    scheds["ts"] = scheds.START_AT.map(lambda x: build_ts(today, this_run, x))
+    # Then, determine which schedules should have run since the last time the task ran.
+    scheds["should_run"] = scheds.ts.map(lambda x: last_run <= x <= this_run)
+    # Finally, take the last schedule for each warehouse that should have run (to transparently handle
+    # the task failing to run on the expected 15minute boundaries)
+    to_run = scheds[scheds.should_run].sort_values(by="ts").groupby("NAME").last()
 
-        # Look for time of last successful run.
-        # If we have no successful past runs, claim the last run was from a day ago so we consider
-        # all schedules that are scheduled for "today"
-        if last_run is None:
-            last_run = this_run - datetime.timedelta(days=1)
+    return to_run.reset_index()
 
-        # Find all schedules for weekend/weekday (whichever we're currently in)
-        scheds = self.get_schedules(is_weekday)
-        if scheds.empty:
-            return scheds
 
-        # Convert a datetime from the start_time for this schedule, fixed on "today".
-        scheds["ts"] = scheds.START_AT.map(lambda x: self.build_ts(today, this_run, x))
-        # Then, determine which schedules should have run since the last time the task ran.
-        scheds["should_run"] = scheds.ts.map(lambda x: last_run <= x <= this_run)
-        # Finally, take the last schedule for each warehouse that should have run (to transparently handle
-        # the task failing to run on the expected 15minute boundaries)
-        to_run = scheds[scheds.should_run].sort_values(by="ts").groupby("NAME").last()
+def build_ts(today, now, schedule_start_time: datetime.time):
+    # localize the start_time for the schedule to today's date
+    return datetime.datetime.combine(today, schedule_start_time).replace(
+        tzinfo=now.tzinfo
+    )
 
-        return to_run.reset_index()
 
-    def build_ts(self, today, now, schedule_start_time: datetime.time):
-        # localize the start_time for the schedule to today's date
-        return datetime.datetime.combine(today, schedule_start_time).replace(
-            tzinfo=now.tzinfo
-        )
+def build_statement(session: Session, data):
+    df = data
+    arr = WarehouseSchedules.from_df(df)
+    allstmt = []
+    wh_updated = []
+    for wh in arr:
+        wh_now = describe_warehouse(session, wh.name)
+        stmt = update_warehouse(wh_now, wh)
+        if stmt:
+            allstmt.append(stmt)
+            wh_updated.append(wh.name)
+    if len(allstmt) == 0:
+        return "", wh_updated
+    joined_stmts = ";\n".join(allstmt)
+    return (
+        f"""begin
+    {joined_stmts};
+    end;""",
+        wh_updated,
+    )
 
-    def build_statement(self, data):
-        df = data
-        df.columns = [c.lower() for c in df.columns]
-        arr = [WarehouseSchedules(**dict(i)) for i in df.to_dict(orient="records")]
-        allstmt = []
-        wh_updated = []
-        for wh in arr:
-            wh_now = self.describe_warehouse(wh.name)
-            stmt = update_warehouse(wh_now, wh)
-            if stmt:
-                allstmt.append(stmt)
-                wh_updated.append(wh.name)
-        if len(allstmt) == 0:
-            return "", wh_updated
-        joined_stmts = ";\n".join(allstmt)
-        return (
-            f"""begin
-        {joined_stmts};
-        end;""",
-            wh_updated,
-        )
 
-    def now(self):
-        return self.session.sql("select current_timestamp as x").collect()[0].X
+def now(session: Session):
+    return session.sql("select current_timestamp as x").collect()[0].X
 
-    def run(self):
-        this_run = self.now()
-        success = False
-        obj = dict()
-        try:
-            last_run = self.get_last_run()
 
-            df = self.build_task_table(this_run, last_run)
-            obj["candidates"] = len(df)
-            stmt, wh_updated = self.build_statement(df)
-            obj["wh_updated"] = wh_updated
-            obj["stmt"] = stmt
-            obj["update_count"] = len(wh_updated)
-            if stmt:
-                self.run_statement(stmt)
-            success = True
-            return stmt
-        except Exception as e:
-            obj["error"] = str(e)
-            raise e
-        finally:
-            self.log_to_table(this_run, success, obj)
+def run(session: Session):
+    this_run = now(session)
+    success = False
+    obj = dict()
+    try:
+        last_run = get_last_run(session)
 
-    def run_statement(self, stmt: str):
-        self.session.sql(stmt).collect()
+        df = build_task_table(session, this_run, last_run)
+        obj["candidates"] = len(df)
+        stmt, wh_updated = build_statement(session, df)
+        obj["wh_updated"] = wh_updated
+        obj["stmt"] = stmt
+        obj["update_count"] = len(wh_updated)
+        if stmt:
+            run_statement(session, stmt)
+        success = True
+        return stmt
+    except Exception as e:
+        obj["error"] = str(e)
+        raise e
+    finally:
+        log_to_table(session, this_run, success, obj)
 
-    def log_to_table(self, this_run, success, obj):
-        df = self.session.createDataFrame(
-            [
-                Row(
-                    **{
-                        "run": this_run.replace(tzinfo=None),
-                        "success": success,
-                        "output": obj,
-                    }
-                )
-            ]
-        )
-        df.write.mode("append").save_as_table("internal.task_warehouse_schedule")
+
+def run_statement(session: Session, stmt: str):
+    session.sql(stmt).collect()
+
+
+def log_to_table(session: Session, this_run, success, obj):
+    df = session.createDataFrame(
+        [
+            Row(
+                **{
+                    "run": this_run.replace(tzinfo=None),
+                    "success": success,
+                    "output": obj,
+                }
+            )
+        ]
+    )
+    df.write.mode("append").save_as_table("internal.task_warehouse_schedule")
 
 
 _WAREHOUSE_SIZE_OPTIONS = {

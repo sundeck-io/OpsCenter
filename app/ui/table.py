@@ -7,16 +7,17 @@ import random
 
 
 class Actions:
-    def __init__(self, edit_callback, delete_callback, create_callback):
+    def __init__(self, edit_callback, delete_callback, create_callback, edit_icon=None):
         self.edit_callback = edit_callback
         self.delete_callback = delete_callback
         self.create_callback = create_callback
+        self.edit_icon = edit_icon if edit_icon else "✏️"
 
     def init(self, row, empty=False):
         buttons = st.columns(3)
         if self.edit_callback and not empty:
             buttons[0].button(
-                "✏️",
+                self.edit_icon,
                 key=f"{get_random_string(10)}",
                 on_click=self.edit_callback,
                 args=[row],
@@ -42,10 +43,11 @@ def build_table(
     data: List[BaseOpsCenterModel],
     button_callbacks: Actions,
     has_empty=False,
+    actions_size=1,
 ):
     cols = [v[1] for _, v in cls.col_widths.items()]
     if button_callbacks:
-        cols.append(1)
+        cols.append(actions_size)
     header = st.columns(cols)
     i = 0
     for name in cls.__fields__.keys():

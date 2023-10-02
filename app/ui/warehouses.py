@@ -250,27 +250,10 @@ class Warehouses(Container):
                     "delete from internal.task_warehouse_schedule"
                 ),
             )
-        warehouses = connection.execute_with_cache(
-            """
-        begin
-            show warehouses;
-            let res resultset := (select "name" from table(result_scan(last_query_id())) order by "name");
-            return table(res);
-        end;
-                                                   """
-        )
-        if st.session_state.get("warehouse") is None:
-            st.session_state["warehouse"] = warehouses.values[0][0]
-        idx = next(
-            i
-            for i, w in enumerate(warehouses["name"].values)
-            if w == st.session_state["warehouse"]
-        )
-        whfilter = st.selectbox(
-            "Warehouse Filter", options=warehouses, key="whfilter", index=idx
-        )
-        st.session_state["warehouse"] = whfilter
-        all_data = populate_initial(whfilter)
+        wh = st.session_state.get("warehouse")
+        whfilter = wh.warehouse
+        with connection.Connection.get() as conn:
+            all_data = populate_initial(conn, whfilter)
 
         data = [i for i in all_data if i.weekday and i.name == whfilter]
         data_we = [i for i in all_data if not i.weekday and i.name == whfilter]

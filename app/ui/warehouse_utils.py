@@ -2,7 +2,7 @@ import connection
 from snowflake.snowpark import Session
 from crud.wh_sched import (
     WarehouseSchedules,
-    describe_warehouse as crud_describe_warehouse,
+    describe_warehouse,
     update_task_state as crud_update_task_state,
     regenerate_alter_statements as crud_regenerate_alter_statements,
 )
@@ -27,19 +27,17 @@ def create_callback(data, row, **additions):
     return (row, data)
 
 
-def populate_initial(warehouse):
-    with connection.Connection.get() as conn:
-        warehouses = WarehouseSchedules.batch_read(conn, "start_at")
-        # There is no WarehouseSchedule defined for this warehouse yet.
-        if any(i for i in warehouses if i.name == warehouse) == 0:
-            wh = crud_describe_warehouse(conn, warehouse)
-            wh.write(conn)
-            warehouses.append(wh)
-            wh2 = crud_describe_warehouse(conn, warehouse)
-            wh2.weekday = False
-            wh2.write(conn)
-            warehouses.append(wh2)
-        return warehouses
+def populate_initial(session, warehouse):
+    warehouses = WarehouseSchedules.batch_read(session, "start_at")
+    if any(i for i in warehouses if i.name == warehouse) == 0:
+        wh = describe_warehouse(session, warehouse)
+        wh.write(session)
+        warehouses.append(wh)
+        wh2 = describe_warehouse(session, warehouse)
+        wh2.weekday = False
+        wh2.write(session)
+        warehouses.append(wh2)
+    return warehouses
 
 
 def convert_time_str(time_str) -> datetime.time:

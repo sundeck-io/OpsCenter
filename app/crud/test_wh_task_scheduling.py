@@ -1,5 +1,5 @@
 import datetime
-from .wh_sched import WarehouseSchedules, WarehouseSchedulesTask, update_task_state
+from .wh_sched import WarehouseSchedules, update_task_state, task_offsets
 from .test_fixtures import MockSession
 
 
@@ -30,7 +30,7 @@ def _make_schedule(
 def test_no_schedules_disables_task(session: MockSession):
     assert not update_task_state(session, [])
     assert len(session._sql) == 1
-    for offset in WarehouseSchedulesTask.task_offsets:
+    for offset in task_offsets:
         assert (
             f"alter task if exists tasks.warehouse_scheduling_{offset} suspend;"
             in session._sql[0].lower()
@@ -46,7 +46,7 @@ def test_disabled_schedules_disables_task(session: MockSession):
 
     assert not update_task_state(session, schedules)
     assert len(session._sql) == 1
-    for offset in WarehouseSchedulesTask.task_offsets:
+    for offset in task_offsets:
         assert (
             f"alter task if exists tasks.warehouse_scheduling_{offset} suspend;"
             in session._sql[0].lower()
@@ -166,7 +166,7 @@ def test_multiple_warehouses(session: MockSession):
     script = session._sql[0].lower()
 
     # All tasks are running
-    for offset in WarehouseSchedulesTask.task_offsets:
+    for offset in task_offsets:
         assert (
             f"alter task if exists tasks.warehouse_scheduling_{offset} resume;"
             in script
