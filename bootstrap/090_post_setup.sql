@@ -150,7 +150,7 @@ BEGIN
                 WHEN other THEN
                     outcome2 := SQLERRM;
             END;
-            outcome := (select :outcome || coalesce(outcome2, ''));
+            outcome := (select :outcome || coalesce(:outcome2, ''));
         end if;
 
         -- Send slack messages
