@@ -79,11 +79,12 @@ jobs:
         run: "poetry run python deploy/devdeploy.py -p opscenter"
       - name: run streamlit
         run: "poetry run streamlit run app/ui/Home.py --browser.gatherUsageStats false  &"
-      - name: Set cypress env variables
-        run: |
-          echo "CYPRESS_SNOWFLAKE_ACCOUNT=${{ secrets.SNOWFLAKE_ACCOUNT }}" >> $GITHUB_ENV
       - name: Cypress run
         uses: cypress-io/github-action@v6
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
         with:
           start: yarn run cypress
           browser: chrome
