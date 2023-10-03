@@ -1,4 +1,3 @@
-import os
 import uuid
 import streamlit as st
 import connection
@@ -237,19 +236,6 @@ class Warehouses(Container):
             after_schedule_change(conn)
 
     def list(self):
-        if os.environ.get("OPSCENTER_LOCAL_DEV", False):
-            st.button(
-                "Clear Warehouse Schedules",
-                on_click=lambda: connection.execute(
-                    f"delete from internal.{WarehouseSchedules.table_name}"
-                ),
-            )
-            st.button(
-                "Clear Warehouse Schedules Task History",
-                on_click=lambda: connection.execute(
-                    "delete from internal.task_warehouse_schedule"
-                ),
-            )
         wh = st.session_state.get("warehouse")
         whfilter = wh.warehouse
         with connection.Connection.get() as conn:
@@ -295,13 +281,3 @@ class Warehouses(Container):
             ),
         )
         build_table(self.base_cls, data_we, cbs, has_empty=True)
-
-        if os.environ.get("OPSCENTER_LOCAL_DEV", False):
-            st.markdown("# Raw WarehouseSchedules data")
-            st.write(all_data)
-            st.markdown("# internal.task_warehouse_schedule raw data")
-            with connection.Connection.get() as conn:
-                df = conn.sql(
-                    "select * from internal.task_warehouse_schedule;"
-                ).to_pandas()
-                st.dataframe(df, use_container_width=True)
