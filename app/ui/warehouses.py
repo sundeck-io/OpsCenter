@@ -5,6 +5,8 @@ import connection
 from crud.wh_sched import (
     WarehouseSchedules,
     _WAREHOUSE_SIZE_OPTIONS,
+    after_schedule_change,
+    verify_and_clean,
 )
 from table import build_table, Actions
 from typing import Optional, List
@@ -14,10 +16,8 @@ from warehouse_utils import (
     time_filter,
     create_callback,
     convert_time_str,
-    verify_and_clean,
     populate_initial,
     set_enabled,
-    after_schedule_change,
 )
 from crud.errors import summarize_error
 
@@ -58,11 +58,6 @@ class Warehouses(Container):
         except Exception as e:
             comment = summarize_error("Verify failed", e)
             new_row = None
-
-        # Twiddle the task state
-        if new_row:
-            with connection.Connection.get() as conn:
-                after_schedule_change(conn)
 
         return new_row, data, current, comment
 

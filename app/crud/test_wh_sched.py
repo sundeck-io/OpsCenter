@@ -1,6 +1,50 @@
 import datetime
 import pytest
-from .wh_sched import WarehouseSchedules
+from typing import List
+from .wh_sched import WarehouseSchedules, merge_new_schedule, verify_and_clean
+
+
+def _assert_contiguous(schedules: List[WarehouseSchedules]):
+    if len(schedules) == 0:
+        assert schedules[0].start_at == datetime.time(0, 0)
+        assert schedules[0].finish_at == datetime.time(23, 59)
+        return
+
+    prev = schedules[0]
+    for s in schedules[1:]:
+        assert prev.finish_at == s.start_at, f"Schedules were {schedules}"
+        prev = s
+    assert schedules[-1].finish_at == datetime.time(
+        23, 59
+    ), f"Schedules were {schedules}"
+
+
+def _make_schedule(
+    name: str,
+    start_at: datetime.time,
+    finish_at: datetime.time,
+    weekday: bool,
+    size="X-Small",
+    suspend_minutes=1,
+    resume=True,
+    scale_min=0,
+    scale_max=0,
+    warehouse_mode="Standard",
+    enabled=True,
+):
+    return WarehouseSchedules(
+        name=name,
+        weekday=weekday,
+        size=size,
+        suspend_minutes=suspend_minutes,
+        resume=resume,
+        scale_min=scale_min,
+        scale_max=scale_max,
+        warehouse_mode=warehouse_mode,
+        start_at=start_at,
+        finish_at=finish_at,
+        enabled=enabled,
+    )
 
 
 def _get_wh_sched(
@@ -101,3 +145,105 @@ def test_streamlit_values_with_autoscaling():
     assert (
         autoscaling.st_max_cluster_maxvalue() == 10
     ), "10 is the largest allowed value"
+
+
+def test_create_and_merge_default_schedule():
+    schedules = [
+        _make_schedule("COMPUTE_WH", datetime.time(0, 0), datetime.time(23, 59), True),
+    ]
+
+    ws = _make_schedule("COMPUTE_WH", datetime.time(9, 0), datetime.time(23, 59), True)
+
+    merged = merge_new_schedule(ws, schedules)
+    assert len(merged) == 2
+    _assert_contiguous(merged)
+
+    err, _ = verify_and_clean(merged)
+    assert err is None
+
+
+def test_create_and_merge_insert_middle():
+    schedules = [
+        _make_schedule("COMPUTE_WH", datetime.time(0, 0), datetime.time(9, 0), True),
+        _make_schedule("COMPUTE_WH", datetime.time(9, 0), datetime.time(17, 0), True),
+        _make_schedule("COMPUTE_WH", datetime.time(17, 0), datetime.time(23, 59), True),
+    ]
+
+    ws = _make_schedule("COMPUTE_WH", datetime.time(12, 0), datetime.time(17, 00), True)
+
+    merged = merge_new_schedule(ws, schedules)
+    assert len(merged) == 4
+    _assert_contiguous(merged)
+    assert merged[-2].start_at == datetime.time(12, 0)
+    assert merged[-2].finish_at == datetime.time(17, 0)
+
+    err, _ = verify_and_clean(merged)
+    assert err is None
+
+
+def test_create_and_merge_insert_at_end():
+    schedules = [
+        _make_schedule("COMPUTE_WH", datetime.time(0, 0), datetime.time(9, 0), True),
+        _make_schedule("COMPUTE_WH", datetime.time(9, 0), datetime.time(17, 0), True),
+        _make_schedule("COMPUTE_WH", datetime.time(17, 0), datetime.time(23, 59), True),
+    ]
+
+    ws = _make_schedule("COMPUTE_WH", datetime.time(21, 0), datetime.time(23, 59), True)
+
+    merged = merge_new_schedule(ws, schedules)
+    assert len(merged) == 4
+    _assert_contiguous(merged)
+    assert merged[-1].start_at == datetime.time(21, 0)
+
+    err, _ = verify_and_clean(merged)
+    assert err is None
+
+
+def test_merge_new_schedule_on_empty():
+    ws = _make_schedule("COMPUTE_WH", datetime.time(0, 0), datetime.time(23, 59), True)
+
+    merged = merge_new_schedule(ws, [])
+    assert len(merged) == 1
+    _assert_contiguous(merged)
+
+    err, _ = verify_and_clean(merged)
+    assert err is None
+
+
+def test_create_new_schedules_bad_times():
+    # Test that schedules which do not overlap an entire day are rejected
+    with pytest.raises(ValueError):
+        ws = _make_schedule(
+            "COMPUTE_WH", datetime.time(12, 0), datetime.time(23, 59), True
+        )
+        merge_new_schedule(ws, [])
+
+    with pytest.raises(ValueError):
+        ws = _make_schedule(
+            "COMPUTE_WH", datetime.time(0, 0), datetime.time(12, 0), True
+        )
+        merge_new_schedule(ws, [])
+
+    with pytest.raises(ValueError):
+        ws = _make_schedule(
+            "COMPUTE_WH", datetime.time(0, 0), datetime.time(23, 58), True
+        )
+        merge_new_schedule(ws, [])
+
+
+def test_insert_after_first():
+    schedules = [
+        _make_schedule("COMPUTE_WH", datetime.time(0, 0), datetime.time(17, 0), True),
+        _make_schedule("COMPUTE_WH", datetime.time(17, 0), datetime.time(23, 59), True),
+    ]
+
+    ws = _make_schedule("COMPUTE_WH", datetime.time(9, 0), datetime.time(17, 00), True)
+
+    merged = merge_new_schedule(ws, schedules)
+    assert len(merged) == 3
+    _assert_contiguous(merged)
+    assert merged[1].start_at == datetime.time(9, 0), f"Schedules were {merged}"
+    assert merged[2].start_at == datetime.time(17, 0), f"Schedules were {merged}"
+
+    err, _ = verify_and_clean(merged)
+    assert err is None

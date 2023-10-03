@@ -1,7 +1,8 @@
 import uuid
-from typing import ClassVar, List, Optional
+from typing import ClassVar, List, Optional, Tuple
 import datetime
 from .base import BaseOpsCenterModel
+from .errors import summarize_error
 from pydantic import validator, root_validator, Field
 from pytz import timezone
 from pytz.exceptions import UnknownTimeZoneError
@@ -113,6 +114,9 @@ class WarehouseSchedules(BaseOpsCenterModel):
         assert (
             datetime.time.min <= v <= datetime.time.max.replace(microsecond=0, second=0)
         )
+        assert v.minute % 15 == 0 or v == datetime.time(
+            23, 59
+        ), "start_at and finish_at times must be on a 15-minute boundary"
         return v
 
     @validator("size", allow_reuse=True)
@@ -183,6 +187,56 @@ class WarehouseSchedules(BaseOpsCenterModel):
             + "RUN TIMESTAMP_LTZ(9), SUCCESS BOOLEAN, OUTPUT VARIANT)"
         ).collect()
 
+    @classmethod
+    def find_all(
+        cls, session: Session, name: str, weekday: bool
+    ) -> List["WarehouseSchedules"]:
+        """
+        Syntactic sugar to return all schedules for a given warehouse and weekday/weekend.
+        """
+        return cls.batch_read(
+            session,
+            sortby="start_at",
+            filter=lambda df: ((df.name == name) & (df.weekday == weekday)),
+        )
+
+    @classmethod
+    def find_one(
+        cls,
+        session: Session,
+        name: str,
+        start_at: datetime.time,
+        finish_at: datetime.time,
+        weekday: bool,
+    ) -> Optional["WarehouseSchedules"]:
+        rows = cls.batch_read(
+            session,
+            filter=lambda df: (
+                (df.name == name)
+                & (df.weekday == weekday)
+                & (df.start_at == start_at)
+                & (df.finish_at == finish_at)
+            ),
+        )
+        if len(rows) == 0:
+            return None
+        if len(rows) > 1:
+            raise ValueError(
+                f"Found multiple schedules for {name} {start_at} {finish_at}, {'weekday' if weekday else 'weekend'}"
+            )
+        return rows[0]
+
+    @classmethod
+    def enable_scheduling(cls, session: Session, name: str, enabled: bool):
+        """
+        Enable or disable scheduling for the given warehouse.
+        """
+        _ = session.sql(
+            f"update internal.{cls.table_name} set enabled = ? where name = ?",
+            params=[enabled, name],
+        ).collect()
+        after_schedule_change(session)
+
 
 class WarehouseAlterStatements(BaseOpsCenterModel):
     """
@@ -217,6 +271,120 @@ class WarehouseAlterStatements(BaseOpsCenterModel):
     def create_table(cls, session, with_catalog_views=False):
         # Never create a catalog view for this table
         super(WarehouseAlterStatements, cls).create_table(session, False)
+
+
+def convert_time_str(time_str) -> datetime.time:
+    return datetime.datetime.strptime(time_str, "%I:%M %p").time()
+
+
+def merge_new_schedule(
+    new_schedule: WarehouseSchedules, existing_schedules: List[WarehouseSchedules]
+) -> List[WarehouseSchedules]:
+    """
+    Validates and inserts the new schedule into the given list. Required for the SQL procedures because the UI is
+    doing validation on its own through the form.
+    :param new_schedule: User-provided schedule
+    :param existing_schedules:  Existing schedules for this warehouse and weekday/weekend.
+    :return:
+    """
+    if len(existing_schedules) == 0:
+        if new_schedule.start_at != datetime.time(
+            0, 0
+        ) or new_schedule.finish_at != datetime.time(23, 59):
+            raise ValueError(
+                "First schedule for warehouse must start at 00:00 and end at 23:59."
+            )
+        return [new_schedule]
+
+    # Assumes we have the default schedule encompassing the day.
+    for i in range(0, len(existing_schedules)):
+        # Find the schedule to insert the new schedule before
+        if existing_schedules[i].finish_at == new_schedule.finish_at:
+            new_schedule._dirty = True
+            if i < len(existing_schedules) - 1:
+                # If it's not the first schedule, set the previous schedule's finish_at to the new schedule's start_at
+                existing_schedules.insert(i + 1, new_schedule)
+                existing_schedules[i].finish_at = new_schedule.start_at
+                existing_schedules[i]._dirty = True
+            else:
+                # Update the last schedule to point at the new schedule, and then add the new schedule to the end
+                existing_schedules[-1].finish_at = new_schedule.start_at
+                existing_schedules[-1]._dirty = True
+                existing_schedules.append(new_schedule)
+            break
+    else:
+        raise ValueError(
+            f"Schedule must match an existing schedule's finish_at, got {new_schedule.finish_at}"
+        )
+
+    return existing_schedules
+
+
+def update_existing_schedule(
+    id_val: str, new_schedule: WarehouseSchedules, schedules: List[WarehouseSchedules]
+) -> List[WarehouseSchedules]:
+    """
+    Updates the warehouse schedule identified by `id_val` to be `new_schedule`, and returns any WarehouseSchedules that
+    need to be persisted to the table.
+    :param id_val:  The ID of the warehouse schedule to update.
+    :param new_schedule:  The updated warehouse schedule.
+    :param schedules: Current schedules for this warehouse and weekday/weekend.
+    :return:  The schedules that need updating.
+    """
+    wh_name = new_schedule.name
+
+    # Replace the old schedule with the new one
+    schedules = [new_schedule if i.id_val == id_val else i for i in schedules]
+
+    # Make sure the new schedule is marked as dirty so it is returned by verify_and_clean
+    new_schedule._dirty = True
+
+    # Make sure the new schedule is sane
+    err_msg, schedules_needing_update = verify_and_clean(schedules)
+    if err_msg is not None:
+        raise Exception(f"Failed to update schedule for {wh_name}, {err_msg}")
+
+    return schedules_needing_update
+
+
+def verify_and_clean(
+    data: List[WarehouseSchedules], ignore_errors=False
+) -> Tuple[Optional[str], List[WarehouseSchedules]]:
+    """
+    Verification and cleaning of all the WarehouseSchedules for a specific warehouse. In the default mode, an error
+    in the data is returned as the string in the first element of the returned Tuple. Errors can be ignored by setting
+    the `ignore_errors` kwarg to `True`.
+    :param data:  The list of warehouse schedules for a specific warehouse.
+    :param ignore_errors:  Whether validation errors should be ignored, default=False.
+    :return: An optional error message and the list of WarehouseSchedules which have been cleaned and need to be updated.
+    """
+    if data[0].start_at != datetime.time(0, 0):
+        if ignore_errors:
+            data[0].start_at = datetime.time(0, 0)
+            data[0]._dirty = True
+        else:
+            return "First row must start at midnight.", data
+    if data[-1].finish_at != datetime.time(23, 59):
+        if ignore_errors:
+            data[-1].finish_at = datetime.time(23, 59)
+            data[0]._dirty = True
+        else:
+            return "Last row must end at midnight.", data
+    next_start = data[0]
+    for row in data[1:]:
+        if row.start_at != next_start.finish_at:
+            next_start.finish_at = row.start_at
+            next_start._dirty = True
+        if row.warehouse_mode == "Inherit":
+            row.warehouse_mode = next_start.warehouse_mode
+            row._dirty = True
+        next_start = row
+    for i in data:
+        try:
+            i.validate(i.dict())
+        except Exception as e:
+            return summarize_error("Verify failed", e) + "\n" + str(i), data
+    return None, [i for i in data if i._dirty]
 
 
 def describe_warehouse(session: Session, warehouse: str):
@@ -306,6 +474,22 @@ def update_warehouse(warehouse_now, warehouse_next):
     return ""
 
 
+def after_schedule_change(session: Session) -> bool:
+    """
+    Takes the current collection of warehouse schedules, records the alter warehouse statement
+    for each schedule, and appropriately schedules the tasks to run.
+    :return: True if any task is scheduled to run (resumed), False otherwise.
+    """
+    schedules = WarehouseSchedules.batch_read(session, sortby="start_at")
+
+    # Generate alter statements for each schedule
+    regenerate_alter_statements(session, schedules)
+    # Update the task's state
+    task_started = update_task_state(session, schedules)
+
+    return task_started
+
+
 def regenerate_alter_statements(session: Session, schedules: List[WarehouseSchedules]):
     """
     Given a list of WarehouseSchedules, generate the ALTER WAREHOUSE statements and write them to the
@@ -326,7 +510,9 @@ def get_schedule_timezone(session: Session) -> timezone:
     Fetch the 'default_timezone' from the internal.config table. If there is no timezone set or the
     timezone which is set fails to parse, this function will return the timezone for 'America/Los_Angeles'.
     """
-    str_tz = session.call("get_config", "default_timezone") or "America/Los_Angeles"
+    str_tz = (
+        session.call("internal.get_config", "default_timezone") or "America/Los_Angeles"
+    )
     try:
         return timezone(str_tz)
     except UnknownTimeZoneError:
