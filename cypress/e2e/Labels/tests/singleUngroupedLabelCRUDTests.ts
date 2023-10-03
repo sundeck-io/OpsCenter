@@ -20,15 +20,28 @@ import {
 
 export const SingleUngroupedLabelCRUDTests = () =>
   describe("Single Ungrouped Label Tests", () => {
-    describe("Able to Create / Read / Update / Delete", () => {
+    const label_1C = generateUniqueName("initialUnGroupedLabelCRUD");
+
+    it("Create ungrouped label", () => {
+      createNewLabel({
+        labelName: label_1C,
+        condition: QUERY_TEXT_1,
+        type: LABEL_TYPES.UNGROUPED,
+      });
+    });
+
+    describe("Able to Read / Update / Delete", () => {
       const label_1 = generateUniqueName("initialUnGroupedLabelCRUD");
       const label_2 = generateUniqueName("newLabelCRUD");
 
-      it("Create ungrouped label", () => {
-        createNewLabel({
-          labelName: label_1,
-          condition: QUERY_TEXT_1,
-          type: LABEL_TYPES.UNGROUPED,
+      beforeEach(() => {
+        cy.snowflakeSql("createLabel", {
+          taskConfig: {
+            name: label_1,
+            condition: QUERY_TEXT_1,
+            isDynamic: false,
+          },
+          reload: true,
         });
       });
 
@@ -55,7 +68,7 @@ export const SingleUngroupedLabelCRUDTests = () =>
 
       it("Delete ungrouped label (can fail if a previous test in this section failed)", () => {
         deleteLabel({
-          labelName: label_2,
+          labelName: label_1,
         });
       });
     });

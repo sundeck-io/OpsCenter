@@ -9,9 +9,15 @@ import { ProbesCRUDTests } from "./tests/probesPageTests";
 describe("Probes section", () => {
   before(() => {
     setup();
+    cy.snowflakeSql("deleteProbes");
+  });
+
+  after(() => {
+    cy.snowflakeSql("deleteProbes");
   });
 
   beforeEach(() => {
+    cy.snowflakeSql("deleteProbes");
     cy.visit("/Probes");
 
     checkInitialLoading();

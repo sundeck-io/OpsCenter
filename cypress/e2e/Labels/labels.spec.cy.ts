@@ -14,7 +14,12 @@ describe("Labels section", () => {
     setup();
   });
 
+  after(() => {
+    cy.snowflakeSql("deleteLabels");
+  });
+
   beforeEach(() => {
+    cy.snowflakeSql("deleteLabels");
     cy.visit("/Labels");
 
     checkInitialLoading();

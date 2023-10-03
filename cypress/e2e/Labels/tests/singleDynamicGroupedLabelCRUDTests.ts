@@ -19,14 +19,27 @@ import {
 
 export const SingleDynamicGroupedLabelCRUDTests = () =>
   describe("Single Dynamic Grouped Label Tests", () => {
-    describe("Able to Create / Read / Update / Delete", () => {
+    const groupNameC = generateUniqueName("initialDynamicGroupedCRUD");
+
+    it("Create dynamic grouped label group", () => {
+      createNewLabel({
+        groupName: groupNameC,
+        condition: DYNAMIC_GROUPED_LABEL_QUERY_TEXT_1,
+        type: LABEL_TYPES.DYNAMIC_GROUPED,
+      });
+    });
+
+    describe("Able to Read / Update / Delete", () => {
       const groupName = generateUniqueName("initialDynamicGroupedCRUD");
 
-      it("Create dynamic grouped label group", () => {
-        createNewLabel({
-          groupName: groupName,
-          condition: DYNAMIC_GROUPED_LABEL_QUERY_TEXT_1,
-          type: LABEL_TYPES.DYNAMIC_GROUPED,
+      beforeEach(() => {
+        cy.snowflakeSql("createLabel", {
+          taskConfig: {
+            groupName: groupName,
+            condition: DYNAMIC_GROUPED_LABEL_QUERY_TEXT_1,
+            isDynamic: true,
+          },
+          reload: true,
         });
       });
 
@@ -56,7 +69,7 @@ export const SingleDynamicGroupedLabelCRUDTests = () =>
       it("Delete dynamic grouped label (can fail if a previous test in this section failed)", () => {
         deleteLabel({
           groupName: groupName,
-          condition: DYNAMIC_GROUPED_LABEL_QUERY_TEXT_2,
+          condition: DYNAMIC_GROUPED_LABEL_QUERY_TEXT_1,
         });
       });
     });
