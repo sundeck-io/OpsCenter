@@ -367,7 +367,7 @@ def verify_and_clean(
     if data[-1].finish_at != datetime.time(23, 59):
         if ignore_errors:
             data[-1].finish_at = datetime.time(23, 59)
-            data[0]._dirty = True
+            data[-1]._dirty = True
         else:
             return "Last row must end at midnight.", data
     next_start = data[0]
