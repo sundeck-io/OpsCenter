@@ -307,6 +307,7 @@ LANGUAGE SQL
 EXECUTE AS OWNER
 AS
 $$
+BEGIN
     insert into internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC")
         select name, group_name, group_rank, label_created_at, condition, label_modified_at, IS_DYNAMIC from internal.predefined_labels
         where not is_dynamic and name not in (select name from internal.labels);
@@ -314,6 +315,7 @@ $$
     insert into internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC")
         select name, group_name, group_rank, label_created_at, condition, label_modified_at, IS_DYNAMIC from internal.predefined_labels
         where is_dynamic and group_name not in (select group_name from internal.labels where is_dynamic);
+END;
 $$;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_LABELS(gap_in_seconds NUMBER)
