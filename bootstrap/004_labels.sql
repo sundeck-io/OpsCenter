@@ -338,8 +338,9 @@ BEGIN
         RETURN FALSE;
     END IF;
 
+    -- Merge in ungrouped and grouped predefined labels
     MERGE INTO internal.labels t
-    USING internal.predefined_labels s
+    USING (select * from internal.predefined_labels where name is not null) s
     ON t.name = s.name
     WHEN MATCHED THEN
     UPDATE
@@ -349,6 +350,17 @@ BEGIN
         ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
         VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT, S.IS_DYNAMIC, S.ENABLED);
 
+    -- Merge in dynamic grouped predefined labels
+    MERGE INTO internal.labels t
+    USING (select * from internal.predefined_labels where name is null) s
+    ON t.group_name = s.group_name and t.name is null
+    WHEN MATCHED THEN
+    UPDATE
+        SET t.NAME = s.NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT, t.IS_DYNAMIC = s.IS_DYNAMIC, t.ENABLED = s.ENABLED
+    WHEN NOT MATCHED THEN
+    INSERT
+        ("NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
+        VALUES (s.name, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT, S.IS_DYNAMIC, S.ENABLED);
     return TRUE;
 END;
 $$;
