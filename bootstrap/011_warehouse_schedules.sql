@@ -8,7 +8,7 @@ AS
 BEGIN
     CREATE OR REPLACE VIEW catalog.warehouse_schedules COPY GRANTS AS SELECT * exclude (id_val, day) FROM internal.wh_schedules;
     CREATE OR REPLACE VIEW reporting.warehouse_schedules_task_history as
-        SELECT run, success, output:"statements" as statements_executed, output:"opscenter timezone" as schedule_timezone, output:"warehouses_updated" as warehouses_updated
+        SELECT run, success, output:"statements"::ARRAY as statements_executed, output:"opscenter timezone"::TEXT as schedule_timezone, output:"warehouses_updated"::NUMBER as warehouses_updated
         from internal.task_warehouse_schedule;
     -- Because we defer creation of the table until FINALIZE_SETUP, we need to re-run
     -- the grant commands to ensure that the user can see this view because it would
