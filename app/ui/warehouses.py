@@ -213,6 +213,8 @@ class Warehouses(Container):
     def on_delete_click_internal(self, *args) -> Optional[str]:
         row = args[0][0]
         data = args[0][1]
+        if len(data) == 1:
+            return "Cannot delete the last schedule for a warehouse."
         index = data.index(row)
         del data[index]
         with connection.Connection.get() as conn:
