@@ -1,7 +1,19 @@
 
 -- NB. Table is created in 090_post_setup.sql because you cannot call python procs from the setup.sql
-
--- CREATE TABLE IF NOT EXISTS internal.task_warehouse_schedule(RUN TIMESTAMP_LTZ(9), SUCCESS BOOLEAN, OUTPUT VARIANT)
+CREATE OR REPLACE PROCEDURE INTERNAL.CREATE_WAREHOUSE_SCHEDULES_VIEWS()
+    RETURNS BOOLEAN
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+BEGIN
+    CREATE OR REPLACE VIEW catalog.warehouse_schedules COPY GRANTS AS SELECT * exclude (id_val, day) FROM internal.wh_schedules;
+    -- Because we defer creation of the table until FINALIZE_SETUP, we need to re-run
+    -- the grant commands to ensure that the user can see this view because it would
+    -- not receive the grant during 100_final_perms.
+    GRANT SELECT ON ALL VIEWS IN SCHEMA CATALOG TO APPLICATION ROLE ADMIN;
+    GRANT SELECT ON ALL VIEWS IN SCHEMA CATALOG TO APPLICATION ROLE READ_ONLY;
+    return TRUE;
+END;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.UPDATE_WAREHOUSE_SCHEDULES(last_run timestamp_ltz, this_run timestamp_ltz)
     RETURNS VARIANT
