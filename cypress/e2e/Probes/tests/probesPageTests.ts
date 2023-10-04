@@ -49,7 +49,6 @@ export const ProbesCRUDTests = () => {
       const probe_1 = generateUniqueName("probeCRUDTests");
       const probe_2 = generateUniqueName("updatedProbeCRUDTests");
       beforeEach(() => {
-        cy.snowflakeSql("deleteProbes");
         cy.snowflakeSql("createProbe", {
           taskConfig: {
             name: probe_1,

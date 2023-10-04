@@ -54,8 +54,6 @@ export function createProbe(
     cancelTheQuery: boolean;
   }
 ) {
-  console.log("~~~probeConfig: ", probeConfig);
-  console.log("~~~config: ", config);
   const {
     name,
     condition,
