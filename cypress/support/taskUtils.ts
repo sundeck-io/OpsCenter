@@ -142,7 +142,6 @@ export function createLabel(
             if (err) {
               reject("~~ Failed to create label:" + err.message);
             } else {
-              console.debug("~~ Successfully created label: ", name);
               resolve(null);
             }
           },
