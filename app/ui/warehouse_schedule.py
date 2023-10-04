@@ -38,7 +38,9 @@ class WarehouseSummary(BaseOpsCenterModel):
 
 def display():
     st.title("Manage Warehouses")
-    filter_container = st.expander("Filters", expanded=True)
+    filter_container = st.expander(
+        "Filters", expanded="warehouse" not in st.session_state
+    )
     with filter_container:
         s1, s2 = st.columns(2)
 
