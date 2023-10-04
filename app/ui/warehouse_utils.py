@@ -1,4 +1,5 @@
 import connection
+from crud.base import transaction
 from crud.wh_sched import (
     WarehouseSchedules,
     describe_warehouse,
@@ -42,12 +43,12 @@ def convert_time_str(time_str) -> datetime.time:
 
 
 def set_enabled(wh_name: str, enabled: bool):
-    with connection.Connection.get() as conn:
-        _ = conn.sql(
+    with connection.Connection.get() as conn, transaction(conn) as txn:
+        _ = txn.sql(
             f"update internal.{WarehouseSchedules.table_name} set enabled = ? where name = ?",
             params=[enabled, wh_name],
         ).collect()
-        after_schedule_change(conn)
+        after_schedule_change(txn)
 
 
 def time_filter(
