@@ -175,9 +175,13 @@ class Warehouses(Container):
         return new_update
 
     def on_create_click_internal(self, *args) -> Optional[str]:
+        # `current` is the upper-half of the schedule we're splitting, `row` is the lower-half.
         row, data, current, outcome = args
         if outcome is not None:
             return outcome
+
+        # Create a new ID for the new row (current is the schedule we are splitting)
+        new_row_id = row.id_val = uuid.uuid4().hex
 
         if current.name == "__empty__placeholder__" and current.size == "X-Small":
             # new bottom row
@@ -187,16 +191,22 @@ class Warehouses(Container):
             i = data.index(current)
             data.insert(i + 1, row)
 
-        row.id_val = ""
         outcome, new_data = verify_and_clean(data)
-        print(new_data)
         if outcome is not None:
             return outcome
         with connection.Connection.get() as conn:
-            [i.update(conn, i) for i in new_data if i.id_val != ""]
-            new_row = next(i for i in new_data if i.id_val == "")
-            new_row.id_val = uuid.uuid4().hex
+            try:
+                # Check if verify_and_clean modified the new schedule
+                new_row = next(i for i in new_data if i.id_val == new_row_id)
+            except StopIteration:
+                # The new schedule wasn't changed, write it as it originally was.
+                new_row = row
+
+            # Write the new schedule
             new_row.write(conn)
+
+            # Make sure the rest of the rows are updated
+            [i.update(conn, i) for i in new_data if i.id_val != new_row_id]
             # Twiddle the task state after adding a new schedule
             after_schedule_change(conn)
 
