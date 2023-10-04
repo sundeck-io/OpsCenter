@@ -16,7 +16,7 @@ function connectToSnowflake(config) {
     if (err) {
       console.error("~~~ Unable to connect: " + err.message);
     } else {
-      console.log("~~~ Successfully connected to Snowflake.");
+      console.debug("~~~ Successfully connected to Snowflake.");
     }
   });
 
@@ -34,7 +34,7 @@ export function deleteProbes(config) {
           console.error("~~ Failed to delete probes:" + err.message);
           reject(err);
         } else {
-          console.log("~~ Successfully deleted probes");
+          console.debug("~~ Successfully deleted probes");
           resolve(null);
         }
       },
@@ -79,7 +79,7 @@ export function createProbe(
           console.error("~~ Failed to create probe:" + err.message);
           reject(err);
         } else {
-          console.log("~~ Successfully created probe: ", name);
+          console.debug("~~ Successfully created probe: ", name);
           resolve(null);
         }
       },
@@ -98,7 +98,7 @@ export function deleteLabels(config) {
           console.error("~~ Failed to delete labels:" + err.message);
           reject(err);
         } else {
-          console.log("~~ Successfully deleted labels");
+          console.debug("~~ Successfully deleted labels");
           resolve(null);
         }
       },
@@ -134,7 +134,7 @@ export function createLabel(
               console.error("~~ Failed to create label:" + err.message);
               reject(err);
             } else {
-              console.log("~~ Successfully created label: ", name);
+              console.debug("~~ Successfully created label: ", name);
               resolve(null);
             }
           },
@@ -151,7 +151,7 @@ export function createLabel(
               console.error("~~ Failed to create label:" + err.message);
               reject(err);
             } else {
-              console.log("~~ Successfully created label: ", name);
+              console.debug("~~ Successfully created label: ", name);
               resolve(null);
             }
           },
@@ -169,7 +169,7 @@ export function createLabel(
               console.error("~~ Failed to create label:" + err.message);
               reject(err);
             } else {
-              console.log("~~ Successfully created label: ", name);
+              console.debug("~~ Successfully created label: ", name);
               resolve(null);
             }
           },
