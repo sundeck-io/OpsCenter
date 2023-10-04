@@ -52,6 +52,7 @@ Cypress.Commands.add("reloadWait", () => {
 
 Cypress.Commands.add("snowflakeSql", (taskFunc, options) => {
   cy.task(taskFunc, options ? options.taskConfig : undefined);
+
   options &&
     options.reload &&
     cy.reload().then(() => {

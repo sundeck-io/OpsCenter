@@ -14,15 +14,15 @@ function connectToSnowflake(config) {
 
   connection.connect(function (err, conn) {
     if (err) {
-      console.error("~~~ Unable to connect: " + err.message);
-    } else {
-      console.debug("~~~ Successfully connected to Snowflake.");
+      throw new Error("~~~ Unable to connect: " + err.message);
     }
   });
 
   return connection;
 }
 
+// The way connection.connect works doesn't allow for a try/catch block.
+// Even if there is an error, it will keep trying to connect and, eventually, throw the error
 export function deleteProbes(config) {
   const connection = connectToSnowflake(config);
 
@@ -31,10 +31,8 @@ export function deleteProbes(config) {
       sqlText: "delete from internal.probes",
       complete: function (err, stmt, rows) {
         if (err) {
-          console.error("~~ Failed to delete probes:" + err.message);
-          reject(err);
+          reject("~~ Failed to delete probes:" + err.message);
         } else {
-          console.debug("~~ Successfully deleted probes");
           resolve(null);
         }
       },
@@ -76,10 +74,8 @@ export function createProbe(
       }', '${cancelTheQuery || false}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       complete: function (err, stmt, rows) {
         if (err) {
-          console.error("~~ Failed to create probe:" + err.message);
-          reject(err);
+          reject("~~ Failed to create probe:" + err.message);
         } else {
-          console.debug("~~ Successfully created probe: ", name);
           resolve(null);
         }
       },
@@ -95,10 +91,8 @@ export function deleteLabels(config) {
       sqlText: "delete from internal.labels",
       complete: function (err, stmt, rows) {
         if (err) {
-          console.error("~~ Failed to delete labels:" + err.message);
-          reject(err);
+          reject("~~ Failed to delete labels:" + err.message);
         } else {
-          console.debug("~~ Successfully deleted labels");
           resolve(null);
         }
       },
@@ -131,10 +125,8 @@ export function createLabel(
           }, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
           complete: function (err, stmt, rows) {
             if (err) {
-              console.error("~~ Failed to create label:" + err.message);
-              reject(err);
+              reject("~~ Failed to create label:" + err.message);
             } else {
-              console.debug("~~ Successfully created label: ", name);
               resolve(null);
             }
           },
@@ -148,8 +140,7 @@ export function createLabel(
           }', ${isDynamic || false}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
           complete: function (err, stmt, rows) {
             if (err) {
-              console.error("~~ Failed to create label:" + err.message);
-              reject(err);
+              reject("~~ Failed to create label:" + err.message);
             } else {
               console.debug("~~ Successfully created label: ", name);
               resolve(null);
@@ -166,10 +157,8 @@ export function createLabel(
           }', 'false', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
           complete: function (err, stmt, rows) {
             if (err) {
-              console.error("~~ Failed to create label:" + err.message);
-              reject(err);
+              reject("~~ Failed to create label:" + err.message);
             } else {
-              console.debug("~~ Successfully created label: ", name);
               resolve(null);
             }
           },
