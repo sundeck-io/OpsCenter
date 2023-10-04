@@ -11,20 +11,38 @@ describe("Probes section", () => {
     setup();
   });
 
-  beforeEach(() => {
-    cy.snowflakeSql("deleteProbes");
-    cy.visit("/Probes");
+  describe("Non-creation based tests", () => {
+    beforeEach(() => {
+      cy.visit("/Probes");
 
-    checkInitialLoading();
-    checkNoErrorOnThePage();
+      checkInitialLoading();
+      checkNoErrorOnThePage();
 
-    checkOnCorrectPage({
-      headerText: HEADER_TEXT.PROBES,
-      notRightPageText: [HEADER_TEXT.CREATE_PROBE, HEADER_TEXT.UPDATE_PROBE],
-      notRightPageButton: BUTTON_TEXT.CANCEL,
+      checkOnCorrectPage({
+        headerText: HEADER_TEXT.PROBES,
+        notRightPageText: [HEADER_TEXT.CREATE_PROBE, HEADER_TEXT.UPDATE_PROBE],
+        notRightPageButton: BUTTON_TEXT.CANCEL,
+      });
     });
+
+    ProbesButtonTests();
   });
 
-  ProbesButtonTests();
-  ProbesCRUDTests();
+  describe("Creation based tests", () => {
+    beforeEach(() => {
+      cy.snowflakeSql("deleteProbes");
+      cy.visit("/Probes");
+
+      checkInitialLoading();
+      checkNoErrorOnThePage();
+
+      checkOnCorrectPage({
+        headerText: HEADER_TEXT.PROBES,
+        notRightPageText: [HEADER_TEXT.CREATE_PROBE, HEADER_TEXT.UPDATE_PROBE],
+        notRightPageButton: BUTTON_TEXT.CANCEL,
+      });
+    });
+
+    ProbesCRUDTests();
+  });
 });
