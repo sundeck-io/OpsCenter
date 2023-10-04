@@ -7,11 +7,16 @@ CREATE OR REPLACE PROCEDURE INTERNAL.CREATE_WAREHOUSE_SCHEDULES_VIEWS()
 AS
 BEGIN
     CREATE OR REPLACE VIEW catalog.warehouse_schedules COPY GRANTS AS SELECT * exclude (id_val, day) FROM internal.wh_schedules;
+    CREATE OR REPLACE VIEW reporting.warehouse_schedules_task_history as
+        SELECT run, success, output:"statements"::ARRAY as statements_executed, output:"opscenter timezone"::TEXT as schedule_timezone, output:"warehouses_updated"::NUMBER as warehouses_updated
+        from internal.task_warehouse_schedule;
     -- Because we defer creation of the table until FINALIZE_SETUP, we need to re-run
     -- the grant commands to ensure that the user can see this view because it would
     -- not receive the grant during 100_final_perms.
     GRANT SELECT ON ALL VIEWS IN SCHEMA CATALOG TO APPLICATION ROLE ADMIN;
     GRANT SELECT ON ALL VIEWS IN SCHEMA CATALOG TO APPLICATION ROLE READ_ONLY;
+    GRANT SELECT ON ALL VIEWS IN SCHEMA REPORTING TO APPLICATION ROLE ADMIN;
+    GRANT SELECT ON ALL VIEWS IN SCHEMA REPORTING TO APPLICATION ROLE READ_ONLY;
     return TRUE;
 END;
 
