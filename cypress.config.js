@@ -1,21 +1,10 @@
 const { defineConfig } = require("cypress");
-const snowflake = require("snowflake-sdk");
-const {
-  deleteProbes,
-  createProbe,
-  deleteLabels,
-  createLabel,
-} = require("./cypress/support/taskUtils");
 const fs = require("fs");
 
 module.exports = defineConfig({
   env: {
     OPSCENTER_URL: "http://localhost:8501",
-    // change values below to run locally
-    SNOWFLAKE_ACCOUNT: process.env.SNOWFLAKE_ACCOUNT,
-    SNOWFLAKE_USERNAME: process.env.SNOWFLAKE_USERNAME,
-    SNOWFLAKE_PASSWORD: process.env.SNOWFLAKE_PASSWORD,
-    OPSCENTER_DATABASE: process.env.OPSCENTER_DATABASE,
+    SNOWFLAKE_ACCOUNT: "",
   },
   e2e: {
     supportFile: false,
@@ -29,11 +18,18 @@ module.exports = defineConfig({
     video: true,
     videoCompression: 16,
     setupNodeEvents(on, config) {
-      on("task", {
-        deleteProbes: (args) => deleteProbes(config, args),
-        createProbe: (args) => createProbe(config, args),
-        deleteLabels: (args) => deleteLabels(config, args),
-        createLabel: (args) => createLabel(config, args),
+      // https://docs.cypress.io/guides/guides/screenshots-and-videos#Delete-videos-for-specs-without-failing-or-retried-tests
+      on("after:spec", (spec, results) => {
+        if (results && results.video) {
+          // Do we have failures for any retry attempts?
+          const failures = results.tests.some((test) =>
+            test.attempts.some((attempt) => attempt.state === "failed")
+          );
+          if (!failures) {
+            // delete the video if the spec passed and no tests retried
+            fs.unlinkSync(results.video);
+          }
+        }
       });
     },
   },
