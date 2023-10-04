@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import uuid
 from typing import List
 from common_utils import generate_unique_name
 from snowflake.connector import SnowflakeConnection
@@ -69,29 +68,18 @@ def test_basic_warehouse_schedule(conn, timestamp_string):
             # Set up internal state normally handled in admin.finalize_setup()
             _ensure_tables_created(cnx)
 
-            id1 = uuid.uuid4().hex
-            id2 = uuid.uuid4().hex
-
-            # TODO Write and use crud-backed admin procedures. These procedures would generate the alter statement for us.
-            sql = f"""INSERT INTO INTERNAL.WH_SCHEDULES select '{id1}', '{wh_name}', '00:00:00', '12:00:00',
-                'X-Small', 1, TRUE, 0, 0, 'Standard', NULL, TRUE, NULL, TRUE"""
+            # Create default schedule with X-Small for this warehouse
+            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'X-Small', '00:00', '23:59', TRUE, 0, 'Standard', 0, 0, TRUE, NULL)"
             _ = cur.execute(sql).fetchone()
 
-            sql = f"""INSERT INTO INTERNAL.WH_SCHEDULES select '{id2}', '{wh_name}', '12:00:00', '23:59:00',
-                'Small', 5, TRUE, 0, 0, 'Standard', NULL, TRUE, NULL, TRUE"""
+            # After noon, change to Small
+            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'Small', '12:00', '23:59', TRUE, 0, 'Standard', 0, 0, TRUE, NULL)"
             _ = cur.execute(sql).fetchone()
 
-            sql = (
-                f"INSERT INTO INTERNAL.WAREHOUSE_ALTER_STATEMENTS SELECT '{id1}', 'alter warehouse {wh_name} "
-                + " set WAREHOUSE_SIZE = XSMALL, WAREHOUSE_TYPE = STANDARD, AUTO_SUSPEND = 1, AUTO_RESUME = True'"
-            )
-            _ = cur.execute(sql).fetchone()
-
-            sql = (
-                f"INSERT INTO INTERNAL.WAREHOUSE_ALTER_STATEMENTS SELECT '{id2}', 'alter warehouse {wh_name} "
-                + " set WAREHOUSE_SIZE = SMALL, WAREHOUSE_TYPE = STANDARD, AUTO_SUSPEND = 1, AUTO_RESUME = True'"
-            )
-            _ = cur.execute(sql).fetchone()
+            # Enable the warehouse scheduling
+            _ = cur.execute(
+                f"call ADMIN.ENABLE_WAREHOUSE_SCHEDULING('{wh_name}')"
+            ).fetchone()
 
             # Should do nothing be we have no new schedule
             row = cur.execute(
@@ -136,29 +124,17 @@ def test_alternate_timezone(conn, timestamp_string):
             # Set up internal state normally handled in admin.finalize_setup()
             _ensure_tables_created(cnx)
 
-            id1 = uuid.uuid4().hex
-            id2 = uuid.uuid4().hex
-
-            # TODO Write and use crud-backed admin procedures. These procedures would generate the alter statement for us.
-            sql = f"""INSERT INTO INTERNAL.WH_SCHEDULES select '{id1}', '{wh_name}', '00:00:00', '12:00:00',
-                'X-Small', 1, TRUE, 0, 0, 'Standard', NULL, TRUE, NULL, TRUE"""
+            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'X-Small', '00:00', '23:59', TRUE, 0, 'Standard', 0, 0, TRUE, NULL)"
             _ = cur.execute(sql).fetchone()
 
-            sql = f"""INSERT INTO INTERNAL.WH_SCHEDULES select '{id2}', '{wh_name}', '12:00:00', '23:59:00',
-                'Small', 5, TRUE, 0, 0, 'Standard', NULL, TRUE, NULL, TRUE"""
+            # After noon, change to Small
+            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'Small', '12:00', '23:59', TRUE, 0, 'Standard', 0, 0, TRUE, NULL)"
             _ = cur.execute(sql).fetchone()
 
-            sql = (
-                f"INSERT INTO INTERNAL.WAREHOUSE_ALTER_STATEMENTS SELECT '{id1}', 'alter warehouse {wh_name} "
-                + " set WAREHOUSE_SIZE = XSMALL, WAREHOUSE_TYPE = STANDARD, AUTO_SUSPEND = 1, AUTO_RESUME = True'"
-            )
-            _ = cur.execute(sql).fetchone()
-
-            sql = (
-                f"INSERT INTO INTERNAL.WAREHOUSE_ALTER_STATEMENTS SELECT '{id2}', 'alter warehouse {wh_name} "
-                + " set WAREHOUSE_SIZE = SMALL, WAREHOUSE_TYPE = STANDARD, AUTO_SUSPEND = 1, AUTO_RESUME = True'"
-            )
-            _ = cur.execute(sql).fetchone()
+            # Enable the warehouse scheduling
+            _ = cur.execute(
+                f"call ADMIN.ENABLE_WAREHOUSE_SCHEDULING('{wh_name}')"
+            ).fetchone()
 
             # Assume the default account timezeone is "America/Los_Angeles". Due to weirdness with TIMESTAMP_LTZ
             # through a procedure, these are shifted backwards from UTC to Los_Angeles because the procedure shifts
@@ -215,59 +191,30 @@ def test_from_london(conn, timestamp_string):
             # Set up internal state normally handled in admin.finalize_setup()
             _ensure_tables_created(cnx)
 
-            (id1, id2, id3, id4, id5) = [uuid.uuid4().hex for x in range(1, 6)]
-
-            # TODO Write and use crud-backed admin procedures. These procedures would generate the alter statement for us.
-            sql = f"""INSERT INTO INTERNAL.WH_SCHEDULES select '{id1}', '{wh_name}', '00:00:00', '09:00:00',
-                'X-Small', 1, TRUE, 0, 0, 'Standard', NULL, TRUE, NULL, TRUE"""
+            # Create default schedule with X-Small for this warehouse
+            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'X-Small', '0:00', '23:59', TRUE, 0, 'Standard', 0, 0, TRUE, NULL)"
             _ = cur.execute(sql).fetchone()
 
-            sql = f"""INSERT INTO INTERNAL.WH_SCHEDULES select '{id2}', '{wh_name}', '09:00:00', '17:00:00',
-                'Medium', 15, TRUE, 0, 0, 'Standard', NULL, TRUE, NULL, TRUE"""
+            # After noon, change to Small
+            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'Small', '17:00', '23:59', TRUE, 5, 'Standard', 0, 0, TRUE, NULL)"
             _ = cur.execute(sql).fetchone()
 
-            sql = f"""INSERT INTO INTERNAL.WH_SCHEDULES select '{id3}', '{wh_name}', '17:00:00', '23:59:00',
-                'Small', 5, TRUE, 0, 0, 'Standard', NULL, TRUE, NULL, TRUE"""
-            _ = cur.execute(sql).fetchone()
-
-            sql = (
-                f"INSERT INTO INTERNAL.WAREHOUSE_ALTER_STATEMENTS SELECT '{id1}', 'alter warehouse {wh_name} "
-                + " set WAREHOUSE_SIZE = XSMALL, WAREHOUSE_TYPE = STANDARD, AUTO_SUSPEND = 1, AUTO_RESUME = True'"
-            )
-            _ = cur.execute(sql).fetchone()
-
-            sql = (
-                f"INSERT INTO INTERNAL.WAREHOUSE_ALTER_STATEMENTS SELECT '{id2}', 'alter warehouse {wh_name} "
-                + " set WAREHOUSE_SIZE = MEDIUM, WAREHOUSE_TYPE = STANDARD, AUTO_SUSPEND = 15, AUTO_RESUME = True'"
-            )
-            _ = cur.execute(sql).fetchone()
-
-            sql = (
-                f"INSERT INTO INTERNAL.WAREHOUSE_ALTER_STATEMENTS SELECT '{id3}', 'alter warehouse {wh_name} "
-                + " set WAREHOUSE_SIZE = SMALL, WAREHOUSE_TYPE = STANDARD, AUTO_SUSPEND = 5, AUTO_RESUME = True'"
-            )
+            # After 9am, change to Medium
+            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'Medium', '09:00', '17:00', TRUE, 15, 'Standard', 0, 0, TRUE, NULL)"
             _ = cur.execute(sql).fetchone()
 
             # Weekend nights run ETL
-            sql = f"""INSERT INTO INTERNAL.WH_SCHEDULES select '{id4}', '{wh_name}', '00:00:00', '22:00:00',
-                'X-Small', 0, TRUE, 0, 0, 'Standard', NULL, FALSE, NULL, TRUE"""
+            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'X-Small', '0:00', '23:59', FALSE, 0, 'Standard', 0, 0, TRUE, NULL)"
             _ = cur.execute(sql).fetchone()
 
-            sql = f"""INSERT INTO INTERNAL.WH_SCHEDULES select '{id5}', '{wh_name}', '22:00:00', '23:59:00',
-                '2X-Large', 15, TRUE, 0, 0, 'Standard', NULL, FALSE, NULL, TRUE"""
+            # After noon, change to Small
+            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', '2X-Large', '22:00', '23:59', FALSE, 15, 'Standard', 0, 0, TRUE, NULL)"
             _ = cur.execute(sql).fetchone()
 
-            sql = (
-                f"INSERT INTO INTERNAL.WAREHOUSE_ALTER_STATEMENTS SELECT '{id4}', 'alter warehouse {wh_name} "
-                + " set WAREHOUSE_SIZE = XSMALL, WAREHOUSE_TYPE = STANDARD, AUTO_SUSPEND = 0, AUTO_RESUME = True'"
-            )
-            _ = cur.execute(sql).fetchone()
-
-            sql = (
-                f"INSERT INTO INTERNAL.WAREHOUSE_ALTER_STATEMENTS SELECT '{id5}', 'alter warehouse {wh_name} "
-                + " set WAREHOUSE_SIZE = XXLARGE, WAREHOUSE_TYPE = STANDARD, AUTO_SUSPEND = 15, AUTO_RESUME = True'"
-            )
-            _ = cur.execute(sql).fetchone()
+            # Enable the warehouse scheduling
+            _ = cur.execute(
+                f"call ADMIN.ENABLE_WAREHOUSE_SCHEDULING('{wh_name}')"
+            ).fetchone()
 
             # weekday, 16:00 in UTC+1
             row = cur.execute(

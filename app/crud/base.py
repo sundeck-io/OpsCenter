@@ -101,7 +101,9 @@ class BaseOpsCenterModel(BaseModel):
         )
 
     @classmethod
-    def batch_read(cls, session, sortby=None) -> List["BaseOpsCenterModel"]:
+    def batch_read(
+        cls, session, sortby=None, filter: lambda df: bool = None
+    ) -> List["BaseOpsCenterModel"]:
         """
         Reads all rows from the table and returns them as a list of objects.
         :param session:
@@ -109,6 +111,8 @@ class BaseOpsCenterModel(BaseModel):
         """
         df = session.table(f"INTERNAL.{cls.table_name}").to_pandas()
         df.columns = [c.lower() for c in df.columns]
+        if filter:
+            df = df[filter(df)]
         if sortby:
             df.sort_values(by=[sortby], inplace=True)
         arr = [cls(**dict(row)) for row in df.to_dict("records")]

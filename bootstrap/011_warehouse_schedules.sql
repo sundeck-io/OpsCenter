@@ -128,3 +128,175 @@ AS
 $$
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
 $$;
+
+
+CREATE OR REPLACE PROCEDURE ADMIN.CREATE_WAREHOUSE_SCHEDULE(warehouse_name text, size text, start_at time, finish_at time, is_weekday boolean, suspend_minutes number, autoscale_mode text, autoscale_min number, autoscale_max number, auto_resume boolean, comment text)
+    RETURNS TEXT
+    LANGUAGE PYTHON
+    runtime_version = "3.10"
+    handler = 'create_warehouse_schedule'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
+    EXECUTE AS OWNER
+AS
+$$
+import datetime
+import uuid
+from crud.wh_sched import WarehouseSchedules, after_schedule_change, merge_new_schedule, verify_and_clean
+def create_warehouse_schedule(session, name: str, size: str, start: datetime.time, finish: datetime.time, weekday: bool, suspend_minutes: int, autoscale_mode: str, autoscale_min: int, autoscale_max: int, auto_resume: bool, comment: str):
+    current_scheds = WarehouseSchedules.find_all(session, name, weekday)
+
+    # Figure out if the schedules are enabled or disabled
+    is_enabled = all(s.enabled for s in current_scheds) if len(current_scheds) > 0 else False
+
+    new_sched = WarehouseSchedules.parse_obj(dict(
+        id_val=uuid.uuid4().hex,
+        name=name,
+        size=size,
+        start_at=start,
+        finish_at=finish,
+        suspend_minutes=suspend_minutes,
+        warehouse_mode=autoscale_mode,
+        scale_min=autoscale_min,
+        scale_max=autoscale_max,
+        resume=auto_resume,
+        weekday=weekday,
+        enabled=is_enabled,
+        comment=comment,
+    ))
+
+    # Handles pre-existing schedules or no schedules for this warehouse.
+    new_scheds = merge_new_schedule(new_sched, current_scheds)
+
+    err_msg, new_scheds = verify_and_clean(new_scheds)
+    if err_msg is not None:
+        raise Exception(f"Failed to create schedule for {name}, {err_msg}")
+
+    # Write the new schedule
+    new_sched.write(session)
+    # Update any schedules that were affected by adding the new schedule
+    [i.update(session, i) for i in new_scheds if i.id_val != new_sched.id_val]
+    # Twiddle the task state after adding a new schedule
+    after_schedule_change(session)
+$$;
+
+
+CREATE OR REPLACE PROCEDURE ADMIN.DELETE_WAREHOUSE_SCHEDULE(name text, start_at time, finish_at time, weekday boolean)
+    RETURNS TEXT
+    LANGUAGE PYTHON
+    runtime_version = "3.10"
+    handler = 'delete_warehouse_schedule'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
+    EXECUTE AS OWNER
+AS
+$$
+import datetime
+from crud.wh_sched import WarehouseSchedules, verify_and_clean, after_schedule_change
+def delete_warehouse_schedule(session, name: str, start: datetime.time, finish: datetime.time, is_weekday: bool):
+    # Find a matching schedule
+    row = WarehouseSchedules.find_one(session, name, start, finish, is_weekday)
+    if not row:
+        raise Exception(f"Could not find warehouse schedule: {name}, {start}, {finish}, {'weekday' if is_weekday else 'weekend'}")
+
+    # Delete that schedule (leaving a hole)
+    to_delete = WarehouseSchedules.construct(id_val = row.id_val)
+    to_delete.delete(session)
+
+    # Read the remaining schedules
+    new_scheds = WarehouseSchedules.batch_read(session, filter=lambda df: ((df.name == name) & (df.weekday == is_weekday)))
+
+    # Collapse any gaps in the schedule left by the delete
+    err_msg, new_scheds = verify_and_clean(new_scheds, ignore_errors=True)
+    if err_msg is not None:
+        # Shouldn't happen since ignored_errors=True, but just in case
+        raise Exception(f"Failed to reorder schedule after delete for {name}, {err_msg}")
+
+    # Persist all the updates from filling the gap
+    [i.update(session, i) for i in new_scheds]
+
+    # Twiddle the task state after adding a new schedule
+    after_schedule_change(session)
+$$;
+
+
+CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_WAREHOUSE_SCHEDULE(warehouse_name text, start_at time, finish_at time, weekday boolean, size text, suspend_minutes number, autoscale_mode text, autoscale_min number, autoscale_max number, auto_resume boolean, comment text)
+    RETURNS TEXT
+    LANGUAGE PYTHON
+    runtime_version = "3.10"
+    handler = 'update_warehouse_schedule'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
+    EXECUTE AS OWNER
+AS
+$$
+import datetime
+from crud.wh_sched import WarehouseSchedules, after_schedule_change, update_existing_schedule
+def update_warehouse_schedule(session, name: str, start: datetime.time, finish: datetime.time, is_weekday: bool, size: str, suspend_minutes: int, autoscale_mode: str, autoscale_min: int, autoscale_max: int, auto_resume: bool, comment: str):
+    # Find a matching schedule
+    old_schedule = WarehouseSchedules.find_one(session, name, start, finish, is_weekday)
+    if not old_schedule:
+        raise Exception(f"Could not find warehouse schedule: {name}, {start}, {finish}, {'weekday' if is_weekday else 'weekend'}")
+
+    # Make the new version of that schedule with the same id_val
+    new_schedule = WarehouseSchedules.parse_obj(dict(
+        id_val=old_schedule.id_val,
+        name=name,
+        size=size,
+        start_at=start,
+        finish_at=finish,
+        suspend_minutes=suspend_minutes,
+        warehouse_mode=autoscale_mode,
+        scale_min=autoscale_min,
+        scale_max=autoscale_max,
+        resume=auto_resume,
+        comment=comment,
+        enabled=old_schedule.enabled,
+    ))
+
+    # Read the current schedules
+    schedules = WarehouseSchedules.find_all(session, name, new_schedule.weekday)
+
+    # Update the WarehouseSchedule instance for this warehouse
+    schedules_needing_update = update_existing_schedule(old_schedule.id_val, new_schedule, schedules)
+
+    # Persist all updates to the table
+    [i.update(session, i) for i in schedules_needing_update]
+
+    # Twiddle the task state after a schedule has changed
+    after_schedule_change(session)
+$$;
+
+
+CREATE OR REPLACE PROCEDURE ADMIN.ENABLE_WAREHOUSE_SCHEDULING(warehouse_name text)
+    RETURNS TEXT
+    LANGUAGE PYTHON
+    runtime_version = "3.10"
+    handler = 'run'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
+    EXECUTE AS OWNER
+AS
+$$
+from crud.wh_sched import WarehouseSchedules
+def run(session, name: str):
+    # Find a matching schedule
+    WarehouseSchedules.enable_scheduling(session, name, True)
+$$;
+
+
+CREATE OR REPLACE PROCEDURE ADMIN.DISABLE_WAREHOUSE_SCHEDULING(warehouse_name text)
+    RETURNS TEXT
+    LANGUAGE PYTHON
+    runtime_version = "3.10"
+    handler = 'run'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
+    EXECUTE AS OWNER
+AS
+$$
+from crud.wh_sched import WarehouseSchedules
+def run(session, name: str):
+    # Find a matching schedule
+    WarehouseSchedules.enable_scheduling(session, name, False)
+$$;
