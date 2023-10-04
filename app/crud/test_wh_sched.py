@@ -11,6 +11,7 @@ def _assert_contiguous(schedules: List[WarehouseSchedules]):
         return
 
     prev = schedules[0]
+    assert schedules[0].start_at == datetime.time(0, 0)
     for s in schedules[1:]:
         assert prev.finish_at == s.start_at, f"Schedules were {schedules}"
         prev = s
@@ -247,3 +248,19 @@ def test_insert_after_first():
 
     err, _ = verify_and_clean(merged)
     assert err is None
+
+
+def test_delete_last_schedule():
+    schedules = [
+        _make_schedule("COMPUTE_WH", datetime.time(0, 0), datetime.time(9, 0), True),
+        _make_schedule("COMPUTE_WH", datetime.time(9, 0), datetime.time(17, 0), True),
+        _make_schedule("COMPUTE_WH", datetime.time(17, 0), datetime.time(23, 59), True),
+    ]
+
+    del schedules[2]
+
+    err, new_schedules = verify_and_clean(schedules, ignore_errors=True)
+    assert err is None
+    assert len(new_schedules) == 1
+    assert new_schedules[0].start_at == datetime.time(9, 0)
+    assert new_schedules[0].finish_at == datetime.time(23, 59)
