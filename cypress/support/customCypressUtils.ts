@@ -13,6 +13,14 @@ declare global {
       dataId(value: string, timeout?: number): Chainable<JQuery<HTMLElement>>;
       dataBW(value: string, timeout?: number): Chainable<JQuery<HTMLElement>>;
       reloadWait(): void;
+      snowflakeSql(
+        taskFunc:
+          | "deleteProbes"
+          | "createProbe"
+          | "deleteLabels"
+          | "createLabel",
+        options?: { taskConfig?: { [key: string]: any }; reload?: boolean }
+      ): void;
     }
   }
 }
@@ -40,4 +48,15 @@ Cypress.Commands.add("reloadWait", () => {
     checkInitialLoading();
     checkForLoading();
   });
+});
+
+Cypress.Commands.add("snowflakeSql", (taskFunc, options) => {
+  cy.task(taskFunc, options ? options.taskConfig : undefined);
+
+  options &&
+    options.reload &&
+    cy.reload().then(() => {
+      checkInitialLoading();
+      checkForLoading();
+    });
 });

@@ -1,4 +1,7 @@
 {
+  "dependencies": {
+    "snowflake-sdk": "^1.9.0"
+  },
   "devDependencies": {
     "cypress": "^13.2.0",
     "typescript": "^5.2.2"

@@ -14,22 +14,42 @@ describe("Labels section", () => {
     setup();
   });
 
-  beforeEach(() => {
-    cy.visit("/Labels");
+  describe("Non-creation based tests", () => {
+    beforeEach(() => {
+      cy.visit("/Labels");
 
-    checkInitialLoading();
-    checkNoErrorOnThePage();
+      checkInitialLoading();
+      checkNoErrorOnThePage();
 
-    checkOnCorrectPage({
-      headerText: HEADER_TEXT.LABELS,
-      notRightPageText: [HEADER_TEXT.CREATE_LABEL, HEADER_TEXT.UPDATE_LABEL],
-      notRightPageButton: BUTTON_TEXT.CANCEL,
+      checkOnCorrectPage({
+        headerText: HEADER_TEXT.LABELS,
+        notRightPageText: [HEADER_TEXT.CREATE_LABEL, HEADER_TEXT.UPDATE_LABEL],
+        notRightPageButton: BUTTON_TEXT.CANCEL,
+      });
     });
+
+    LabelsButtonTests();
   });
 
-  LabelsButtonTests();
-  SingleUngroupedLabelCRUDTests();
-  SingleGroupedLabelCRUDTests();
-  SingleDynamicGroupedLabelCRUDTests();
-  MultipleLabelsCRUDTests();
+  describe("Creation based tests", () => {
+    beforeEach(() => {
+      cy.snowflakeSql("deleteLabels");
+
+      cy.visit("/Labels");
+
+      checkInitialLoading();
+      checkNoErrorOnThePage();
+
+      checkOnCorrectPage({
+        headerText: HEADER_TEXT.LABELS,
+        notRightPageText: [HEADER_TEXT.CREATE_LABEL, HEADER_TEXT.UPDATE_LABEL],
+        notRightPageButton: BUTTON_TEXT.CANCEL,
+      });
+    });
+
+    SingleUngroupedLabelCRUDTests();
+    SingleGroupedLabelCRUDTests();
+    SingleDynamicGroupedLabelCRUDTests();
+    MultipleLabelsCRUDTests();
+  });
 });

@@ -12,6 +12,7 @@ describe("Probes section", () => {
   });
 
   beforeEach(() => {
+    cy.snowflakeSql("deleteProbes");
     cy.visit("/Probes");
 
     checkInitialLoading();
