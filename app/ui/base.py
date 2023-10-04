@@ -129,8 +129,10 @@ class Container:
                     f"{self.ui_name.lower()}s",
                     "delete",
                 )
-            self.on_delete_click_internal(*args)
-            self.session.set_toast(f"{self.ui_name} deleted.")
+            outcome = self.on_delete_click_internal(*args)
+            if not outcome:
+                outcome = f"{self.ui_name} deleted."
+            self.session.set_toast(outcome)
             self.session.do_list()
 
     def on_update_click(self, *args):
