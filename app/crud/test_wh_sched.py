@@ -1,7 +1,12 @@
 import datetime
 import pytest
 from typing import List
-from .wh_sched import WarehouseSchedules, merge_new_schedule, verify_and_clean
+from .wh_sched import (
+    WarehouseSchedules,
+    delete_warehouse_schedule,
+    merge_new_schedule,
+    verify_and_clean,
+)
 
 
 def _assert_contiguous(schedules: List[WarehouseSchedules]):
@@ -264,3 +269,11 @@ def test_delete_last_schedule():
     assert len(new_schedules) == 1
     assert new_schedules[0].start_at == datetime.time(9, 0)
     assert new_schedules[0].finish_at == datetime.time(23, 59)
+
+
+def test_try_delete_all_schedules():
+    with pytest.raises(ValueError):
+        s = _make_schedule(
+            "COMPUTE_WH", datetime.time(0, 0), datetime.time(23, 59), True
+        )
+        delete_warehouse_schedule(s, [s])

@@ -277,6 +277,20 @@ def convert_time_str(time_str) -> datetime.time:
     return datetime.datetime.strptime(time_str, "%I:%M %p").time()
 
 
+def delete_warehouse_schedule(
+    to_delete: WarehouseSchedules, schedules: List[WarehouseSchedules]
+) -> List[WarehouseSchedules]:
+    # Collapse any gaps in the schedule left by the delete
+    if len(schedules) == 1:
+        raise ValueError("Cannot delete the last schedule for a warehouse.")
+
+    new_schedules = [s for s in schedules if s.id_val != to_delete.id_val]
+    err_msg, new_schedules = verify_and_clean(new_schedules, ignore_errors=True)
+    if err_msg:
+        raise ValueError(err_msg)
+    return new_schedules
+
+
 def merge_new_schedule(
     new_schedule: WarehouseSchedules, existing_schedules: List[WarehouseSchedules]
 ) -> List[WarehouseSchedules]:

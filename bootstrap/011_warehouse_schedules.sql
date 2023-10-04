@@ -185,34 +185,28 @@ CREATE OR REPLACE PROCEDURE ADMIN.DELETE_WAREHOUSE_SCHEDULE(name text, start_at 
     RETURNS TEXT
     LANGUAGE PYTHON
     runtime_version = "3.10"
-    handler = 'delete_warehouse_schedule'
+    handler = 'run_delete'
     packages = ('snowflake-snowpark-python', 'pydantic')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
 $$
 import datetime
-from crud.wh_sched import WarehouseSchedules, verify_and_clean, after_schedule_change
-def delete_warehouse_schedule(session, name: str, start: datetime.time, finish: datetime.time, is_weekday: bool):
-    # Find a matching schedule
+from crud.wh_sched import WarehouseSchedules, after_schedule_change, delete_warehouse_schedule
+def run_delete(session, name: str, start: datetime.time, finish: datetime.time, is_weekday: bool):
+    # Find the matching schedule
     row = WarehouseSchedules.find_one(session, name, start, finish, is_weekday)
     if not row:
         raise Exception(f"Could not find warehouse schedule: {name}, {start}, {finish}, {'weekday' if is_weekday else 'weekend'}")
 
-    # Delete that schedule (leaving a hole)
     to_delete = WarehouseSchedules.construct(id_val = row.id_val)
+    current_scheds = WarehouseSchedules.batch_read(session, filter=lambda df: ((df.name == name) & (df.weekday == is_weekday)))
+    new_scheds = delete_warehouse_schedule(to_delete, current_scheds)
+
+    # Delete that schedule, leaving a hole
     to_delete.delete(session)
 
-    # Read the remaining schedules
-    new_scheds = WarehouseSchedules.batch_read(session, filter=lambda df: ((df.name == name) & (df.weekday == is_weekday)))
-
-    # Collapse any gaps in the schedule left by the delete
-    err_msg, new_scheds = verify_and_clean(new_scheds, ignore_errors=True)
-    if err_msg is not None:
-        # Shouldn't happen since ignored_errors=True, but just in case
-        raise Exception(f"Failed to reorder schedule after delete for {name}, {err_msg}")
-
-    # Persist all the updates from filling the gap
+    # Run the updates, filling the hole
     [i.update(session, i) for i in new_scheds]
 
     # Twiddle the task state after adding a new schedule
