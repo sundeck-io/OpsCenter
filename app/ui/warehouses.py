@@ -1,6 +1,7 @@
 import uuid
 import streamlit as st
 import connection
+from crud.base import transaction
 from crud.wh_sched import (
     WarehouseSchedules,
     _WAREHOUSE_SIZE_OPTIONS,
@@ -194,7 +195,7 @@ class Warehouses(Container):
         outcome, new_data = verify_and_clean(data)
         if outcome is not None:
             return outcome
-        with connection.Connection.get() as conn:
+        with connection.Connection.get() as conn, transaction(conn) as txn:
             try:
                 # Check if verify_and_clean modified the new schedule
                 new_row = next(i for i in new_data if i.id_val == new_row_id)
@@ -203,12 +204,12 @@ class Warehouses(Container):
                 new_row = row
 
             # Write the new schedule
-            new_row.write(conn)
+            new_row.write(txn)
 
             # Make sure the rest of the rows are updated
-            [i.update(conn, i) for i in new_data if i.id_val != new_row_id]
+            [i.update(txn, i) for i in new_data if i.id_val != new_row_id]
             # Twiddle the task state after adding a new schedule
-            after_schedule_change(conn)
+            after_schedule_change(txn)
 
     def on_delete_click_internal(self, *args) -> Optional[str]:
         row = args[0][0]
@@ -217,15 +218,15 @@ class Warehouses(Container):
             return "Cannot delete the last schedule for a warehouse."
         index = data.index(row)
         del data[index]
-        with connection.Connection.get() as conn:
-            row.delete(conn)
+        with connection.Connection.get() as conn, transaction(conn) as txn:
+            row.delete(txn)
             comment, new_warehouses = verify_and_clean(data, ignore_errors=True)
             if comment is not None:
                 return comment
-            [i.update(conn, i) for i in new_warehouses]
+            [i.update(txn, i) for i in new_warehouses]
 
             # Twiddle the task state after adding a new schedule
-            after_schedule_change(conn)
+            after_schedule_change(txn)
 
     def on_update_click_internal(self, *args) -> Optional[str]:
         if args[3] is not None:
@@ -237,10 +238,10 @@ class Warehouses(Container):
         comment, new_warehouses = verify_and_clean(warehouses)
         if comment is not None:
             return comment
-        with connection.Connection.get() as conn:
-            [i.update(conn, i) for i in new_warehouses]
+        with connection.Connection.get() as conn, transaction(conn) as txn:
+            [i.update(txn, i) for i in new_warehouses]
             # Twiddle the task state after a schedule has changed
-            after_schedule_change(conn)
+            after_schedule_change(txn)
 
     def list(self):
         wh = st.session_state.get("warehouse")
