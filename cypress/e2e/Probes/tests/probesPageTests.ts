@@ -20,8 +20,9 @@ import {
 
 export const ProbesCRUDTests = () => {
   describe("Single Probe Tests", () => {
-    describe("Able to Create", () => {
+    describe("Able to Create / Read / Update / Delete", () => {
       const probe_1 = generateUniqueName("probeCRUDTests");
+      const probe_2 = generateUniqueName("updatedProbeCRUDTests");
 
       it("Create probe", () => {
         buttonClick(BUTTON_TEXT.NEW);
@@ -41,23 +42,6 @@ export const ProbesCRUDTests = () => {
           notifyTheAuthor: true,
           cancelTheQuery: true,
           notifyOthers: PROBE_EMAIL_OTHERS,
-        });
-      });
-    });
-
-    describe("Able to Read / Update / Delete", () => {
-      const probe_1 = generateUniqueName("probeCRUDTests");
-      const probe_2 = generateUniqueName("updatedProbeCRUDTests");
-      beforeEach(() => {
-        cy.snowflakeSql("createProbe", {
-          taskConfig: {
-            name: probe_1,
-            condition: PROBE_CONDITION_TEXT_1,
-            notifyTheAuthor: true,
-            cancelTheQuery: true,
-            notifyOthers: PROBE_EMAIL_OTHERS,
-          },
-          reload: true,
         });
       });
 
@@ -90,7 +74,7 @@ export const ProbesCRUDTests = () => {
       });
 
       it("Delete probe", () => {
-        deleteProbe([probe_1]);
+        deleteProbe([probe_1, probe_2]);
       });
     });
   });
