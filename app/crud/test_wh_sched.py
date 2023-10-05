@@ -1,6 +1,8 @@
 import datetime
 import pytest
 from typing import List
+from unittest.mock import patch
+from . import wh_sched
 from .wh_sched import (
     WarehouseSchedules,
     delete_warehouse_schedule,
@@ -277,3 +279,102 @@ def test_try_delete_all_schedules():
             "COMPUTE_WH", datetime.time(0, 0), datetime.time(23, 59), True
         )
         delete_warehouse_schedule(s, [s])
+
+
+def test_return_default_when_no_schedules(session):
+    with patch.object(WarehouseSchedules, "find_all") as mock_find_all, patch.object(
+        wh_sched, "describe_warehouse"
+    ) as mock_desc_warehouse, patch.object(WarehouseSchedules, "write") as mock_write:
+        writes = []
+        mock_find_all.return_value = []
+        # Make a new WH schedule every call
+        mock_desc_warehouse.side_effect = lambda *args, **kwargs: _make_schedule(
+            "COMPUTE_WH", datetime.time(0, 0), datetime.time(23, 59), True
+        )
+        mock_write.side_effect = lambda *args, **kwargs: writes.append(args[0])
+
+        schedules = wh_sched.fetch_schedules_with_defaults(session, "COMPUTE_WH")
+
+        assert len(schedules) == 2
+
+        # The defaults from the _make_schedule(..) above
+        for s in schedules:
+            assert s.start_at == datetime.time(0, 0)
+            assert s.finish_at == datetime.time(23, 59)
+            assert s.suspend_minutes == 1
+            assert s.warehouse_mode == "Standard"
+            assert s.size == "X-Small"
+
+        assert schedules[0].weekday
+        assert not schedules[1].weekday
+
+        # We should have two inserts into the table
+        assert len(writes) == 2
+
+
+def test_update_default_warehouse_rows(session):
+    with patch.object(WarehouseSchedules, "find_all") as mock_find_all, patch.object(
+        wh_sched, "describe_warehouse"
+    ) as mock_desc_warehouse, patch.object(WarehouseSchedules, "update") as mock_update:
+        updates = []
+        # Fake default rows at X-Small
+        orig_schedules = [
+            _make_schedule(
+                "COMPUTE_WH",
+                datetime.time(0, 0),
+                datetime.time(23, 59),
+                True,
+                enabled=False,
+            ),
+            _make_schedule(
+                "COMPUTE_WH",
+                datetime.time(0, 0),
+                datetime.time(23, 59),
+                False,
+                enabled=False,
+            ),
+        ]
+        mock_find_all.return_value = orig_schedules
+        # Make a new WH schedule every call saying they are Medium and suspend after 10mins
+        mock_desc_warehouse.side_effect = lambda *args, **kwargs: _make_schedule(
+            "COMPUTE_WH",
+            datetime.time(0, 0),
+            datetime.time(23, 59),
+            True,
+            size="Medium",
+            suspend_minutes=10,
+            enabled=False,
+        )
+
+        # Capture the update(session, obj) call
+        def update(*args, **kwargs):
+            updated_obj = args[1]
+            updates.append(updated_obj)
+            return updated_obj
+
+        mock_update.side_effect = update
+
+        schedules = wh_sched.fetch_schedules_with_defaults(session, "COMPUTE_WH")
+
+        assert len(schedules) == 2
+
+        # The defaults from the _make_schedule(..) above
+        for s in schedules:
+            assert s.start_at == datetime.time(0, 0)
+            assert s.finish_at == datetime.time(23, 59)
+            assert s.suspend_minutes == 10
+            assert s.warehouse_mode == "Standard"
+            assert s.size == "Medium"
+            assert not s.enabled
+
+        # Ensure id_vals don't change
+        actual_ids = [s.id_val for s in schedules]
+        actual_ids.sort()
+        expected_ids = [s.id_val for s in orig_schedules]
+        expected_ids.sort()
+        assert actual_ids == expected_ids
+
+        assert schedules[0].weekday
+        assert not schedules[1].weekday
+
+        assert len(updates) == 2

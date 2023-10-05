@@ -6,6 +6,7 @@ from crud.wh_sched import (
     WarehouseSchedules,
     _WAREHOUSE_SIZE_OPTIONS,
     after_schedule_change,
+    fetch_schedules_with_defaults,
     verify_and_clean,
 )
 from table import build_table, Actions
@@ -16,7 +17,6 @@ from warehouse_utils import (
     time_filter,
     create_callback,
     convert_time_str,
-    populate_initial,
     set_enabled,
 )
 from crud.errors import summarize_error
@@ -248,7 +248,7 @@ class Warehouses(Container):
         wh = st.session_state.get("warehouse")
         whfilter = wh.warehouse
         with connection.Connection.get() as conn:
-            all_data = populate_initial(conn, whfilter)
+            all_data = fetch_schedules_with_defaults(conn, whfilter)
 
         data = [i for i in all_data if i.weekday and i.name == whfilter]
         data_we = [i for i in all_data if not i.weekday and i.name == whfilter]

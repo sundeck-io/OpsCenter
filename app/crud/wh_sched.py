@@ -188,7 +188,18 @@ class WarehouseSchedules(BaseOpsCenterModel):
         ).collect()
 
     @classmethod
-    def find_all(
+    def find_all(cls, session: Session, name: str) -> List["WarehouseSchedules"]:
+        """
+        Syntactic sugar to return all schedules for a given warehouse and weekday/weekend.
+        """
+        return cls.batch_read(
+            session,
+            sortby="start_at",
+            filter=lambda df: (df.name == name),
+        )
+
+    @classmethod
+    def find_all_with_weekday(
         cls, session: Session, name: str, weekday: bool
     ) -> List["WarehouseSchedules"]:
         """
@@ -275,6 +286,42 @@ class WarehouseAlterStatements(BaseOpsCenterModel):
 
 def convert_time_str(time_str) -> datetime.time:
     return datetime.datetime.strptime(time_str, "%I:%M %p").time()
+
+
+def fetch_schedules_with_defaults(
+    session: Session, warehouse: str
+) -> List[WarehouseSchedules]:
+    """
+    Returns the WarehouseSchedules for the given warehouse.
+    :param session: Snowpark session instance.
+    :param warehouse: The snowflake warehouse to filter on.
+    :return: A list of WarehouseSchedules for the given warehouse, creating and persisting
+    default schedules if none exist.
+    """
+    schedules = WarehouseSchedules.find_all(session, warehouse)
+    if len(schedules) == 0:
+        wh = describe_warehouse(session, warehouse)
+        wh.write(session)
+        schedules.append(wh)
+        wh2 = describe_warehouse(session, warehouse)
+        wh2.weekday = False
+        wh2.write(session)
+        schedules.append(wh2)
+    elif len(schedules) == 2 and all(not s.enabled for s in schedules):
+        # If we have only 2 schedules which are both disabled, refresh the warehouse. `show warehouses` doesn't
+        # use a warehouse, so we're probably OK doing this on every page-load.
+        wh = describe_warehouse(session, warehouse)
+        updated_schedules = []
+        for s in schedules:
+            # Copy the object so the two iterations of this loop don't use the same object (avoid 2 queries)
+            update = WarehouseSchedules(**wh.dict())
+            # Preserve the weekday flag and id_val
+            update.weekday = s.weekday
+            update.id_val = s.id_val
+            updated_schedules.append(s.update(session, update))
+        schedules = updated_schedules
+
+    return schedules
 
 
 def delete_warehouse_schedule(

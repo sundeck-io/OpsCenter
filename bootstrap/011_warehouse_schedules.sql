@@ -152,7 +152,7 @@ from crud.wh_sched import WarehouseSchedules, after_schedule_change, merge_new_s
 def create_warehouse_schedule(bare_session, name: str, size: str, start: datetime.time, finish: datetime.time, weekday: bool, suspend_minutes: int, autoscale_mode: str, autoscale_min: int, autoscale_max: int, auto_resume: bool, comment: str):
     with transaction(bare_session) as session:
         # Read the current schedules
-        current_scheds = WarehouseSchedules.find_all(session, name, weekday)
+        current_scheds = WarehouseSchedules.find_all_with_weekday(session, name, weekday)
 
         # Figure out if the schedules are enabled or disabled
         is_enabled = all(s.enabled for s in current_scheds) if len(current_scheds) > 0 else False
@@ -261,7 +261,7 @@ def update_warehouse_schedule(bare_session, name: str, start: datetime.time, fin
         ))
 
         # Read the current schedules
-        schedules = WarehouseSchedules.find_all(session, name, new_schedule.weekday)
+        schedules = WarehouseSchedules.find_all_with_weekday(session, name, new_schedule.weekday)
 
         # Update the WarehouseSchedule instance for this warehouse
         schedules_needing_update = update_existing_schedule(old_schedule.id_val, new_schedule, schedules)
