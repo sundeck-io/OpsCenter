@@ -553,7 +553,9 @@ def update_task_state(
         #   1. ALTER TASK ... SUSPEND
         #   2. ALTER TASK ... SET SCHEDULE = 'USING CRON ...'
         #   3. ALTER TASK ... RESUME
-        alter_statements.extend(_make_alter_task_statements(schedules, offset, tz))
+        alter_statements.extend(
+            _make_alter_task_statements(enabled_schedules, offset, tz)
+        )
 
     # Collect the statements together
     alter_body = "\n".join(alter_statements)
@@ -655,8 +657,6 @@ def disable_all_tasks(session: Session):
     statements.insert(0, "begin")
     statements.append("end;")
     session.sql("\n".join(statements)).collect()
-
-    session: Session = None
 
 
 def build_task_table(session: Session, this_run, last_run: datetime.datetime):

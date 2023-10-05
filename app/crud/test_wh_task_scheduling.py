@@ -238,3 +238,80 @@ def test_timezones(session: MockSession, tz: timezone):
         f"alter task if exists tasks.warehouse_scheduling_30 set schedule = 'using cron {expected_cron_30}';"
         in script
     )
+
+
+def test_disabled_schedules_do_not_run_tasks(session):
+    # Make schedules which should enable every task (if the schedules were enabled)
+    # Verify that all tasks are suspended
+    schedules = [
+        _make_schedule(
+            "COMPUTE_WH", datetime.time(0, 0), datetime.time(9, 15), enabled=False
+        ),
+        _make_schedule(
+            "COMPUTE_WH", datetime.time(9, 15), datetime.time(17, 30), enabled=False
+        ),
+        _make_schedule(
+            "COMPUTE_WH", datetime.time(17, 30), datetime.time(21, 45), enabled=False
+        ),
+        _make_schedule(
+            "COMPUTE_WH", datetime.time(21, 45), datetime.time(23, 59), enabled=False
+        ),
+    ]
+
+    assert update_task_state(session, schedules, tz=_pacific) is False
+    assert len(session._sql) == 1
+    block = session._sql[0].lower()
+
+    for offset in task_offsets:
+        assert (
+            f"alter task if exists tasks.warehouse_scheduling_{offset} suspend" in block
+        )
+
+
+def test_only_enabled_schedules_affect_schedule(session):
+    # Make schedules which should enable every task (if the schedules were enabled)
+    # Verify that only the tasks with enabled schedules are resumed.
+    schedules = [
+        _make_schedule(
+            "COMPUTE_WH", datetime.time(0, 0), datetime.time(9, 15), enabled=False
+        ),
+        _make_schedule(
+            "COMPUTE_WH", datetime.time(9, 15), datetime.time(17, 30), enabled=False
+        ),
+        _make_schedule(
+            "COMPUTE_WH", datetime.time(17, 30), datetime.time(21, 45), enabled=False
+        ),
+        _make_schedule(
+            "COMPUTE_WH", datetime.time(21, 45), datetime.time(23, 59), enabled=False
+        ),
+        # Now, create one that is enabled
+        _make_schedule(
+            "BATCH", datetime.time(0, 0), datetime.time(12, 30), enabled=True
+        ),
+        _make_schedule(
+            "BATCH", datetime.time(12, 30), datetime.time(23, 59), enabled=True
+        ),
+    ]
+
+    assert update_task_state(session, schedules, tz=_pacific) is True
+    assert len(session._sql) == 1
+    block = session._sql[0].lower()
+
+    for offset in (15, 45):
+        assert (
+            f"alter task if exists tasks.warehouse_scheduling_{offset} suspend" in block
+        )
+
+    assert "alter task if exists tasks.warehouse_scheduling_0 suspend" in block
+    assert (
+        "alter task if exists tasks.warehouse_scheduling_0 set schedule = 'using cron 0 0 * * 1-5 america/los_angeles'"
+        in block
+    )
+    assert "alter task if exists tasks.warehouse_scheduling_0 resume" in block
+
+    assert "alter task if exists tasks.warehouse_scheduling_30 suspend" in block
+    assert (
+        "alter task if exists tasks.warehouse_scheduling_30 set schedule = 'using cron 30 12 * * 1-5 america/los_angeles'"
+        in block
+    )
+    assert "alter task if exists tasks.warehouse_scheduling_30 resume" in block
