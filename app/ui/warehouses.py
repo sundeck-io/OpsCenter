@@ -166,6 +166,7 @@ class Warehouses(Container):
                 comment=comment if comment != "" else None,
                 start_at=convert_time_str(start),
                 finish_at=convert_time_str(finish),
+                weekday=update.weekday,
                 enabled=(
                     st.session_state["enabled"]
                     if "enabled" in st.session_state
