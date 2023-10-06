@@ -8,7 +8,7 @@ describe("Warehouse section", () => {
     setup();
   });
 
-  it("Menu: Warehouses (Warehouse Activity)", () => {
+  it.skip("Menu: Warehouses (Warehouse Activity)", () => {
     cy.visit("/");
 
     checkInitialLoading();
@@ -42,7 +42,7 @@ describe("Warehouse section", () => {
     }
   });
 
-  it("Menu: Warehouses (Heatmap)", () => {
+  it.skip("Menu: Warehouses (Heatmap)", () => {
     cy.visit("/");
 
     checkInitialLoading();

@@ -26,7 +26,7 @@ class WarehouseSummary(BaseOpsCenterModel):
         "autoscale": ("Autoscale", 0.5),
         "spend": ("Spend", 1),
         "utilization": ("Utilization", 1),
-        "enabled": ("Schedule Enabled", 0.5),
+        "enabled": ("Schedule Enabled", 0.75),
     }
     warehouse: str
     size: str

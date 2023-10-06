@@ -1,13 +1,14 @@
+import streamlit as st
 import sthelp
-import reports_warehouse
-import reports_heatmap
-import reports
+from modules import add_custom_modules
 
-sthelp.chrome("Reports")
 
-options = {
-    "Warehouse Heatmap": reports_heatmap.heatmap,
-    "Warehouse Activity": reports_warehouse.report,
-}
+sthelp.chrome("Warehouse Schedule")
 
-reports.display(options)
+# Load custom OpsCenter python modules
+if not add_custom_modules():
+    st.warning("Unable to load OpsCenter modules.")
+
+import warehouse_schedule  # noqa E402
+
+warehouse_schedule.display()
