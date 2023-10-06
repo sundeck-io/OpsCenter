@@ -293,8 +293,11 @@ def test_return_default_when_no_schedules(session):
         )
         mock_write.side_effect = lambda *args, **kwargs: writes.append(args[0])
 
-        schedules = wh_sched.fetch_schedules_with_defaults(session, "COMPUTE_WH")
+        schedules, default_only = wh_sched.fetch_schedules_with_defaults(
+            session, "COMPUTE_WH"
+        )
 
+        assert default_only
         assert len(schedules) == 2
 
         # The defaults from the _make_schedule(..) above
@@ -354,8 +357,11 @@ def test_update_default_warehouse_rows(session):
 
         mock_update.side_effect = update
 
-        schedules = wh_sched.fetch_schedules_with_defaults(session, "COMPUTE_WH")
+        schedules, default_only = wh_sched.fetch_schedules_with_defaults(
+            session, "COMPUTE_WH"
+        )
 
+        assert default_only
         assert len(schedules) == 2
 
         # The defaults from the _make_schedule(..) above
