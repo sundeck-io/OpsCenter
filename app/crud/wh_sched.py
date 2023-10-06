@@ -306,17 +306,15 @@ def convert_time_str(time_str) -> datetime.time:
 
 def fetch_schedules_with_defaults(
     session: Session, warehouse: str
-) -> Tuple[List[WarehouseSchedules], bool]:
+) -> List[WarehouseSchedules]:
     """
-    Returns the WarehouseSchedules for the given warehouse and true if the schedules returned simply match the current
-    state of the warehouse.
+    Returns the WarehouseSchedules for the given warehouse.
     :param session: Snowpark session instance.
     :param warehouse: The snowflake warehouse to filter on.
     :return: A list of WarehouseSchedules for the given warehouse, creating and persisting
     default schedules if none exist.
     """
     schedules = WarehouseSchedules.find_all(session, warehouse)
-    default_schedules = False
     if len(schedules) == 0:
         wh = describe_warehouse(session, warehouse)
         wh.write(session)
@@ -325,7 +323,6 @@ def fetch_schedules_with_defaults(
         wh2.weekday = False
         wh2.write(session)
         schedules.append(wh2)
-        default_schedules = True
     elif len(schedules) == 2 and all(not s.last_modified for s in schedules):
         # If we have 2 schedules and a user has never modified either one, refresh the warehouse. `show warehouses`
         # doesn't use a warehouse, so we're probably OK doing this on every page-load.
@@ -339,9 +336,8 @@ def fetch_schedules_with_defaults(
             update.id_val = s.id_val
             updated_schedules.append(s.update(session, update))
         schedules = updated_schedules
-        default_schedules = True
 
-    return schedules, default_schedules
+    return schedules
 
 
 def delete_warehouse_schedule(

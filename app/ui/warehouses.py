@@ -249,7 +249,7 @@ class Warehouses(Container):
         wh = st.session_state.get("warehouse")
         whfilter = wh.warehouse
         with connection.Connection.get() as conn:
-            all_data, default_schedules = fetch_schedules_with_defaults(conn, whfilter)
+            all_data = fetch_schedules_with_defaults(conn, whfilter)
 
         data = [i for i in all_data if i.weekday and i.name == whfilter]
         data_we = [i for i in all_data if not i.weekday and i.name == whfilter]
@@ -269,9 +269,9 @@ class Warehouses(Container):
             ),
         )
 
-        # If the user has changed the schedules in any way and they are not enabled, give a hint to the
+        # If the user has changed the schedules in any way and the schedules are not already enabled, give a hint to the
         # user that they may want to enable them.
-        if not default_schedules and not is_enabled:
+        if any([ws.last_modified for ws in all_data]) and not is_enabled:
             st.info("Schedules are not running. Check the above box to enable them.")
 
         st.title("Weekdays")
