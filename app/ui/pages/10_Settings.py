@@ -217,7 +217,7 @@ with diagnostics_tab:
         """
     )
 
-    db = connection.execute_select("select current_database() as db").values[0]
+    db = connection.execute_select("select current_database() as db").values[0][0]
 
     def expander(num: int, title: str) -> st.expander:
         return st.expander(f"Step {num}: {title}", expanded=True)
