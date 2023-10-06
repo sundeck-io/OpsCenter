@@ -1,4 +1,5 @@
 import datetime
+import pandas as pd
 import pytest
 from typing import List
 from unittest.mock import patch
@@ -384,3 +385,23 @@ def test_update_default_warehouse_rows(session):
         assert not schedules[1].weekday
 
         assert len(updates) == 2
+
+
+@pytest.mark.parametrize(
+    "last_modified", [None, datetime.datetime.now(), pd.NaT, datetime.datetime.min]
+)
+def test_convert_pandas_nan(last_modified):
+    ws = WarehouseSchedules.construct(
+        name="COMPUTE_WH",
+        size="X-Small",
+        start_at=datetime.time(0, 0),
+        finish_at=datetime.time(23, 59),
+        last_modified=last_modified,
+    )
+
+    # Clean pandas should return None for a nullable value, or the actual value.
+    new_ws = WarehouseSchedules._clean_pandas(ws)
+    if pd.isnull(last_modified):
+        assert new_ws.last_modified is None
+    else:
+        assert not pd.isnull(new_ws.last_modified)
