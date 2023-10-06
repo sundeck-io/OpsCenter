@@ -190,7 +190,8 @@ class WarehouseSchedules(BaseOpsCenterModel):
     @classmethod
     def find_all(cls, session: Session, name: str) -> List["WarehouseSchedules"]:
         """
-        Syntactic sugar to return all schedules for a given warehouse and weekday/weekend.
+        Syntactic sugar to return all schedules for a given warehouse, including both weekday
+        and weekend schedules.
         """
         return cls.batch_read(
             session,
@@ -220,6 +221,11 @@ class WarehouseSchedules(BaseOpsCenterModel):
         finish_at: datetime.time,
         weekday: bool,
     ) -> Optional["WarehouseSchedules"]:
+        """
+        Returns the schedule from a warehouse matching the start_at, finish_at, and weekday
+        values. If no such schedule is found, this method returns `None`. If multiple schedules
+        are found, it raises a ValueError.
+        """
         rows = cls.batch_read(
             session,
             filter=lambda df: (
