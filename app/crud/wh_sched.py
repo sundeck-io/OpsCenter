@@ -51,6 +51,7 @@ class WarehouseSchedules(BaseOpsCenterModel):
     weekday: bool = True
     day: Optional[str] = None
     enabled: bool = False
+    last_modified: Optional[datetime.datetime] = None
     _dirty: bool = False
 
     class Config:
@@ -200,17 +201,38 @@ class WarehouseSchedules(BaseOpsCenterModel):
         ).collect()
 
     @classmethod
-    def find_all(
+    def _clean_pandas(cls, ws: "WarehouseSchedules"):
+        # There doesn't seem to be a way fix this on the dataframe in batch_read() without losing the typing info.
+        if pd.isnull(ws.last_modified):
+            ws.last_modified = None
+        return ws
+
+    @classmethod
+    def find_all(cls, session: Session, name: str) -> List["WarehouseSchedules"]:
+        """
+        Syntactic sugar to return all schedules for a given warehouse, including both weekday
+        and weekend schedules.
+        """
+        objs = cls.batch_read(
+            session,
+            sortby="start_at",
+            filter=lambda df: (df.name == name),
+        )
+        return [cls._clean_pandas(o) for o in objs]
+
+    @classmethod
+    def find_all_with_weekday(
         cls, session: Session, name: str, weekday: bool
     ) -> List["WarehouseSchedules"]:
         """
         Syntactic sugar to return all schedules for a given warehouse and weekday/weekend.
         """
-        return cls.batch_read(
+        objs = cls.batch_read(
             session,
             sortby="start_at",
             filter=lambda df: ((df.name == name) & (df.weekday == weekday)),
         )
+        return [cls._clean_pandas(o) for o in objs]
 
     @classmethod
     def find_one(
@@ -221,6 +243,11 @@ class WarehouseSchedules(BaseOpsCenterModel):
         finish_at: datetime.time,
         weekday: bool,
     ) -> Optional["WarehouseSchedules"]:
+        """
+        Returns the schedule from a warehouse matching the start_at, finish_at, and weekday
+        values. If no such schedule is found, this method returns `None`. If multiple schedules
+        are found, it raises a ValueError.
+        """
         rows = cls.batch_read(
             session,
             filter=lambda df: (
@@ -236,7 +263,7 @@ class WarehouseSchedules(BaseOpsCenterModel):
             raise ValueError(
                 f"Found multiple schedules for {name} {start_at} {finish_at}, {'weekday' if weekday else 'weekend'}"
             )
-        return rows[0]
+        return cls._clean_pandas(rows[0])
 
     @classmethod
     def enable_scheduling(cls, session: Session, name: str, enabled: bool):
@@ -287,6 +314,42 @@ class WarehouseAlterStatements(BaseOpsCenterModel):
 
 def convert_time_str(time_str) -> datetime.time:
     return datetime.datetime.strptime(time_str, "%I:%M %p").time()
+
+
+def fetch_schedules_with_defaults(
+    session: Session, warehouse: str
+) -> List[WarehouseSchedules]:
+    """
+    Returns the WarehouseSchedules for the given warehouse.
+    :param session: Snowpark session instance.
+    :param warehouse: The snowflake warehouse to filter on.
+    :return: A list of WarehouseSchedules for the given warehouse, creating and persisting
+    default schedules if none exist.
+    """
+    schedules = WarehouseSchedules.find_all(session, warehouse)
+    if len(schedules) == 0:
+        wh = describe_warehouse(session, warehouse)
+        wh.write(session)
+        schedules.append(wh)
+        wh2 = describe_warehouse(session, warehouse)
+        wh2.weekday = False
+        wh2.write(session)
+        schedules.append(wh2)
+    elif len(schedules) == 2 and all(not s.last_modified for s in schedules):
+        # If we have 2 schedules and a user has never modified either one, refresh the warehouse. `show warehouses`
+        # doesn't use a warehouse, so we're probably OK doing this on every page-load.
+        wh = describe_warehouse(session, warehouse)
+        updated_schedules = []
+        for s in schedules:
+            # Copy the object so the two iterations of this loop don't use the same object (avoid 2 queries)
+            update = WarehouseSchedules(**wh.dict())
+            # Preserve the weekday flag and id_val
+            update.weekday = s.weekday
+            update.id_val = s.id_val
+            updated_schedules.append(s.update(session, update))
+        schedules = updated_schedules
+
+    return schedules
 
 
 def delete_warehouse_schedule(
