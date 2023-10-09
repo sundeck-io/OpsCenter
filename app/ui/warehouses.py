@@ -88,15 +88,23 @@ class Warehouses(Container):
         finish_time_filter: List[str] = None,
         is_create=False,
     ):
+        sizes = list(_WAREHOUSE_SIZE_OPTIONS.keys())
+        current_start_at_str = update.start_at.strftime("%I:%M %p")
         size = st.selectbox(
             key="SIZE",
             label="Size",
-            options=list(_WAREHOUSE_SIZE_OPTIONS.keys()),
+            options=sizes,
+            index=sizes.index(update.size),
         )
         start = st.selectbox(
             key="START",
             label="Start",
             options=start_time_filter,
+            index=(
+                start_time_filter.index(current_start_at_str)
+                if current_start_at_str in start_time_filter
+                else 0
+            ),
             disabled=len(start_time_filter) == 1,
         )
         finish = st.selectbox(
