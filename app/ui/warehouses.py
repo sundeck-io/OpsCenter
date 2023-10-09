@@ -68,7 +68,7 @@ class Warehouses(Container):
         min_start = data[i - 1].start_at if i > 0 else datetime.time(0, 0)
         edit_start = update.start_at != datetime.time(0, 0)
         if edit_start:
-            start_time_filter = time_filter(datetime.time(23, 59), min_start, True)
+            start_time_filter = time_filter(update.finish_at, min_start, True)
         else:
             start_time_filter = [min_start.strftime("%I:%M %p")]
         finish_time_filter = time_filter(datetime.time(23, 59), min_start, False)
