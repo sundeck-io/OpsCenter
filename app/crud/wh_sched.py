@@ -35,6 +35,7 @@ class WarehouseSchedules(BaseOpsCenterModel):
         "comment": ("Comment", 1),
     }
     max_cluster_size: ClassVar[int] = 10
+    max_sub_schedules: ClassVar[int] = 10
 
     id_val: str = Field(default_factory=lambda: uuid.uuid4().hex)
     name: str
@@ -99,6 +100,17 @@ class WarehouseSchedules(BaseOpsCenterModel):
 
     def st_max_cluster_maxvalue(self):
         return WarehouseSchedules.max_cluster_size if self.autoscaling_enabled() else 0
+
+    def write(self, session: Session):
+        num_schedules = session.sql(
+            f"select count(1) from internal.{WarehouseSchedules.table_name} where name = ? and weekday = ?",
+            params=[self.name, self.weekday],
+        ).collect()[0][0]
+        if num_schedules >= WarehouseSchedules.max_sub_schedules:
+            raise ValueError(
+                f"Warehouse schedules have a maximum of {WarehouseSchedules.max_sub_schedules} sub-schedules."
+            )
+        super().write(session)
 
     @validator("name", allow_reuse=True)
     def verify_name(cls, v):
