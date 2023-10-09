@@ -10,6 +10,7 @@ from .wh_sched import (
     merge_new_schedule,
     verify_and_clean,
 )
+from .test_fixtures import MockSession
 
 
 def _assert_contiguous(schedules: List[WarehouseSchedules]):
@@ -399,3 +400,14 @@ def test_convert_pandas_nan(last_modified):
         assert new_ws.last_modified is None
     else:
         assert not pd.isnull(new_ws.last_modified)
+
+
+def test_limit_to_10_schedules(session: MockSession):
+    ws = _make_schedule("COMPUTE_WH", datetime.time(0, 0), datetime.time(23, 59), True)
+
+    session.num_extant_schedules = 5
+    ws.write(session)
+
+    session.num_extant_schedules = 10
+    with pytest.raises(ValueError):
+        ws.write(session)

@@ -2,7 +2,11 @@ import datetime
 import pandas as pd
 from typing import List, Callable, Optional
 import uuid
+from unittest import mock
 from snowflake.snowpark.exceptions import SnowparkSQLException
+from snowflake.snowpark.session import Session
+from snowflake.snowpark.row import Row
+from snowflake.snowpark._internal.server_connection import ServerConnection
 from .wh_sched import WarehouseSchedules
 
 
@@ -11,8 +15,14 @@ class MockSession:
     A fake snowflake.snowpark.Session object for unit tests.
     """
 
+    num_extant_schedules: int = 1
+
     def __init__(self):
         self._sql = []
+        mock_connection = mock.create_autospec(ServerConnection)
+        mock_connection._conn = mock.MagicMock()
+        self._session = Session(mock_connection)
+        self._session._conn._telemetry_client = mock.MagicMock()
 
     def sql(self, sql, **kwargs):
         self._sql.append(sql)
@@ -29,7 +39,13 @@ class MockSession:
             and self._sql[-1].startswith('select "')
         ):
             raise SnowparkSQLException("invalid identifier to make tests pass")
+        elif self._sql[-1].startswith("select count(1) from internal.WH_SCHEDULES "):
+            return [[self.num_extant_schedules]]
+
         return self
+
+    def create_dataframe(self, data: List[Row]):
+        return self._session.create_dataframe(data)
 
 
 class WarehouseScheduleFixture:
