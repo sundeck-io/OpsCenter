@@ -2,6 +2,7 @@ import connection
 from crud.base import transaction
 from crud.wh_sched import (
     WarehouseSchedules,
+    describe_warehouse,
     after_schedule_change,
 )
 from typing import List
@@ -22,6 +23,19 @@ def create_callback(data, row, **additions):
     for k, v in additions.items():
         setattr(row, k, v)
     return (row, data)
+
+
+def populate_initial(session, warehouse):
+    warehouses = WarehouseSchedules.batch_read(session, "start_at")
+    if any(i for i in warehouses if i.name == warehouse) == 0:
+        wh = describe_warehouse(session, warehouse)
+        wh.write(session)
+        warehouses.append(wh)
+        wh2 = describe_warehouse(session, warehouse)
+        wh2.weekday = False
+        wh2.write(session)
+        warehouses.append(wh2)
+    return warehouses
 
 
 def convert_time_str(time_str) -> datetime.time:

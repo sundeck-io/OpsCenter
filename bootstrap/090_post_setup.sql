@@ -74,8 +74,6 @@ call internal_python.create_table('WAREHOUSE_SCHEDULES');
 call internal_python.create_table('WAREHOUSE_ALTER_STATEMENTS');
 call internal.CREATE_WAREHOUSE_SCHEDULES_VIEWS();
 
-call INTERNAL.MIGRATE_WHSCHED_TABLE();
-
 -- Populate the list of predefined labels
 call INTERNAL.POPULATE_PREDEFINED_LABELS();
 
