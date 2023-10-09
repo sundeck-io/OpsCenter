@@ -115,7 +115,7 @@ def display():
     else:
         whfilter = st.session_state["warehouse"]
         st.title(whfilter.warehouse)
-        a, s, r = st.tabs(["Activity", "Schedule", "Recommendations"])
+        s, a, r = st.tabs(["Schedule", "Activity", "Recommendations"])
         with s:
             warehouses.display()
         with a:
