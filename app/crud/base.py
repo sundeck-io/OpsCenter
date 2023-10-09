@@ -3,6 +3,7 @@ from snowflake.snowpark import Row
 from pydantic import BaseModel
 from typing import ClassVar, get_args, get_origin, Union, Dict, List
 import datetime
+import pandas as pd
 from enum import Enum
 
 
@@ -135,7 +136,14 @@ def unwrap_value(v):
     Unwraps the Enum value if `v` is an Enum. Else, returns the original value.
     """
     if isinstance(v, Enum):
-        return v.value
+        return unwrap_value(v.value)
+    elif isinstance(v, pd.Timestamp):
+        # Python driver cannot handle pandas timestamps
+        return unwrap_value(v.to_pydatetime())
+    elif isinstance(v, datetime.datetime):
+        # Python bindvars requires the concrete SQL timestamp datatype
+        # TODO figure out a way to annotate the datetime on the model impls rather than assume TS_NTZ
+        return "TIMESTAMP_NTZ", v
     return v
 
 

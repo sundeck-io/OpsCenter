@@ -1,9 +1,12 @@
 import datetime
+
+import pandas
 import pandas as pd
 import pytest
 from typing import List
 from unittest.mock import patch
 from . import wh_sched
+from .base import unwrap_value
 from .wh_sched import (
     WarehouseSchedules,
     delete_warehouse_schedule,
@@ -41,6 +44,7 @@ def _make_schedule(
     scale_max=0,
     warehouse_mode="Standard",
     enabled=True,
+    last_modified=datetime.datetime.now(),
 ):
     return WarehouseSchedules(
         name=name,
@@ -411,3 +415,19 @@ def test_limit_to_10_schedules(session: MockSession):
     session.num_extant_schedules = 10
     with pytest.raises(ValueError):
         ws.write(session)
+
+
+def test_no_pandas_timestamps():
+    ws = _make_schedule("COMPUTE_WH", datetime.time(0, 0), datetime.time(23, 59), True)
+
+    for k, v in dict(ws).items():
+        # Snowpark python driver cannot handle pandas timestamp, they have to be datetime.
+        assert not isinstance(
+            unwrap_value(v), pd.Timestamp
+        ), f"Found pandas timestamp in {k}"
+        if isinstance(v, datetime.datetime):
+            assert unwrap_value(v) == ("TIMESTAMP_NTZ", v)
+
+    tup = unwrap_value(pandas.Timestamp.now())
+    assert len(tup) == 2
+    assert isinstance(tup[1], datetime.datetime)
