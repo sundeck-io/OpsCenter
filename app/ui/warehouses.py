@@ -6,6 +6,7 @@ from crud.wh_sched import (
     WarehouseSchedules,
     _WAREHOUSE_SIZE_OPTIONS,
     after_schedule_change,
+    fetch_schedules_with_defaults,
     verify_and_clean,
 )
 from table import build_table, Actions
@@ -16,7 +17,6 @@ from warehouse_utils import (
     time_filter,
     create_callback,
     convert_time_str,
-    populate_initial,
     set_enabled,
 )
 from crud.errors import summarize_error
@@ -180,6 +180,7 @@ class Warehouses(Container):
                     if "enabled" in st.session_state
                     else False
                 ),
+                last_modified=datetime.datetime.now(),
             )
         )
         return new_update
@@ -256,7 +257,7 @@ class Warehouses(Container):
         wh = st.session_state.get("warehouse")
         whfilter = wh.warehouse
         with connection.Connection.get() as conn:
-            all_data = populate_initial(conn, whfilter)
+            all_data = fetch_schedules_with_defaults(conn, whfilter)
 
         data = [i for i in all_data if i.weekday and i.name == whfilter]
         data_we = [i for i in all_data if not i.weekday and i.name == whfilter]
@@ -275,6 +276,11 @@ class Warehouses(Container):
                 ),
             ),
         )
+
+        # If the user has changed the schedules in any way and the schedules are not already enabled, give a hint to the
+        # user that they may want to enable them.
+        if any([ws.last_modified for ws in all_data]) and not is_enabled:
+            st.info("Schedules are not running. Check the above box to enable them.")
 
         st.title("Weekdays")
         cbs = Actions(
