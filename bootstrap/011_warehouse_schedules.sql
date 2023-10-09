@@ -152,7 +152,7 @@ from crud.wh_sched import WarehouseSchedules, after_schedule_change, merge_new_s
 def create_warehouse_schedule(bare_session, name: str, size: str, start: datetime.time, finish: datetime.time, weekday: bool, suspend_minutes: int, autoscale_mode: str, autoscale_min: int, autoscale_max: int, auto_resume: bool, comment: str):
     with transaction(bare_session) as session:
         # Read the current schedules
-        current_scheds = WarehouseSchedules.find_all_with_weekday(session, name, weekday)
+        current_scheds = WarehouseSchedules.find_all(session, name, weekday)
 
         # Figure out if the schedules are enabled or disabled
         is_enabled = all(s.enabled for s in current_scheds) if len(current_scheds) > 0 else False
@@ -171,7 +171,6 @@ def create_warehouse_schedule(bare_session, name: str, size: str, start: datetim
             weekday=weekday,
             enabled=is_enabled,
             comment=comment,
-            user_modified=True,
         ))
 
         # Handles pre-existing schedules or no schedules for this warehouse.
@@ -259,11 +258,10 @@ def update_warehouse_schedule(bare_session, name: str, start: datetime.time, fin
             resume=auto_resume,
             comment=comment,
             enabled=old_schedule.enabled,
-            user_modified=True,
         ))
 
         # Read the current schedules
-        schedules = WarehouseSchedules.find_all_with_weekday(session, name, new_schedule.weekday)
+        schedules = WarehouseSchedules.find_all(session, name, new_schedule.weekday)
 
         # Update the WarehouseSchedule instance for this warehouse
         schedules_needing_update = update_existing_schedule(old_schedule.id_val, new_schedule, schedules)
@@ -312,20 +310,3 @@ def run(session, name: str):
         # Find a matching schedule
         WarehouseSchedules.enable_scheduling(txn, name, False)
 $$;
-
-CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_WHSCHED_TABLE()
-RETURNS OBJECT
-AS
-BEGIN
-    -- Add user_modified column and set them all to false
-    IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'WH_SCHEDULES' AND COLUMN_NAME = 'LAST_MODIFIED')) THEN
-        ALTER TABLE INTERNAL.WH_SCHEDULES ADD COLUMN LAST_MODIFIED TIMESTAMP_LTZ;
-        -- Assume every row currently in the system was modified by a user.
-        UPDATE INTERNAL.WH_SCHEDULES SET LAST_MODIFIED = CURRENT_TIMESTAMP();
-    END IF;
-    call internal.CREATE_WAREHOUSE_SCHEDULES_VIEWS();
-EXCEPTION
-    WHEN OTHER THEN
-        SYSTEM$LOG('error', 'Failed to migrate labels table. ' || :SQLCODE || ': ' || :SQLERRM);
-        raise;
-END;
