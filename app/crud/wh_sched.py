@@ -168,8 +168,9 @@ class WarehouseSchedules(BaseOpsCenterModel):
         if not v:
             raise ValueError("Warehouse mode is required")
         assert isinstance(v, str)
-        assert v in _WAREHOUSE_MODE_OPTIONS
-        return v
+        cleaned = v.title()
+        assert cleaned in _WAREHOUSE_MODE_OPTIONS
+        return cleaned
 
     @root_validator(allow_reuse=True)
     @classmethod

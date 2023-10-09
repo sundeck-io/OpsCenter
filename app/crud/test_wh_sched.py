@@ -431,3 +431,14 @@ def test_no_pandas_timestamps():
     tup = unwrap_value(pandas.Timestamp.now())
     assert len(tup) == 2
     assert isinstance(tup[1], datetime.datetime)
+
+
+def test_case_insensitive_warehouse_mode():
+    ws = _make_schedule(
+        "COMPUTE_WH",
+        datetime.time(0, 0),
+        datetime.time(23, 59),
+        True,
+        warehouse_mode="STANDARD",
+    )
+    assert ws.warehouse_mode == "Standard"
