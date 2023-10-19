@@ -1,11 +1,13 @@
 
 CREATE TABLE INTERNAL.PROBES IF NOT EXISTS (name string, condition string, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean, enabled boolean, probe_modified_at timestamp, probe_created_at timestamp);
 CREATE OR REPLACE VIEW CATALOG.PROBES AS SELECT * FROM INTERNAL.PROBES;
+CREATE OR REPLACE VIEW CATALOG.QUERY_MONITORS AS SELECT * FROM INTERNAL.PROBES;
 
 CREATE TABLE INTERNAL.PREDEFINED_PROBES if not exists (name string, condition string, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean, enabled boolean, probe_modified_at timestamp, probe_created_at timestamp);
 
 CREATE TABLE INTERNAL.PROBE_ACTIONS (action_time timestamp, probe_name string, query_id string, actions_taken variant, outcome string) IF NOT EXISTS;
 CREATE OR REPLACE VIEW REPORTING.PROBE_ACTIONS AS SELECT * FROM INTERNAL.PROBE_ACTIONS;
+CREATE OR REPLACE VIEW REPORTING.QUERY_MONITOR_ACTIVITY AS SELECT * FROM INTERNAL.PROBE_ACTIONS;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PROBES_TABLE()
 RETURNS OBJECT
@@ -221,6 +223,40 @@ def update_probe(session, oldname, name, condition, notify_writer, notify_writer
     return update_entity(session, 'PROBE', oldname, {'name': name, 'condition': condition, 'notify_writer': notify_writer, 'notify_writer_method': notify_writer_method, 'notify_other': notify_other, 'notify_other_method': notify_other_method, 'cancel': cancel, 'probe_created_at': datetime.datetime.now(), 'probe_modified_at': datetime.datetime.now()})
 $$;
 
+
+CREATE OR REPLACE PROCEDURE ADMIN.CREATE_QUERY_MONITOR(name text, condition text, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean)
+RETURNS TEXT
+LANGUAGE SQL
+AS $$
+begin
+let retval varchar;
+call admin.create_probe(name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel) into :retval;
+return :retval;
+end;
+$$;
+
+CREATE OR REPLACE PROCEDURE ADMIN.DELETE_QUERY_MONITOR(name text)
+RETURNS TEXT
+LANGUAGE SQL
+AS $$
+begin
+let retval varchar;
+call admin.delete_probe(name) into :retval;
+return :retval;
+end;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_QUERY_MONITOR(oldname text, name text, condition text, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean)
+RETURNS TEXT
+LANGUAGE SQL
+AS $$
+begin
+let retval varchar;
+call admin.update_probe(oldname, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel) into :retval;
+return :retval;
+end;
+$$;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.POPULATE_PREDEFINED_PROBES()
     RETURNS text
