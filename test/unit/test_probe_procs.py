@@ -111,11 +111,11 @@ test_cases = [
     ),
     (
         "CALL ADMIN.CREATE_PROBE('{probe}', 'x=y and z is not null', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);",
-        "Invalid probe condition",
+        "Invalid query monitor condition",
     ),
     (
         "CALL ADMIN.CREATE_PROBE('{probe}', 'blah blah and ', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);",
-        "Invalid probe condition",
+        "Invalid query monitor condition",
     ),
     (
         "CALL ADMIN.UPDATE_PROBE('{probe}', NULL, 'compilation_time > 3000', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
@@ -127,11 +127,11 @@ test_cases = [
     ),
     (
         "CALL ADMIN.UPDATE_PROBE('{probe}', 'new_probe_name', 'x=y and z is not null', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
-        "Invalid probe condition",
+        "Invalid query monitor condition",
     ),
     (
         "CALL ADMIN.UPDATE_PROBE('{probe}', 'new_probe_name', 'x=y and z is not null', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
-        "Invalid probe condition",
+        "Invalid query monitor condition",
     ),
 ]
 
