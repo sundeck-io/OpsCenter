@@ -44,7 +44,9 @@ class BaseOpsCenterModel(BaseModel):
 
     def write(self, session):
         df = session.create_dataframe([self.to_row()])
-        df.write.mode("append").save_as_table(f"INTERNAL.{self.table_name}")
+        df.write.mode("append").save_as_table(
+            f"INTERNAL.{self.table_name}", column_order="name"
+        )
 
     def get_id(self) -> str:
         """
@@ -97,8 +99,10 @@ class BaseOpsCenterModel(BaseModel):
         :return:
         """
         df = session.create_dataframe([d.to_row() for d in data])
+        # column_order only matters in append mode, but does not fail if it is specified in non-append mode
         df.write.mode("overwrite" if overwrite else "append").save_as_table(
-            f"INTERNAL.{cls.table_name}"
+            f"INTERNAL.{cls.table_name}",
+            column_order="name",
         )
 
     @classmethod
