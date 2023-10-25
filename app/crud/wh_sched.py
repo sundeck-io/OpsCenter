@@ -836,7 +836,9 @@ def log_to_table(session: Session, this_run, success, obj):
             )
         ]
     )
-    df.write.mode("append").save_as_table("internal.task_warehouse_schedule")
+    df.write.mode("append").save_as_table(
+        "internal.task_warehouse_schedule", column_order="name"
+    )
 
 
 _WAREHOUSE_SIZE_OPTIONS = {
