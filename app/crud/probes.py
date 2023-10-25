@@ -43,7 +43,7 @@ class Probe(BaseOpsCenterModel):
                 params=(self.name,),
             ).collect()[0][0]
 
-            assert is_unique_name, "A probe with this name already exists."
+            assert is_unique_name, "A query monitor with this name already exists."
             super().write(txn)
 
         session.call(self.on_success_proc)
@@ -55,7 +55,7 @@ class Probe(BaseOpsCenterModel):
                 f"SELECT COUNT(*) = 1 FROM INTERNAL.{self.table_name} WHERE name = ?",
                 params=(self.name,),
             ).collect()[0][0]
-            assert old_probe_exists, "Probe not found."
+            assert old_probe_exists, "Query monitor not found."
 
             new_name_is_unique = session.sql(
                 f"SELECT COUNT(*) = 0 FROM INTERNAL.{self.table_name} WHERE name = ? and name <> ?",
@@ -64,7 +64,7 @@ class Probe(BaseOpsCenterModel):
                     self.name,
                 ),
             ).collect()[0][0]
-            assert new_name_is_unique, "A probe with this name already exists."
+            assert new_name_is_unique, "A query monitor with this name already exists."
 
             super().update(txn, new_probe)
 
@@ -88,14 +88,14 @@ class Probe(BaseOpsCenterModel):
     @validator("name", allow_reuse=True)
     @classmethod
     def name_not_empty(cls, name: str) -> str:
-        assert name is not None, "Probe name cannot be null"
+        assert name is not None, "Query monitor name cannot be null"
         return name
 
     @validator("condition", allow_reuse=True)
     @classmethod
     def condition_not_empty(cls, value: str) -> str:
-        assert value is not None, "Probe condition cannot be null"
-        assert value, "Probe condition cannot be empty"
+        assert value is not None, "Query monitor condition cannot be null"
+        assert value, "Query monitor condition cannot be empty"
         return value
 
     @root_validator(allow_reuse=True)
@@ -131,6 +131,6 @@ class Probe(BaseOpsCenterModel):
                 f'select case when {condition} then 1 else 0 end as "{name}" from INTERNAL.DUMMY_QUERY_HISTORY_UDTF',
             ).collect()
         except snowpark.exceptions.SnowparkSQLException as e:
-            assert False, f"Invalid probe condition: {e.message}"
+            assert False, f"Invalid query monitor condition: {e.message}"
 
         return values
