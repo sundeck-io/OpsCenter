@@ -8,7 +8,7 @@ from common_utils import row_count
 
 def test_smoke_create_drop_probe(conn, timestamp_string):
     probe = generate_unique_name("probe", timestamp_string)
-    sql = f"CALL ADMIN.CREATE_PROBE('{probe}', 'rows_produced > 100', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);"
+    sql = f"CALL ADMIN.CREATE_QUERY_MONITOR('{probe}', 'rows_produced > 100', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);"
 
     # create_probe returns NULL in case of successful probe creation
     assert run_proc(conn, sql) is None
@@ -29,7 +29,7 @@ def test_smoke_create_drop_probe(conn, timestamp_string):
     assert row_count(conn, sql) == 1, "Probe was not found!"
 
     # drop probe
-    sql = f"call ADMIN.DELETE_PROBE('{probe}');"
+    sql = f"call ADMIN.DELETE_QUERY_MONITOR('{probe}');"
     assert run_proc(conn, sql) is None
 
 
@@ -37,7 +37,7 @@ def test_smoke_create_drop_probe(conn, timestamp_string):
 def test_create_probe_with_existing_name(conn, timestamp_string):
 
     probe = generate_unique_name("probe", timestamp_string)
-    sql = f"CALL ADMIN.CREATE_PROBE('{probe}', 'rows_produced > 100', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);"
+    sql = f"CALL ADMIN.CREATE_QUERY_MONITOR('{probe}', 'rows_produced > 100', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);"
     assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
 
     assert "this name already exists" in run_proc(conn, sql)
@@ -45,7 +45,7 @@ def test_create_probe_with_existing_name(conn, timestamp_string):
 
 def test_smoke_update_probe(conn, timestamp_string):
     probe = generate_unique_name("probe", timestamp_string)
-    sql = f"CALL ADMIN.CREATE_PROBE('{probe}', 'compilation_time  > 50000', TRUE, 'EMAIL', 'doron@sundeck.io', 'EMAIL', FALSE);"
+    sql = f"CALL ADMIN.CREATE_QUERY_MONITOR('{probe}', 'compilation_time  > 50000', TRUE, 'EMAIL', 'doron@sundeck.io', 'EMAIL', FALSE);"
 
     # create_probe returns NULL in case of successful probe creation
     assert run_proc(conn, sql) is None
@@ -66,7 +66,7 @@ def test_smoke_update_probe(conn, timestamp_string):
     assert row_count(conn, sql) == 1, "Probe was not found!"
 
     # update probe
-    sql = f"CALL ADMIN.UPDATE_PROBE('{probe}', '{probe}', 'rows_produced = 1000', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);"
+    sql = f"CALL ADMIN.UPDATE_QUERY_MONITOR('{probe}', '{probe}', 'rows_produced = 1000', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);"
     assert run_proc(conn, sql) is None
 
     # validate that probe was updated correctly
@@ -85,7 +85,7 @@ def test_smoke_update_probe(conn, timestamp_string):
     assert row_count(conn, sql) == 1, "Probe was not found!"
 
     # drop probe
-    sql = f"call ADMIN.DELETE_PROBE('{probe}');"
+    sql = f"call ADMIN.DELETE_QUERY_MONITOR('{probe}');"
     assert run_proc(conn, sql) is None
 
 
@@ -93,44 +93,44 @@ def test_smoke_update_probe(conn, timestamp_string):
 # Legal in Snowflake
 def test_create_probe_with_empty_string_name(conn, timestamp_string):
 
-    sql = "CALL ADMIN.CREATE_PROBE('', 'compilation_time  > 50000', True, 'EMAIL', 'doron@sundeck.io', 'EMAIL', False);"
+    sql = "CALL ADMIN.CREATE_QUERY_MONITOR('', 'compilation_time  > 50000', True, 'EMAIL', 'doron@sundeck.io', 'EMAIL', False);"
     assert run_proc(conn, sql) is None
 
-    assert run_proc(conn, "call ADMIN.DELETE_PROBE('');") is None
+    assert run_proc(conn, "call ADMIN.DELETE_QUERY_MONITOR('');") is None
 
 
 # List of test cases with statements and expected error messages
 test_cases = [
     (
-        "CALL ADMIN.CREATE_PROBE(NULL, 'rows_produced > 100', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);",
+        "CALL ADMIN.CREATE_QUERY_MONITOR(NULL, 'rows_produced > 100', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);",
         "name cannot be null",
     ),
     (
-        "CALL ADMIN.CREATE_PROBE('{probe}', NULL, True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);",
+        "CALL ADMIN.CREATE_QUERY_MONITOR('{probe}', NULL, True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);",
         "condition cannot be null",
     ),
     (
-        "CALL ADMIN.CREATE_PROBE('{probe}', 'x=y and z is not null', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);",
+        "CALL ADMIN.CREATE_QUERY_MONITOR('{probe}', 'x=y and z is not null', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);",
         "Invalid query monitor condition",
     ),
     (
-        "CALL ADMIN.CREATE_PROBE('{probe}', 'blah blah and ', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);",
+        "CALL ADMIN.CREATE_QUERY_MONITOR('{probe}', 'blah blah and ', True, 'SLACK', 'jinfeng@sundeck.io', 'SLACK', False);",
         "Invalid query monitor condition",
     ),
     (
-        "CALL ADMIN.UPDATE_PROBE('{probe}', NULL, 'compilation_time > 3000', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
+        "CALL ADMIN.UPDATE_QUERY_MONITOR('{probe}', NULL, 'compilation_time > 3000', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
         "name cannot be null",
     ),
     (
-        "CALL ADMIN.UPDATE_PROBE('{probe}', 'new_probe_name', NULL, True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
+        "CALL ADMIN.UPDATE_QUERY_MONITOR('{probe}', 'new_probe_name', NULL, True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
         "condition cannot be null",
     ),
     (
-        "CALL ADMIN.UPDATE_PROBE('{probe}', 'new_probe_name', 'x=y and z is not null', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
+        "CALL ADMIN.UPDATE_QUERY_MONITOR('{probe}', 'new_probe_name', 'x=y and z is not null', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
         "Invalid query monitor condition",
     ),
     (
-        "CALL ADMIN.UPDATE_PROBE('{probe}', 'new_probe_name', 'x=y and z is not null', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
+        "CALL ADMIN.UPDATE_QUERY_MONITOR('{probe}', 'new_probe_name', 'x=y and z is not null', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
         "Invalid query monitor condition",
     ),
 ]
