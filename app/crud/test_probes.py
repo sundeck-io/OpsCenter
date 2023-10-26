@@ -125,6 +125,15 @@ def test_name_validation():
                 "probe_modified_at": datetime.datetime.now(),
             }
         )
+    with pytest.raises(ValidationError):
+        _ = Probe.parse_obj(
+            {
+                "name": "This ain't allowed",
+                "condition": "1=1",
+                "probe_created_at": datetime.datetime.now(),
+                "probe_modified_at": datetime.datetime.now(),
+            }
+        )
 
     # Probe names may also be empty
     _ = Probe.parse_obj(

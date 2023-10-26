@@ -89,6 +89,7 @@ class Probe(BaseOpsCenterModel):
     @classmethod
     def name_not_empty(cls, name: str) -> str:
         assert name is not None, "Query monitor name cannot be null"
+        assert "'" not in name, "The name must not contain an apostrophe"
         return name
 
     @validator("condition", allow_reuse=True)
