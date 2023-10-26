@@ -230,7 +230,7 @@ LANGUAGE SQL
 AS $$
 begin
 let retval varchar;
-call admin.create_probe(name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel) into :retval;
+call admin.create_probe(:name, :condition, :notify_writer, :notify_writer_method, :notify_other, :notify_other_method, :cancel) into :retval;
 return :retval;
 end;
 $$;
@@ -241,7 +241,7 @@ LANGUAGE SQL
 AS $$
 begin
 let retval varchar;
-call admin.delete_probe(name) into :retval;
+call admin.delete_probe(:name) into :retval;
 return :retval;
 end;
 $$;
@@ -253,7 +253,7 @@ LANGUAGE SQL
 AS $$
 begin
 let retval varchar;
-call admin.update_probe(oldname, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel) into :retval;
+call admin.update_probe(:oldname, :name, :condition, :notify_writer, :notify_writer_method, :notify_other, :notify_other_method, :cancel) into :retval;
 return :retval;
 end;
 $$;
