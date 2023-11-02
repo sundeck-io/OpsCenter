@@ -124,7 +124,6 @@ class Probe(BaseOpsCenterModel):
     def validate_probe_condition(cls, values: dict) -> dict:
         session = get_current_session()
 
-        values.get("name")
         condition = values.get("condition")
 
         try:

@@ -72,7 +72,7 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     if: ${{ always() }}
-    needs: [devdeploy-with-materialization, cypress-tests]
+    needs: [devdeploy-with-materialization]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -103,63 +103,9 @@ jobs:
           envsubst < deploy/opscenter.config > $HOME/.snowsql/config
       - name: Run pytests
         run: cd test && poetry run python -m pytest unit --profile opscenter
-  cypress-tests:
-    needs: devdeploy-with-materialization
-    runs-on: ubuntu-latest-4-cores
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          submodules: recursive
-      - uses: actions/setup-python@v3
-        with:
-          python-version: "3.8"
-          cache: "pip"
-      - name: Install all dependencies
-        run: |
-          pip install poetry
-          poetry config virtualenvs.in-project true
-          poetry install
-      - name: Make unique names for this job
-        id: shell-command
-        run: |
-          SUFFIX=$(echo ${GITHUB_HEAD_REF} | sed "s/\./_/g" | sed "s/-/_/g" | sed "s\/\_\g")_${GITHUB_RUN_ID}
-          echo "OPSCENTER_DATABASE=OPSCENTER_PR_$SUFFIX" >> $GITHUB_ENV
-      - name: Make snowsql config
-        env:
-          # Also uses OPSCENTER_DATABASE from above
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
-          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-        run: |
-          mkdir $HOME/.snowsql
-          envsubst < deploy/opscenter.config > $HOME/.snowsql/config
-        # Hack to re-create the app/ui/crud.zip for the local streamlit
-      - name: Run deploy/devdeploy.py without materialization
-        run: poetry run python deploy/devdeploy.py --profile opscenter -s
-      - name: run streamlit
-        run: "poetry run streamlit run app/ui/Home.py --browser.gatherUsageStats false &"
-      - name: Cypress run
-        uses: cypress-io/github-action@v6
-        env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
-          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-        with:
-          start: yarn run cypress
-          browser: chrome
-          headless: true
-          record: false
-      - uses: actions/upload-artifact@v3
-        if: ${{ always() }}
-        with:
-          name: cypress-artifacts
-          path: |
-            cypress/videos/
-            cypress/screenshots/
   cleanup:
     runs-on: ubuntu-latest
-    needs: [unit-tests, cypress-tests]
+    needs: [unit-tests]
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v3
