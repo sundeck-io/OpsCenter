@@ -245,7 +245,7 @@ def test_from_london(conn, timestamp_string):
                 len(obj["statements"]) == 1
             ), f"Expected an alter warehouse statement: {obj}"
             assert "WAREHOUSE_SIZE = MEDIUM" in obj["statements"][0]
-            assert "AUTO_SUSPEND = 15" in obj["statements"][0]
+            assert "AUTO_SUSPEND = 900" in obj["statements"][0]
 
             # weekday, 17:00 in utc+1
             row = cur.execute(
@@ -262,7 +262,7 @@ def test_from_london(conn, timestamp_string):
             assert "statements" in obj
             assert len(obj["statements"]) == 1
             assert "WAREHOUSE_SIZE = SMALL" in obj["statements"][0]
-            assert "AUTO_SUSPEND = 5" in obj["statements"][0]
+            assert "AUTO_SUSPEND = 300" in obj["statements"][0]
 
             # weekend, 09:00 in utc+1
             row = cur.execute(
@@ -294,7 +294,7 @@ def test_from_london(conn, timestamp_string):
             assert "statements" in obj
             assert len(obj["statements"]) == 1
             assert "WAREHOUSE_SIZE = XXLARGE" in obj["statements"][0]
-            assert "AUTO_SUSPEND = 15" in obj["statements"][0]
+            assert "AUTO_SUSPEND = 900" in obj["statements"][0]
     finally:
         with conn() as cnx, cnx.cursor() as cur:
             _ = cur.execute(f"DROP WAREHOUSE IF EXISTS {wh_name}").fetchone()

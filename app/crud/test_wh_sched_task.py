@@ -64,7 +64,7 @@ def test_basic_task(session, wh_sched_fixture):
         assert len(statements) == 1
         assert "alter warehouse COMPUTE_WH set".lower() in statements[0].lower()
         assert "WAREHOUSE_SIZE = XLARGE".lower() in statements[0].lower()
-        assert "AUTO_SUSPEND = 15".lower() in statements[0].lower()
+        assert "AUTO_SUSPEND = 900".lower() in statements[0].lower()
 
         # Verify the task result was logged into the internal table
         assert len(wh_sched_fixture.task_log) == 1
@@ -159,7 +159,7 @@ def test_basic_weekend_task(session, wh_sched_fixture):
         assert len(statements) == 1
         assert "alter warehouse COMPUTE_WH set".lower() in statements[0].lower()
         assert "WAREHOUSE_SIZE = XSMALL".lower() in statements[0].lower()
-        assert "AUTO_SUSPEND = 1".lower() in statements[0].lower()
+        assert "AUTO_SUSPEND = 60".lower() in statements[0].lower()
 
         # Verify the task result was logged into the internal table
         assert len(wh_sched_fixture.task_log) == 1
@@ -202,7 +202,7 @@ def test_basic_weekday_task(session, wh_sched_fixture):
         assert len(statements) == 1
         assert "alter warehouse COMPUTE_WH set".lower() in statements[0].lower()
         assert "WAREHOUSE_SIZE = SMALL".lower() in statements[0].lower()
-        assert "AUTO_SUSPEND = 1".lower() in statements[0].lower()
+        assert "AUTO_SUSPEND = 60".lower() in statements[0].lower()
 
         # Verify the task result was logged into the internal table
         assert len(wh_sched_fixture.task_log) == 1
@@ -351,7 +351,7 @@ def test_missed_task_execution(session, wh_sched_fixture):
         assert len(statements) == 1
         assert "alter warehouse COMPUTE_WH set".lower() in statements[0].lower()
         assert "WAREHOUSE_SIZE = SMALL".lower() in statements[0].lower()
-        assert "AUTO_SUSPEND = 15".lower() in statements[0].lower()
+        assert "AUTO_SUSPEND = 900".lower() in statements[0].lower()
 
         # Verify the task result was logged into the internal table
         assert len(wh_sched_fixture.task_log) == 1
