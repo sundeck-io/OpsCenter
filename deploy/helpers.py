@@ -183,6 +183,9 @@ def zip_python_module(module_name: str, source: str, dest: str):
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zipf:
         # Walk through the directory and add each file to the zip file
         for root, dirs, files in os.walk(source):
+            if "." in root or "__pycache__" in root:
+                continue
+            dirs = [d for d in dirs if not d.startswith(".") and not d.startswith("__")]
             files = [
                 f
                 for f in files

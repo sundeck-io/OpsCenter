@@ -192,4 +192,4 @@ def test_modified_at_validation():
 
 
 def _expected_condition_verification_sql(p: Probe) -> str:
-    return f"select case when {p.condition} then 1 else 0 end"
+    return f"select {p.condition}"

@@ -124,12 +124,11 @@ class Probe(BaseOpsCenterModel):
     def validate_probe_condition(cls, values: dict) -> dict:
         session = get_current_session()
 
-        name = values.get("name")
         condition = values.get("condition")
 
         try:
             _ = session.sql(
-                f'select case when {condition} then 1 else 0 end as "{name}" from INTERNAL.DUMMY_QUERY_HISTORY_UDTF',
+                f"select {condition} from INTERNAL.DUMMY_QUERY_HISTORY_UDTF where false",
             ).collect()
         except snowpark.exceptions.SnowparkSQLException as e:
             assert False, f"Invalid query monitor condition: {e.message}"

@@ -125,6 +125,22 @@ EXCEPTION
         RAISE;
 END;
 
+-- Add service account to Sundeck
+BEGIN
+    CREATE FUNCTION IF NOT EXISTS internal.ef_register_service_account(request object)
+        RETURNS VARIANT
+        LANGUAGE JAVASCRIPT
+    AS 'throw "You must configure a Sundeck token before registering service  account.";';
+EXCEPTION
+    WHEN statement_error THEN
+        let isalreadyef boolean := (select CONTAINS(:SQLERRM, 'API_INTEGRATION') AND CONTAINS(:SQLERRM, 'must be specified'));
+        if (not isalreadyef) then
+            RAISE;
+        end if;
+    WHEN OTHER THEN
+        RAISE;
+END;
+
 
 create or replace function internal.wrapper_report_quota_used(request object)
     returns variant
@@ -200,11 +216,11 @@ $$
         internal.ef_register_tenant(request))::object
 $$;
 
-create or replace function admin.register_tenant(sfAppName varchar, client_id varchar, client_secret varchar)
+create or replace function admin.register_tenant(sfAppName varchar, client_id varchar, client_secret varchar, dbname varchar)
     returns object
 as
 $$
-    internal.wrapper_register_tenant(object_construct('sfAppName', sfAppName, 'clientKey', client_id, 'clientSecret', client_secret))
+    internal.wrapper_register_tenant(object_construct('sfAppName', sfAppName, 'clientKey', client_id, 'clientSecret', client_secret, 'nativeAppDatabase', dbname, 'externalId', internal.external_id()))
 $$;
 
 
@@ -216,7 +232,7 @@ BEGIN
 	        create or replace external function internal.ef_register_tenant(request object)
             returns object
             context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA, CURRENT_REGION)
-            api_integration = reference(\'opscenter_sso_api_integration\')
+            api_integration = reference(\'opscenter_api_integration\')
             headers = ()
             as \'' || url || '/' || '/extfunc/register_tenant\';
         END;
@@ -257,6 +273,13 @@ BEGIN
             api_integration = reference(\'' || api_integration_name || '\')
             headers = (\'sndk-token\' = \'' || token || '\')
             as \'' || url || '/extfunc/update_usage_stats\';
+
+            create or replace external function internal.ef_register_service_account(service_account object)
+            returns object
+            context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
+            api_integration = reference(\'' || api_integration_name || '\')
+            headers = (\'sndk-token\' = \'' || token || '\')
+            as \'' || url || '/extfunc/register_service_account\';
         END;
     ';
 
@@ -289,7 +312,28 @@ BEGIN
       INSERT (key, value)
       VALUES (source.key, source.value);
 
-    CALL admin.setup_external_functions('opscenter_sso_api_integration');
-    -- Start the user limits task (we know that Sundeck is linked)
-    CALL internal.start_user_limits_task();
+    CALL admin.setup_external_functions('opscenter_api_integration');
 END;
+
+create or replace function internal.wrapper_register_service_account(request object)
+    returns object
+    immutable
+as
+$$
+    iff(length(internal.ef_register_service_account(request):error) != 0,
+        internal.throw_exception(internal.ef_register_service_account(request):error),
+        internal.ef_register_service_account(request))::object
+$$;
+
+create or replace procedure admin.register_sundeck_account(username varchar, password varchar, role varchar, warehouse varchar)
+returns object
+language sql
+execute as owner
+as
+begin
+  let obj object := (select object_construct('username', :username, 'password', :password, 'warehouse', :warehouse, 'role', :role));
+  let res object := (select internal.wrapper_register_service_account(:obj));
+
+
+  return res;
+end;
