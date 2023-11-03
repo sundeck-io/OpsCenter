@@ -505,7 +505,7 @@ def generate_alter_from_schedule(
         changes.append("WAREHOUSE_TYPE = SNOWPARK-OPTIMIZED")
     else:
         changes.append("WAREHOUSE_TYPE = STANDARD")
-    changes.append(f"AUTO_SUSPEND = {schedule.suspend_minutes}")
+    changes.append(f"AUTO_SUSPEND = {schedule.suspend_minutes * 60}")
     changes.append(f"AUTO_RESUME = {schedule.resume}")
     if not is_standard:
         changes.append(f"MIN_CLUSTER_COUNT = {schedule.scale_min}")
@@ -541,7 +541,7 @@ def compare_warehouses(
         if "Snowpark" not in warehouse_next.size and "Snowpark" in warehouse_now.size:
             changes.append("WAREHOUSE_TYPE = STANDARD")
     if warehouse_now.suspend_minutes != warehouse_next.suspend_minutes:
-        changes.append(f"AUTO_SUSPEND = {warehouse_next.suspend_minutes}")
+        changes.append(f"AUTO_SUSPEND = {warehouse_next.suspend_minutes * 60}")
     if warehouse_now.resume != warehouse_next.resume:
         changes.append(f"AUTO_RESUME = {warehouse_next.resume}")
     if warehouse_now.scale_min != warehouse_next.scale_min and not is_standard:
