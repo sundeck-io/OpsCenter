@@ -48,10 +48,8 @@ def sundeck_signup_with_snowflake_sso(
     )
     code += create_user(app_name)
     code += f"""
-    let url varchar;
-    call {app_name}.internal.get_tenant_url() into :url;
-    let rs resultset := (select 'Go to Sundeck UI' as msg, :url as url);
-return table(rs);
+    let rs resultset := (select 'Go to Sundeck UI' as msg, value as url from {app_name}.catalog.config where key='tenant_url');
+    return table(rs);
 END;"""
     return code
 

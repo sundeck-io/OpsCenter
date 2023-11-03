@@ -332,7 +332,7 @@ execute as owner
 as
 begin
   let obj object := (select object_construct('username', :username, 'password', :password, 'warehouse', :warehouse, 'role', :role));
-  let res object := (select internal.wrapper_register_service_account(:obj):error);
+  let res object := (select internal.wrapper_register_service_account(:obj));
 
 
   return res;
