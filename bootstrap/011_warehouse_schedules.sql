@@ -148,10 +148,12 @@ $$
 import datetime
 import uuid
 from crud.base import transaction
-from crud.wh_sched import WarehouseSchedules, after_schedule_change, merge_new_schedule, verify_and_clean
+from crud.wh_sched import WarehouseSchedules, after_schedule_change, fetch_schedules_with_defaults, merge_new_schedule, verify_and_clean
 def create_warehouse_schedule(bare_session, name: str, size: str, start: datetime.time, finish: datetime.time, weekday: bool, suspend_minutes: int, autoscale_mode: str, autoscale_min: int, autoscale_max: int, auto_resume: bool, comment: str):
     with transaction(bare_session) as session:
-        # Read the current schedules
+        # Make sure the default schedule are created.
+        _ = fetch_schedules_with_defaults(session, name)
+
         current_scheds = WarehouseSchedules.find_all_with_weekday(session, name, weekday)
 
         # Figure out if the schedules are enabled or disabled
@@ -237,9 +239,12 @@ AS
 $$
 import datetime
 from crud.base import transaction
-from crud.wh_sched import WarehouseSchedules, after_schedule_change, update_existing_schedule
+from crud.wh_sched import WarehouseSchedules, after_schedule_change, fetch_schedules_with_defaults, update_existing_schedule
 def update_warehouse_schedule(bare_session, name: str, start: datetime.time, finish: datetime.time, is_weekday: bool, size: str, suspend_minutes: int, autoscale_mode: str, autoscale_min: int, autoscale_max: int, auto_resume: bool, comment: str):
     with transaction(bare_session) as session:
+        # Make sure the default schedule are created.
+        _ = fetch_schedules_with_defaults(session, name)
+
         # Find a matching schedule
         old_schedule = WarehouseSchedules.find_one(session, name, start, finish, is_weekday)
         if not old_schedule:
@@ -311,6 +316,22 @@ def run(session, name: str):
     with transaction(session) as txn:
         # Find a matching schedule
         WarehouseSchedules.enable_scheduling(txn, name, False)
+$$;
+
+CREATE OR REPLACE PROCEDURE ADMIN.CREATE_DEFAULT_SCHEDULES(warehouse_name text)
+    RETURNS TEXT
+    LANGUAGE PYTHON
+    runtime_version = "3.10"
+    handler = 'run'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
+    EXECUTE AS OWNER
+AS
+$$
+from crud.wh_sched import fetch_schedules_with_defaults
+def run(session, name: str):
+    fetch_schedules_with_defaults(session, name)
+    return ""
 $$;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_WHSCHED_TABLE()
