@@ -110,7 +110,12 @@ class WarehouseSchedules(BaseOpsCenterModel):
             raise ValueError(
                 f"Warehouse schedules have a maximum of {WarehouseSchedules.max_sub_schedules} sub-schedules."
             )
+        self.last_modified = datetime.datetime.now()
         super().write(session)
+
+    def update(self, session: Session, update: "WarehouseSchedules"):
+        update.last_modified = datetime.datetime.now()
+        return super().update(session, update)
 
     @validator("name", allow_reuse=True)
     def verify_name(cls, v):
