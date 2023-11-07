@@ -68,8 +68,8 @@ def test_basic_warehouse_schedule(conn, timestamp_string):
             # Set up internal state normally handled in admin.finalize_setup()
             _ensure_tables_created(cnx)
 
-            # Create default schedule with X-Small for this warehouse
-            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'X-Small', '00:00', '23:59', TRUE, 0, 'Standard', 0, 0, TRUE, NULL)"
+            # Create the default schedule
+            sql = f"call ADMIN.CREATE_DEFAULT_SCHEDULES('{wh_name}')"
             _ = cur.execute(sql).fetchone()
 
             # After noon, change to Small
@@ -124,7 +124,8 @@ def test_alternate_timezone(conn, timestamp_string):
             # Set up internal state normally handled in admin.finalize_setup()
             _ensure_tables_created(cnx)
 
-            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'X-Small', '00:00', '23:59', TRUE, 0, 'Standard', 0, 0, TRUE, NULL)"
+            # Create the default schedule
+            sql = f"call ADMIN.CREATE_DEFAULT_SCHEDULES('{wh_name}')"
             _ = cur.execute(sql).fetchone()
 
             # After noon, change to Small
@@ -192,7 +193,7 @@ def test_from_london(conn, timestamp_string):
             _ensure_tables_created(cnx)
 
             # Create default schedule with X-Small for this warehouse
-            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'X-Small', '0:00', '23:59', TRUE, 0, 'Standard', 0, 0, TRUE, NULL)"
+            sql = f"call ADMIN.CREATE_DEFAULT_SCHEDULES('{wh_name}')"
             _ = cur.execute(sql).fetchone()
 
             # After noon, change to Small
@@ -204,10 +205,6 @@ def test_from_london(conn, timestamp_string):
             _ = cur.execute(sql).fetchone()
 
             # Weekend nights run ETL
-            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'X-Small', '0:00', '23:59', FALSE, 0, 'Standard', 0, 0, TRUE, NULL)"
-            _ = cur.execute(sql).fetchone()
-
-            # After noon, change to Small
             sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', '2X-Large', '22:00', '23:59', FALSE, 15, 'Standard', 0, 0, TRUE, NULL)"
             _ = cur.execute(sql).fetchone()
 
