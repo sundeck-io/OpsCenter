@@ -110,7 +110,15 @@ class WarehouseSchedules(BaseOpsCenterModel):
             raise ValueError(
                 f"Warehouse schedules have a maximum of {WarehouseSchedules.max_sub_schedules} sub-schedules."
             )
+        self.last_modified = datetime.datetime.now()
         super().write(session)
+
+    def update(self, session: Session, update: "WarehouseSchedules"):
+        # Set last_modified on `update` to push it to the SQL table
+        update.last_modified = datetime.datetime.now()
+        # Then, update `self` to reflect the change to the caller
+        self.last_modified = update.last_modified
+        return super().update(session, update)
 
     @validator("name", allow_reuse=True)
     def verify_name(cls, v):
@@ -505,7 +513,7 @@ def generate_alter_from_schedule(
         changes.append("WAREHOUSE_TYPE = SNOWPARK-OPTIMIZED")
     else:
         changes.append("WAREHOUSE_TYPE = STANDARD")
-    changes.append(f"AUTO_SUSPEND = {schedule.suspend_minutes}")
+    changes.append(f"AUTO_SUSPEND = {schedule.suspend_minutes * 60}")
     changes.append(f"AUTO_RESUME = {schedule.resume}")
     if not is_standard:
         changes.append(f"MIN_CLUSTER_COUNT = {schedule.scale_min}")
@@ -541,7 +549,7 @@ def compare_warehouses(
         if "Snowpark" not in warehouse_next.size and "Snowpark" in warehouse_now.size:
             changes.append("WAREHOUSE_TYPE = STANDARD")
     if warehouse_now.suspend_minutes != warehouse_next.suspend_minutes:
-        changes.append(f"AUTO_SUSPEND = {warehouse_next.suspend_minutes}")
+        changes.append(f"AUTO_SUSPEND = {warehouse_next.suspend_minutes * 60}")
     if warehouse_now.resume != warehouse_next.resume:
         changes.append(f"AUTO_RESUME = {warehouse_next.resume}")
     if warehouse_now.scale_min != warehouse_next.scale_min and not is_standard:
