@@ -213,7 +213,7 @@ def run_delete(bare_session, name: str, start: datetime.time, finish: datetime.t
             raise Exception(f"Could not find warehouse schedule: {name}, {start}, {finish}, {'weekday' if is_weekday else 'weekend'}")
 
         to_delete = WarehouseSchedules.construct(id_val = row.id_val)
-        current_scheds = WarehouseSchedules.batch_read(session, filter=lambda df: ((df.name == name) & (df.weekday == is_weekday)))
+        current_scheds = WarehouseSchedules.batch_read(session, sortby="start_at", filter=lambda df: ((df.name == name) & (df.weekday == is_weekday)))
         new_scheds = delete_warehouse_schedule(to_delete, current_scheds)
 
         # Delete that schedule, leaving a hole
