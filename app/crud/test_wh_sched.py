@@ -442,3 +442,31 @@ def test_case_insensitive_warehouse_mode():
         warehouse_mode="STANDARD",
     )
     assert ws.warehouse_mode == "Standard"
+
+
+def test_last_modified_updated(session):
+    ws = _make_schedule(
+        "COMPUTE_WH",
+        datetime.time(0, 0),
+        datetime.time(23, 59),
+        True,
+    )
+    assert ws.last_modified is None, "last_modified is not set by this test"
+
+    ws.write(session)
+
+    assert ws.last_modified is not None, "writing the schedule should set last_modified"
+
+    ws.last_modified = None
+    ws.update(
+        session,
+        _make_schedule(
+            "COMPUTE_WH",
+            datetime.time(0, 0),
+            datetime.time(23, 59),
+            True,
+            size="Medium",
+        ),
+    )
+
+    assert ws.last_modified is not None, "Update should set last_modified"
