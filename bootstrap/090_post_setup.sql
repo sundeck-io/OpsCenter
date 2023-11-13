@@ -69,11 +69,6 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
 -- create the query_hash functions in TOOLS
 call INTERNAL.ENABLE_QUERY_HASH();
 
--- Create the tables defined in python
-call internal_python.create_table('WAREHOUSE_SCHEDULES');
-call internal_python.create_table('WAREHOUSE_ALTER_STATEMENTS');
-call internal.CREATE_WAREHOUSE_SCHEDULES_VIEWS();
-
 call INTERNAL.MIGRATE_WHSCHED_TABLE();
 
 -- Populate the list of predefined labels
