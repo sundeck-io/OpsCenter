@@ -1,24 +1,49 @@
 
--- NB. Table is created in 090_post_setup.sql because you cannot call python procs from the setup.sql
-CREATE OR REPLACE PROCEDURE INTERNAL.CREATE_WAREHOUSE_SCHEDULES_VIEWS()
-    RETURNS BOOLEAN
-    LANGUAGE SQL
-    EXECUTE AS OWNER
-AS
-BEGIN
-    CREATE OR REPLACE VIEW catalog.warehouse_schedules COPY GRANTS AS SELECT * exclude (id_val, day) FROM internal.wh_schedules;
-    CREATE OR REPLACE VIEW reporting.warehouse_schedules_task_history as
-        SELECT run, success, output:"statements"::ARRAY as statements_executed, output:"opscenter timezone"::TEXT as schedule_timezone, output:"warehouses_updated"::NUMBER as warehouses_updated
-        from internal.task_warehouse_schedule;
-    -- Because we defer creation of the table until FINALIZE_SETUP, we need to re-run
-    -- the grant commands to ensure that the user can see this view because it would
-    -- not receive the grant during 100_final_perms.
-    GRANT SELECT ON ALL VIEWS IN SCHEMA CATALOG TO APPLICATION ROLE ADMIN;
-    GRANT SELECT ON ALL VIEWS IN SCHEMA CATALOG TO APPLICATION ROLE READ_ONLY;
-    GRANT SELECT ON ALL VIEWS IN SCHEMA REPORTING TO APPLICATION ROLE ADMIN;
-    GRANT SELECT ON ALL VIEWS IN SCHEMA REPORTING TO APPLICATION ROLE READ_ONLY;
-    return TRUE;
-END;
+-- Create table for warehouse schedules
+CREATE TABLE INTERNAL.WH_SCHEDULES IF NOT EXISTS(
+    id_val text,
+    name text,
+    start_at time,
+    finish_at time,
+    size text,
+    suspend_minutes number,
+    resume boolean,
+    scale_min number,
+    scale_max number,
+    warehouse_mode text,
+    comment text,
+    weekday boolean,
+    day text,
+    enabled boolean,
+    last_modified timestamp_ltz
+);
+
+-- Create table for the outcome of executing warehouse schedules
+CREATE TABLE IF NOT EXISTS internal.task_warehouse_schedule(
+    run timestamp_ltz,
+    success boolean,
+    output variant
+);
+
+-- Table for the alter statements to match the warehouse schedule definition
+CREATE TABLE IF NOT EXISTS internal.warehouse_alter_statements(
+    id_val text,
+    alter_statement text
+);
+
+-- Catalog view for warehouse_schedules
+CREATE OR REPLACE VIEW catalog.warehouse_schedules AS
+    SELECT * exclude (id_val, day) FROM internal.wh_schedules;
+
+-- Reporting view for the actions taken by warehouse schedules
+CREATE OR REPLACE VIEW reporting.warehouse_schedules_task_history as
+    SELECT run, success, output:"statements"::ARRAY as statements_executed,
+    output:"opscenter timezone"::TEXT as schedule_timezone,
+    output:"warehouses_updated"::NUMBER as warehouses_updated
+    from internal.task_warehouse_schedule;
+
+-- Inadvertently created by python crud.
+drop view if exists catalog.wh_schedules;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.UPDATE_WAREHOUSE_SCHEDULES(last_run timestamp_ltz, this_run timestamp_ltz)
     RETURNS VARIANT
@@ -344,9 +369,11 @@ BEGIN
         -- Assume every row currently in the system was modified by a user.
         UPDATE INTERNAL.WH_SCHEDULES SET LAST_MODIFIED = CURRENT_TIMESTAMP();
     END IF;
-    call internal.CREATE_WAREHOUSE_SCHEDULES_VIEWS();
+
+    CREATE OR REPLACE VIEW catalog.warehouse_schedules COPY GRANTS AS
+        SELECT * exclude (id_val, day) FROM internal.wh_schedules;
 EXCEPTION
     WHEN OTHER THEN
-        SYSTEM$LOG('error', 'Failed to migrate labels table. ' || :SQLCODE || ': ' || :SQLERRM);
+        SYSTEM$LOG('error', 'Failed to migrate warehouse schedules table. ' || :SQLCODE || ': ' || :SQLERRM);
         raise;
 END;
