@@ -127,6 +127,11 @@ BEGIN
     -- TODO: find a way to improve this so we're not double querying probes.
     -- We do it here so we don't have to transport objects from queries to sql text but it means
     -- there is a slight chance of seeing different actions for the probe between the first step and the second.
+    --
+    -- The actions CTE is doing two-levels of filtering to ensure each probe fires exactly one per matched query.
+    -- The addition clauses on top of the CONDITION in the case statements ensure probes with duplicate conditions
+    -- will each match. The final NOT IN clause of the where condition for the CTE will ensure that we don't re-trigger
+    -- the same probe again for the same query when multiple probes exist with the same condition.
     let s string := $$
     with
     users as (
@@ -136,12 +141,12 @@ BEGIN
         select * from internal.probes where cancel or notify_writer or length(notify_other) > 3
     ),
     actions as (
-    SELECT current_timestamp() as probe_time, query_id, user_name, query_text, warehouse_name, start_time, case $$;
+    SELECT current_timestamp() as probe_time, qh.query_id, user_name, query_text, warehouse_name, start_time, case $$;
     let found boolean := false;
     let probes cursor for select name, condition from internal.probes;
     for probe in probes do
         found := true;
-        s := s || '\n\t when ' || probe.condition || $$ then '$$ || probe.name || $$' $$;
+        s := s || '\n\t when ' || probe.condition || $$ and (actions.probe_name != '$$ || probe.name || $$' or actions.probe_name is null) then '$$ || probe.name || $$' $$;
     end for;
 
     if (not found) then
@@ -149,8 +154,10 @@ BEGIN
     end if;
     s := s || $$
     else null end as probe_to_execute
-    from table(SNOWFLAKE.INFORMATION_SCHEMA.QUERY_HISTORY(CURRENT_TIMESTAMP()))
-    where session_id <> current_session()
+    from table(SNOWFLAKE.INFORMATION_SCHEMA.QUERY_HISTORY(CURRENT_TIMESTAMP())) as qh
+    left outer join internal.probe_actions as actions on qh.query_id = actions.query_id
+    where session_id <> current_session() and
+        (probe_to_execute, qh.query_id) not in (select probe_name, query_id from internal.probe_actions)
     ),
     items as (
     select
@@ -167,7 +174,6 @@ BEGIN
     join probes p on a.probe_to_execute = p.name
     left join users u on a.user_name = u.name
     where probe_to_execute is not null
-    and (probe_to_execute, query_id) not in (select probe_name, query_id from internal.probe_actions)
     )
     select probe_time, probe_name, query_id, action_taken, user_name, warehouse_name, start_time, query_text from items
     $$;
