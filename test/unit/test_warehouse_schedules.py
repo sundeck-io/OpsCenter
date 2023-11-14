@@ -33,18 +33,18 @@ def _assert_no_updates(row: List):
     ), f"Expected no warehouses to be updated: {obj}"
 
 
+def _count_schedules(cur, name: str) -> int:
+    row = cur.execute(
+        f"select count(*) from internal.WH_SCHEDULES where name = '{name}'"
+    ).fetchone()
+    return int(row[0])
+
+
 def _ensure_tables_created(conn):
     """
-    Create the tables that are normally created by admin.finalize_setup() and clear out any old state.
+    Clear out any old state.
     """
     with conn.cursor() as cur:
-        # Ease local dev if we have run materialization
-        _ = cur.execute(
-            "call internal_python.create_table('WAREHOUSE_SCHEDULES')"
-        ).fetchone()
-        _ = cur.execute(
-            "call internal_python.create_table('WAREHOUSE_ALTER_STATEMENTS')"
-        ).fetchone()
         _ = cur.execute("truncate table internal.WH_SCHEDULES").fetchone()
 
 
@@ -103,6 +103,14 @@ def test_basic_warehouse_schedule(conn, timestamp_string):
             assert "statements" in obj
             assert len(obj["statements"]) == 1
             assert "WAREHOUSE_SIZE = SMALL" in obj["statements"][0]
+
+            # Reset the schedule when we're done
+            _ = cur.execute(
+                f"call ADMIN.RESET_WAREHOUSE_SCHEDULE('{wh_name}')"
+            ).fetchone()
+
+            # Should end with two default schedules
+            assert _count_schedules(cur, wh_name) == 2
     finally:
         with conn() as cnx, cnx.cursor() as cur:
             _ = cur.execute(f"DROP WAREHOUSE IF EXISTS {wh_name}").fetchone()
