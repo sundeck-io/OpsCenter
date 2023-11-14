@@ -377,3 +377,27 @@ EXCEPTION
         SYSTEM$LOG('error', 'Failed to migrate warehouse schedules table. ' || :SQLCODE || ': ' || :SQLERRM);
         raise;
 END;
+
+CREATE OR REPLACE PROCEDURE ADMIN.RESET_WAREHOUSE_SCHEDULE(warehouse_name text)
+    RETURNS TEXT
+    LANGUAGE PYTHON
+    runtime_version = "3.10"
+    handler = 'run'
+    packages = ('snowflake-snowpark-python', 'pydantic')
+    imports = ('{{stage}}/python/crud.zip')
+    EXECUTE AS OWNER
+AS
+$$
+from crud.base import transaction
+from crud.wh_sched import after_schedule_change, fetch_schedules_with_defaults
+def run(bare_session, warehouse_name: str):
+    with transaction(bare_session) as session:
+        session.sql("DELETE FROM internal.wh_schedules WHERE name = ?", params=(warehouse_name,)).collect()
+
+        # Re-create the default schedules for this warehouse
+        _ = fetch_schedules_with_defaults(session, warehouse_name)
+
+        # Twiddle the task state after adding a new schedule
+        after_schedule_change(session)
+        return ""
+$$;
