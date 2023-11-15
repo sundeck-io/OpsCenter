@@ -9,6 +9,20 @@ default_settings = {
 }
 
 
+def enable_task(cursor, name: str):
+    row = cursor.execute(
+        "call admin.enable_task(%(name)s)", params={"name": name}
+    ).fetchone()
+    return row[0]
+
+
+def disable_task(cursor, name: str):
+    row = cursor.execute(
+        "call admin.disable_task(%(name)s)", params={"name": name}
+    ).fetchone()
+    return row[0]
+
+
 def update_setting(cursor, key: str, value: str) -> str:
     row = cursor.execute(
         "call admin.update_setting(%(key)s, %(value)s)",
@@ -86,3 +100,28 @@ def test_update_bad_values(conn, key, badvalue):
     with conn() as cnx, cnx.cursor() as cur:
         result = update_setting(cur, key, badvalue)
         assert result != "", f"Should have seen error updating {key} with {badvalue}"
+
+
+@pytest.mark.parametrize(
+    "name,success",
+    [
+        ("QUERY_HISTORY_MAINTENANCE", True),
+        ("query_history_maintenance ", True),
+        ("WAREHOUSE_EVENTS_MAINTENANCE", True),
+        ("SFUSER_MAINTENANCE", True),
+        ("foo", False),
+    ],
+)
+def test_task_management(conn, name: str, success: bool):
+    with conn() as cnx, cnx.cursor() as cur:
+        resp = enable_task(cur, name)
+        if success:
+            assert resp == "", "Enabling task should not return an error"
+        else:
+            assert resp != "", "Enabling task should return an error"
+
+        resp = disable_task(cur, name)
+        if success:
+            assert resp == "", "Disabling task should not return an error"
+        else:
+            assert resp != "", "Disabling task should return an error"
