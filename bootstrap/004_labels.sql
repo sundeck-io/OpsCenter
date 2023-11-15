@@ -227,7 +227,7 @@ def update_label(session, old_name, name, grp, rank, condition):
     return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': False, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now()})
 $$;
 
-CREATE OR REPLACE VIEW CATALOG.LABELS AS SELECT * exclude (enabled) FROM INTERNAL.LABELS;
+CREATE OR REPLACE VIEW CATALOG.LABELS AS SELECT * FROM INTERNAL.LABELS;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.POPULATE_PREDEFINED_LABELS()
     RETURNS text
