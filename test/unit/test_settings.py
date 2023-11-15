@@ -171,15 +171,19 @@ def test_reload_query_history(conn):
         row = cur.execute(
             "call internal.get_config('QUERY_HISTORY_MAINTENANCE')"
         ).fetchone()
+        assert row[0] is not None, "Expected QUERY_HISTORY_MAINTENANCE time to be set"
         assert (
-            row[0] > orig_qh_refresh
+            datetime.datetime.strptime(row[0], datetime_format) > orig_qh_refresh
         ), "Expected QUERY_HISTORY_MAINTENANCE time to be updated"
 
         row = cur.execute(
             "call internal.get_config('WAREHOUSE_EVENTS_MAINTENANCE')"
         ).fetchone()
         assert (
-            row[0] > orig_wh_refresh
+            row[0] is not None
+        ), "Expected WAREHOUSE_EVENTS_MAINTENANCE time to be set"
+        assert (
+            datetime.datetime.strptime(row[0], datetime_format) > orig_wh_refresh
         ), "Expected WAREHOUSE_EVENTS_MAINTENANCE time to be updated"
 
 
