@@ -21,14 +21,14 @@ def test_task_enable(session: MockSession, name: str):
     expected_name = name.strip().lower()
     assert len(session._sql) == 1, "Expected 1 sql statement"
     assert (
-        session._sql[0].lower() == f"alter task {expected_name} resume"
+        session._sql[0].lower() == f"alter task tasks.{expected_name} resume"
     ), "Unexpected task enable query"
 
     task.disable(session)
 
     assert len(session._sql) == 2, "Expected 2 sql statements"
     assert (
-        session._sql[1].lower() == f"alter task {expected_name} suspend"
+        session._sql[1].lower() == f"alter task tasks.{expected_name} suspend"
     ), "Unexpected task disable query"
 
 
