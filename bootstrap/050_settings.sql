@@ -122,14 +122,14 @@ CREATE OR REPLACE PROCEDURE ADMIN.RELOAD_QUERY_HISTORY()
     EXECUTE AS OWNER
 AS
 BEGIN
-    SYSTEM$LOG_INFO("Reloading query history and warehouse events data");
+    SYSTEM$LOG_INFO('Reloading query history and warehouse events data');
     truncate table internal.task_query_history;
     truncate table internal.task_warehouse_events;
     truncate table internal_reporting_mv.cluster_and_warehouse_sessions_complete_and_daily;
     truncate table internal_reporting_mv.query_history_complete_and_daily;
     call internal.refresh_warehouse_events(true);
     call internal.refresh_queries(true);
-    return "";
+    return '';
 END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.RELOAD_PRECONFIGURED_DATA()
@@ -139,8 +139,8 @@ CREATE OR REPLACE PROCEDURE ADMIN.RELOAD_PRECONFIGURED_DATA()
     EXECUTE AS OWNER
 AS
 BEGIN
-    SYSTEM$LOG_INFO("Reloading preconfigured data");
+    SYSTEM$LOG_INFO('Reloading preconfigured data');
     call internal.merge_predefined_probes();
     call internal.merge_predefined_labels();
-    return "";
+    return '';
 END;
