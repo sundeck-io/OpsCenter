@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 from typing import List
 from common_utils import generate_unique_name
@@ -111,6 +112,51 @@ def test_basic_warehouse_schedule(conn, timestamp_string):
 
             # Should end with two default schedules
             assert _count_schedules(cur, wh_name) == 2
+    finally:
+        with conn() as cnx, cnx.cursor() as cur:
+            _ = cur.execute(f"DROP WAREHOUSE IF EXISTS {wh_name}").fetchone()
+
+
+def test_update_change_boundaries(conn, timestamp_string):
+    wh_name = generate_unique_name("wh", timestamp_string).replace("-", "_")
+    try:
+        with conn() as cnx:
+            _create_warehouse_for_test(cnx, wh_name)
+
+        with conn() as cnx, cnx.cursor() as cur:
+            # Set up internal state normally handled in admin.finalize_setup()
+            _ensure_tables_created(cnx)
+
+            # Create the default schedule
+            sql = f"call ADMIN.CREATE_DEFAULT_SCHEDULES('{wh_name}')"
+            _ = cur.execute(sql).fetchone()
+
+            # Split the day at noon
+            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'X-Small', '12:00', '23:59', TRUE, 0, 'Standard', 0, 0, TRUE, NULL)"
+            _ = cur.execute(sql).fetchone()
+
+            # Change start_at from noon to 2pm
+            sql = f"call ADMIN.UPDATE_WAREHOUSE_SCHEDULE('{wh_name}', '12:00', '23:59', TRUE, '14:00', '23:59', 'X-Small', 0, 'Standard', 0, 0, TRUE, NULL)"
+            _ = cur.execute(sql).fetchone()
+
+            # Create a new period based on the update
+            sql = f"call ADMIN.CREATE_WAREHOUSE_SCHEDULE('{wh_name}', 'X-Small', '8:00', '14:00', TRUE, 0, 'Standard', 0, 0, TRUE, NULL)"
+            _ = cur.execute(sql).fetchone()
+
+            # Should end with 4 schedules (3 weekday, 1 weekend)
+            assert _count_schedules(cur, wh_name) == 4
+
+            times = cur.execute(
+                f"select start_at, finish_at from internal.WH_SCHEDULES where name = '{wh_name}' and weekday order by start_at"
+            ).fetchall()
+            assert times[0][0] == datetime.time(0, 0)
+            assert times[0][1] == datetime.time(8, 0)
+
+            assert times[1][0] == datetime.time(8, 0)
+            assert times[1][1] == datetime.time(14, 0)
+
+            assert times[2][0] == datetime.time(14, 0)
+            assert times[2][1] == datetime.time(23, 59)
     finally:
         with conn() as cnx, cnx.cursor() as cur:
             _ = cur.execute(f"DROP WAREHOUSE IF EXISTS {wh_name}").fetchone()

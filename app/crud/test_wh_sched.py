@@ -11,6 +11,7 @@ from .wh_sched import (
     WarehouseSchedules,
     delete_warehouse_schedule,
     merge_new_schedule,
+    update_existing_schedule,
     verify_and_clean,
 )
 from .test_fixtures import MockSession
@@ -384,6 +385,58 @@ def test_update_default_warehouse_rows(session):
         assert not schedules[1].weekday
 
         assert len(updates) == 2
+
+
+def test_update_start_time(session):
+    with patch.object(WarehouseSchedules, "update") as mock_update:
+        updates = []
+        # Make two weekday schedules that split a day
+        orig_schedules = [
+            _make_schedule(
+                "COMPUTE_WH",
+                datetime.time(0, 0),
+                datetime.time(12, 0),
+                True,
+                enabled=False,
+            ),
+            _make_schedule(
+                "COMPUTE_WH",
+                datetime.time(12, 0),
+                datetime.time(23, 59),
+                True,
+                enabled=False,
+            ),
+        ]
+
+        updated_schedule = _make_schedule(
+            "COMPUTE_WH",
+            datetime.time(13, 0),
+            datetime.time(23, 59),
+            True,
+            enabled=False,
+        )
+
+        # Make sure both schedules are identified as needing update
+        schedules_needing_update = update_existing_schedule(
+            orig_schedules[1].id_val, updated_schedule, orig_schedules
+        )
+        assert len(schedules_needing_update) == 2
+
+        # Capture the update(session, obj) call
+        def update(*args, **kwargs):
+            updated_obj = args[1]
+            updates.append(updated_obj)
+            return updated_obj
+
+        mock_update.side_effect = update
+
+        # Run updates on each
+        [i.update(session, i) for i in schedules_needing_update]
+
+        assert updates[0].start_at == datetime.time(0, 0)
+        assert updates[0].finish_at == datetime.time(13, 0)
+        assert updates[1].start_at == datetime.time(13, 0)
+        assert updates[1].finish_at == datetime.time(23, 59)
 
 
 @pytest.mark.parametrize(
