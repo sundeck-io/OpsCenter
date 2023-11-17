@@ -72,8 +72,17 @@ class Probe(BaseOpsCenterModel):
         return None
 
     def delete(self, session):
-        super().delete(session)
+        with transaction(session) as txn:
+            found = txn.sql(
+                f"select count(*) > 0 FROM internal.{self.table_name} WHERE name = ?",
+                params=(self.name,),
+            ).collect()[0][0]
+            if not found:
+                raise Exception(f"Query Monitor '{self.name}' not found")
+
+            super().delete(txn)
         session.call(self.on_success_proc)
+
         return None
 
     def to_row(self) -> snowpark.Row:
