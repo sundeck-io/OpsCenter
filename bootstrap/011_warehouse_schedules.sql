@@ -252,7 +252,7 @@ def run_delete(bare_session, name: str, start: datetime.time, finish: datetime.t
 $$;
 
 
-CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_WAREHOUSE_SCHEDULE(warehouse_name text, start_at time, finish_at time, weekday boolean, size text, suspend_minutes number, autoscale_mode text, autoscale_min number, autoscale_max number, auto_resume boolean, comment text)
+CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_WAREHOUSE_SCHEDULE(warehouse_name text, start_at time, finish_at time, weekday boolean, new_start_at time, new_finish_at time, size text, suspend_minutes number, autoscale_mode text, autoscale_min number, autoscale_max number, auto_resume boolean, comment text)
     RETURNS TEXT
     LANGUAGE PYTHON
     runtime_version = "3.10"
@@ -265,7 +265,7 @@ $$
 import datetime
 from crud.base import transaction
 from crud.wh_sched import WarehouseSchedules, after_schedule_change, fetch_schedules_with_defaults, update_existing_schedule
-def update_warehouse_schedule(bare_session, name: str, start: datetime.time, finish: datetime.time, is_weekday: bool, size: str, suspend_minutes: int, autoscale_mode: str, autoscale_min: int, autoscale_max: int, auto_resume: bool, comment: str):
+def update_warehouse_schedule(bare_session, name: str, start: datetime.time, finish: datetime.time, is_weekday: bool, new_start_at: datetime.time, new_finish_at: datetime.time, size: str, suspend_minutes: int, autoscale_mode: str, autoscale_min: int, autoscale_max: int, auto_resume: bool, comment: str):
     with transaction(bare_session) as session:
         # Make sure the default schedule are created.
         _ = fetch_schedules_with_defaults(session, name)
@@ -280,8 +280,8 @@ def update_warehouse_schedule(bare_session, name: str, start: datetime.time, fin
             id_val=old_schedule.id_val,
             name=name,
             size=size,
-            start_at=start,
-            finish_at=finish,
+            start_at=new_start_at,
+            finish_at=new_finish_at,
             suspend_minutes=suspend_minutes,
             warehouse_mode=autoscale_mode,
             scale_min=autoscale_min,
