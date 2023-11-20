@@ -133,6 +133,10 @@ test_cases = [
         "CALL ADMIN.UPDATE_QUERY_MONITOR('{probe}', 'new_probe_name', 'x=y and z is not null', True, 'SLACK', 'doron@sundeck.io', 'SLACK', False);",
         "Invalid query monitor condition",
     ),
+    (
+        "CALL ADMIN.DELETE_QUERY_MONITOR('Very likely not to exist');",
+        "not found",
+    ),
 ]
 
 
