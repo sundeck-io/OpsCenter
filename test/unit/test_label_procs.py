@@ -394,8 +394,10 @@ def test_migrate_predefined_labels(conn, timestamp_string):
     assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
 
     sql = "select count(*) from internal.PREDEFINED_LABELS"
-    output = row_count(conn, sql)
-    assert output > 0, "SQL output " + str(output) + " does not match expected result!"
+    num_predefined_labels = row_count(conn, sql)
+    assert (
+        num_predefined_labels > 0
+    ), f"SQL output {num_predefined_labels} does not match expected result!"
 
     # step 4: call internal.initialize_labels()
     sql = "call INTERNAL.INITIALIZE_LABELS()"
@@ -404,8 +406,10 @@ def test_migrate_predefined_labels(conn, timestamp_string):
 
     # step 5: verify rows in labels table
     sql = "select count(*) from internal.LABELS"
-    output = row_count(conn, sql)
-    assert output > 0, "SQL output " + str(output) + " does not match expected result!"
+    num_labels = row_count(conn, sql)
+    assert (
+        num_labels == num_predefined_labels
+    ), "Number of user labels did not match predefined labels"
 
     # step 6: verify flag in internal.config
     sql = "call internal.get_config('LABELS_INITED')"
@@ -420,7 +424,14 @@ def test_migrate_predefined_labels(conn, timestamp_string):
     output = str(run_sql(conn, sql))
     assert "True" in output, "SQL output" + output + " does not match expected result!"
 
-    # step 8: insert a new predefined label to PREDEFIEND_LABELS
+    # Verify that a migration does not create new labels
+    sql = "select count(*) from internal.LABELS"
+    num_labels_after_migrate = row_count(conn, sql)
+    assert (
+        num_labels == num_labels_after_migrate
+    ), "Number of user labels did not match predefined labels after what-should-be a no-op migration"
+
+    # step 8: insert a new predefined label to PREDEFINED_LABELS
     sql = "INSERT INTO INTERNAL.PREDEFINED_LABELS (name, condition, LABEL_CREATED_AT, LABEL_MODIFIED_AT) values ('NEW PREDEFINED LABEL', 'rows_produced > 50 ', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
     run_sql(conn, sql)
 
@@ -429,7 +440,7 @@ def test_migrate_predefined_labels(conn, timestamp_string):
     output = str(run_sql(conn, sql))
     assert "True" in output, "SQL output" + output + " does not match expected result!"
 
-    # step 10: verify labels table has the new added predefinend label "NEW PREDEFINED LABEL"
+    # step 10: verify labels table has the new added predefined label "NEW PREDEFINED LABEL"
     sql = "select count(*) from internal.LABELS where name = 'NEW PREDEFINED LABEL'"
     rowcount2 = row_count(conn, sql)
     assert rowcount2 == 1, (
