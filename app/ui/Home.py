@@ -4,7 +4,6 @@ import sthelp
 import permissions
 
 sthelp.chrome()
-permissions.setup_permissions()
 
 st.markdown(
     """
@@ -18,6 +17,9 @@ Snowflake account. If you want to know more about the capabilities, check them o
 Check out the items on the sidebar.
 """
 )
+
+permissions.setup_permissions()
+
 if config.has_tenant_url():
     tenant_url = config.get_tenant_url()
     st.markdown(
