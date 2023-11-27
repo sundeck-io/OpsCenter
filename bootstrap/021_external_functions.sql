@@ -337,3 +337,38 @@ begin
 
   return res;
 end;
+
+create or replace procedure admin.connect_sundeck(token text)
+    returns object
+    language sql
+    execute as owner
+as
+DECLARE
+    -- TODO should we check SYSTEM$GET_ALL_REFERENCES instead?
+    integration_ref text default (select any_value(ref_or_alias) from internal.reference_management where ref_name = 'OPSCENTER_API_INTEGRATION');
+    integration_name text default (select 'OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS');
+    deployment text default (select internal.get_sundeck_deployment());
+BEGIN
+    -- Make sure OpsCenter has been opened and the API Integration permission has been granted (and created)
+    if (integration_ref is null OR len(integration_ref) = 0) then
+        return (select object_construct('error', 'OpsCenter is not configured to communicate with Sundeck. Please open the Native App in Snowflake and approve the permission request to create the API Integration.'));
+    end if;
+
+    -- Prevent collisions of api integration name
+    if (deployment != 'prod') then
+        integration_name := (select :integration_name || '_' || current_database());
+    end if;
+
+    -- Create the scalar UDF for the Sundeck auth token (EF URL set up by the app in permissions.py)
+    execute immediate 'create or replace function internal.get_ef_token() returns string as \'\\\'' || token || '\\\'\';';
+
+    -- Create all external functions that use the API Gateway and the auth token
+    call admin.setup_external_functions('opscenter_api_integration');
+
+    -- Success!
+    return (select object_construct());
+EXCEPTION
+    WHEN OTHER THEN
+        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Failed to connect to Sundeck. Please contact Sundeck for support.', 'SQLERRM', SQLERRM, 'SQLSTATE', SQLSTATE));
+        return object_construct('error', 'Failed to connect to Sundeck. Please contact Sundeck for support.', 'SQLERRM', SQLERRM, 'SQLSTATE', SQLSTATE);
+END;

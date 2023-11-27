@@ -57,4 +57,4 @@ def get_missing_account_privileges(privilege_names: [str]) -> [str]:
 
 
 def get_reference_associations(reference_name: str):
-    return False
+    return []
