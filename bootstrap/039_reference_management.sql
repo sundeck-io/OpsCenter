@@ -11,6 +11,7 @@ create or replace procedure admin.update_reference(ref_name string, operation st
  returns string
  as $$
 begin
+  SYSTEM$LOG_INFO('Updating reference: ' || ref_name || ' operation: ' || operation || ' ref_or_alias: ' || ref_or_alias);
   case (operation)
     when 'ADD' then
        select system$set_reference(:ref_name, :ref_or_alias);

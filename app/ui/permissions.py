@@ -53,7 +53,8 @@ def setup_permissions():
             None,
         )
     if not config.up_to_date():
-        st.info("Post-upgrade tasks are running in the background...")
-        with connection.Connection.get() as conn:
+        with connection.Connection.get() as conn, st.status(
+            "Post-upgrade tasks are running in the background..."
+        ) as status:
             conn.call(f"{db}.ADMIN.FINALIZE_SETUP")
-            st.info("Upgrade successful!")
+            status.update(label="Upgrade successful!")
