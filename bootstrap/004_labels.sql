@@ -317,30 +317,48 @@ CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_LABELS(gap_in_seconds NU
 AS
 $$
 BEGIN
+    -- Count the number of predefined labels that have newer creation time than user-defined labels' modification time.
     let rowCount1 number := (
         WITH
         OLD_PREDEFINED_LABELS AS
-            (SELECT name, LABEL_CREATED_AT FROM INTERNAL.PREDEFINED_LABELS WHERE TIMESTAMPDIFF(SECOND, LABEL_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
+            (SELECT name, group_name, LABEL_CREATED_AT FROM INTERNAL.PREDEFINED_LABELS WHERE TIMESTAMPDIFF(SECOND, LABEL_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
         USER_LABELS AS
-            (SELECT name, LABEL_MODIFIED_AT FROM INTERNAL.LABELS)
+            (SELECT name, group_name, LABEL_MODIFIED_AT FROM INTERNAL.LABELS)
         SELECT count(*) from (select * from OLD_PREDEFINED_LABELS MINUS SELECT * FROM USER_LABELS) S
         );
+    -- Count the number of user-defined labels that have newer modification time than predefined labels' creation time.
     let rowCount2 number := (
         WITH
         OLD_PREDEFINED_LABELS AS
-            (SELECT name, LABEL_CREATED_AT FROM INTERNAL.PREDEFINED_LABELS WHERE TIMESTAMPDIFF(SECOND, LABEL_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
+            (SELECT name, group_name, LABEL_CREATED_AT FROM INTERNAL.PREDEFINED_LABELS WHERE TIMESTAMPDIFF(SECOND, LABEL_CREATED_AT, CURRENT_TIMESTAMP) > :gap_in_seconds),
         USER_LABELS AS
-            (SELECT name, LABEL_MODIFIED_AT FROM INTERNAL.LABELS)
+            (SELECT name, group_name, LABEL_MODIFIED_AT FROM INTERNAL.LABELS)
         SELECT count(*) from (select * from USER_LABELS MINUS SELECT * FROM OLD_PREDEFINED_LABELS) S
         );
 
+    -- If there is any difference, we treat this as the user having changed the labels, and we don't reset these labels.
     IF (rowCount1 > 0 OR rowCount2 > 0) THEN
         RETURN FALSE;
     END IF;
 
+    -- ungrouped labels
     MERGE INTO internal.labels t
-    USING internal.predefined_labels s
-    ON t.name = s.name
+    USING (
+        select * from internal.predefined_labels where name is not null
+    ) s ON t.name = s.name
+    WHEN MATCHED THEN
+    UPDATE
+        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT, t.IS_DYNAMIC = s.IS_DYNAMIC, t.ENABLED = s.ENABLED
+    WHEN NOT MATCHED THEN
+    INSERT
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
+        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT, S.IS_DYNAMIC, S.ENABLED);
+
+    -- grouped and dynamic grouped labels
+    MERGE INTO internal.labels t
+    USING (
+        select * from internal.predefined_labels where name is null
+    ) s ON t.group_name = s.group_name
     WHEN MATCHED THEN
     UPDATE
         SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT, t.IS_DYNAMIC = s.IS_DYNAMIC, t.ENABLED = s.ENABLED
