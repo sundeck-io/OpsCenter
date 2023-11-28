@@ -1,5 +1,5 @@
 
-create or replace table internal.reference_management (
+create table if not exists internal.reference_management (
     ref_name string,
     operation string,
     ref_or_alias string

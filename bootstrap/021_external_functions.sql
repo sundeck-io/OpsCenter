@@ -344,6 +344,7 @@ create or replace procedure admin.connect_sundeck(token text)
     execute as owner
 as
 DECLARE
+    -- We could also use the internal.reference_management table for OpsCenter V2, but not clear if there is value in that.
     has_api_integration boolean default (select ARRAY_SIZE(PARSE_JSON(SYSTEM$GET_ALL_REFERENCES('OPSCENTER_API_INTEGRATION'))) > 0);
     integration_name text default (select 'OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS');
     deployment text default (select internal.get_sundeck_deployment());
