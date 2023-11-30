@@ -33,13 +33,7 @@ BEGIN
         END;
     END;
 
--- Migrate the schema of internal tables
-call INTERNAL.MIGRATE_PROBES_TABLE();
-call INTERNAL.MIGRATE_LABELS_TABLE();
-call INTERNAL.MIGRATE_PREDEFINED_PROBES_TABLE();
-call INTERNAL.MIGRATE_PREDEFINED_LABELS_TABLE();
-
--- Re-generate the internal and public views
+-- Re-generate the internal and public views. These require access to the SNOWFLAKE database.
 call internal.migrate_queries();
 call internal.migrate_warehouse_events();
 call internal.migrate_view();
@@ -65,40 +59,6 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
     CALL INTERNAL.refresh_users();
-
--- create the query_hash functions in TOOLS
-call INTERNAL.ENABLE_QUERY_HASH();
-
-call INTERNAL.MIGRATE_WHSCHED_TABLE();
-
--- Populate the list of predefined labels
-call INTERNAL.POPULATE_PREDEFINED_LABELS();
-
--- Init labels using predefined_labels, if the consumer account has not call INTERNAL.INITIALIZE_LABELS, and it
--- does not have user-created labels.
-call INTERNAL.INITIALIZE_LABELS();
-
--- Migrate predefined labels to user's labels if user
--- 1) does not make any change to predefined label,
--- 2) and does not create new user label
--- after last install/upgrade of APP
--- parameter 7200 (seconds) is the timestamp difference when a predefined label is regarded as an old one.
-call INTERNAL.MIGRATE_PREDEFINED_LABELS(7200);
-
--- Populate the list of predefined probes
-call INTERNAL.POPULATE_PREDEFINED_PROBES();
-
--- Init PROBES using predefined_probes, if the consumer account has not call INTERNAL.INITIALIZE_PROBES, and it
--- does not have user-created probes.
-call INTERNAL.INITIALIZE_PROBES();
-
--- Migrate predefined probes to user's probes if user
--- 1) does not make any change to predefined probes,
--- 2) and does not create new user probe
--- after last install/upgrade of APP
--- parameter 7200 (seconds) is the timestamp difference when a predefined probe is regarded as an old one.
-call INTERNAL.MIGRATE_PREDEFINED_PROBES(7200);
-
 
 CREATE OR REPLACE TASK TASKS.PROBE_MONITORING
     SCHEDULE = '1 minute'
