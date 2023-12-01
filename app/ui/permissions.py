@@ -39,9 +39,16 @@ def setup_permissions():
         "MANAGE WAREHOUSES",
         "IMPORTED PRIVILEGES ON SNOWFLAKE DB",
     ]
+
     missing_privileges = perms.get_missing_account_privileges(privileges)
     if len(missing_privileges) > 0:
         perms.request_account_privileges(missing_privileges)
+        # We asked for privileges but may not have gotten them. Streamlit will reload the page
+        # when leaving the permissions form, so we will catch it on the second run.
+        has_account_privileges = False
+    else:
+        has_account_privileges = True
+
     if len(perms.get_reference_associations("opscenter_api_integration")) == 0:
         perms.request_aws_api_integration(
             "opscenter_api_integration",
@@ -52,6 +59,7 @@ def setup_permissions():
             api_integration_name,
             None,
         )
-    if not config.up_to_date():
+
+    if not config.up_to_date() and has_account_privileges:
         with connection.Connection.get() as conn:
             conn.call(f"{db}.ADMIN.FINALIZE_SETUP")
