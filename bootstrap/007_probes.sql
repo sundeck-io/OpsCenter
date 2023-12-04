@@ -191,7 +191,7 @@ $$
 import datetime
 from crud import create_entity
 def create_probe(session, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel):
-    return create_entity(session, 'PROBE', {'name': name, 'condition': condition, 'notify_writer': notify_writer, 'notify_writer_method': notify_writer_method, 'notify_other': notify_other, 'notify_other_method': notify_other_method, 'cancel': cancel, 'probe_created_at': datetime.datetime.now(), 'probe_modified_at': datetime.datetime.now()})
+    return create_entity(session, 'QUERY_MONITOR', {'name': name, 'condition': condition, 'notify_writer': notify_writer, 'notify_writer_method': notify_writer_method, 'notify_other': notify_other, 'notify_other_method': notify_other_method, 'cancel': cancel, 'probe_created_at': datetime.datetime.now(), 'probe_modified_at': datetime.datetime.now()})
 $$;
 
 
@@ -207,7 +207,7 @@ AS
 $$
 from crud import delete_entity
 def delete_probe(session, name):
-    return delete_entity(session, 'PROBE', name)
+    return delete_entity(session, 'QUERY_MONITOR', name)
 $$;
 
 
@@ -224,7 +224,7 @@ $$
 import datetime
 from crud import update_entity
 def update_probe(session, oldname, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel):
-    return update_entity(session, 'PROBE', oldname, {'name': name, 'condition': condition, 'notify_writer': notify_writer, 'notify_writer_method': notify_writer_method, 'notify_other': notify_other, 'notify_other_method': notify_other_method, 'cancel': cancel, 'probe_created_at': datetime.datetime.now(), 'probe_modified_at': datetime.datetime.now()})
+    return update_entity(session, 'QUERY_MONITOR', oldname, {'name': name, 'condition': condition, 'notify_writer': notify_writer, 'notify_writer_method': notify_writer_method, 'notify_other': notify_other, 'notify_other_method': notify_other_method, 'cancel': cancel, 'probe_created_at': datetime.datetime.now(), 'probe_modified_at': datetime.datetime.now()})
 $$;
 
 
