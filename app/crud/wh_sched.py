@@ -144,8 +144,8 @@ class WarehouseSchedules(BaseOpsCenterModel):
     def verify_size(cls, v):
         if not v:
             raise ValueError("Size is required")
-        assert isinstance(v, str)
-        assert v in _WAREHOUSE_SIZE_OPTIONS.keys()
+        assert isinstance(v, str), "Warehouse size should be a string"
+        assert v in _WAREHOUSE_SIZE_OPTIONS.keys(), f"Unknown warehouse size '{v}'"
         return v
 
     @validator("suspend_minutes", allow_reuse=True)
@@ -153,7 +153,7 @@ class WarehouseSchedules(BaseOpsCenterModel):
         if v is None:
             raise ValueError("Suspend minutes is required")
         assert isinstance(v, int)
-        assert v >= 0
+        assert v >= 0, "Suspend minutes must be a positive integer"
         return v
 
     @validator("resume", "weekday", "enabled", allow_reuse=True)
@@ -168,7 +168,9 @@ class WarehouseSchedules(BaseOpsCenterModel):
         if v is None:
             raise ValueError("Scale is required")
         assert isinstance(v, int)
-        assert cls.max_cluster_size >= v >= 0
+        assert (
+            cls.max_cluster_size >= v >= 0
+        ), "Scale must be between 0 and 10, inclusive"
         return v
 
     @validator("warehouse_mode", allow_reuse=True)
@@ -177,7 +179,7 @@ class WarehouseSchedules(BaseOpsCenterModel):
             raise ValueError("Warehouse mode is required")
         assert isinstance(v, str)
         cleaned = v.title()
-        assert cleaned in _WAREHOUSE_MODE_OPTIONS
+        assert cleaned in _WAREHOUSE_MODE_OPTIONS, f"Unknown warehouse mode '{cleaned}'"
         return cleaned
 
     @root_validator(allow_reuse=True)

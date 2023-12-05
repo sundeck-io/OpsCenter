@@ -3,6 +3,7 @@ import datetime
 import pandas
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 from typing import List
 from unittest.mock import patch
 from . import wh_sched
@@ -89,8 +90,18 @@ def test_basic_wh_sched():
 
 def test_bad_size_wh_sched():
     test_wh_sched = _get_wh_sched(size="Foo")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError) as info:
         _ = WarehouseSchedules.parse_obj(test_wh_sched)
+    # Check that we have a sane error message in the exception
+    assert "Unknown warehouse size" in str(info.value)
+
+
+def test_bad_mode():
+    test_wh_sched = _get_wh_sched(warehouse_mode="Foo")
+    with pytest.raises(ValidationError) as info:
+        _ = WarehouseSchedules.parse_obj(test_wh_sched)
+    # Check that we have a sane error message in the exception
+    assert "Unknown warehouse mode" in str(info.value)
 
 
 def test_bad_times_sched():
@@ -106,8 +117,13 @@ def test_bad_times_sched():
 
 def test_bad_scales():
     test_wh_sched = _get_wh_sched(scale_min=10)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as info:
         _ = WarehouseSchedules.parse_obj(test_wh_sched)
+
+    test_wh_sched = _get_wh_sched(scale_max=15)
+    with pytest.raises(ValueError) as info:
+        _ = WarehouseSchedules.parse_obj(test_wh_sched)
+    assert "be between 0 and 10" in str(info.value)
 
 
 def test_streamlit_values_without_autoscaling():
