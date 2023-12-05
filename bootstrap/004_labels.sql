@@ -380,8 +380,8 @@ CREATE OR REPLACE PROCEDURE INTERNAL.REMOVE_DUPLICATE_LABELS()
 AS
 $$
 BEGIN
+    create or replace table internal.labels2 like internal.labels;
     begin transaction;
-        create or replace table internal.labels2 like internal.labels;
         -- Migrate ungrouped labels
         insert into internal.labels2
           select * exclude rn from (
@@ -395,11 +395,13 @@ BEGIN
               from internal.labels where group_name is not null)
           where rn = 1;
 
-        -- Swap the original table with the deduplicated table
-        -- alter table ... swap with ... appears to not work in setup script.
-        alter table internal.labels swap with internal.labels2;
-        drop table if exists internal.labels2;
+        -- alter table does not appear to work as we intend in the setup script. We're writing these rows
+        -- twice, but this is a negligible amount of data that will only be rewritten upgrade.
+        truncate table internal.labels;
+        insert into internal.labels select * from internal.labels2;
     commit;
+
+    drop table if exists internal.labels2;
 END;
 $$;
 
