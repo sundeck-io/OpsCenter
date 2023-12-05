@@ -334,7 +334,7 @@ BEGIN
       where rn = 1;
     -- Swap the original table with the deduplicated table
     alter table internal.labels swap with internal.labels2;
-    -- Drop the new table
+    -- Drop the temp table
     drop table internal.labels2;
 END;
 $$;
@@ -347,27 +347,6 @@ CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_LABELS(gap_in_seconds NU
 AS
 $$
 BEGIN
-    -- Fix any duplicate labels which were incorrectly created in the past.
-    begin
-      create or replace table internal.labels2 like internal.labels;
-      -- Migrate ungrouped labels
-      insert into internal.labels2
-        select * exclude rn from (
-            select *, row_number() over (partition by name order by name) as rn
-            from internal.labels where group_name is null)
-        where rn = 1;
-      -- Migrated grouped and dynamic grouped labels
-      insert into internal.labels2
-        select * exclude rn from (
-            select *, row_number() over (partition by group_name, name order by group_name, name) as rn
-            from internal.labels where group_name is not null)
-        where rn = 1;
-      -- Swap the original table with the deduplicated table
-      alter table internal.labels swap with internal.labels2;
-      -- Drop the new table
-      drop table internal.labels2;
-    end;
-
     -- Count the number of predefined labels that have newer creation time than user-defined labels' modification time.
     let rowCount1 number := (
         WITH

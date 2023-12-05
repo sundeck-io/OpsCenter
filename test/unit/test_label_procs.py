@@ -563,6 +563,13 @@ def test_fixes_duplicate_labels(conn, timestamp_string):
         num_predefined_labels + 2 == num_labels_after_migrate
     ), "Duplicate labels should have been removed"
 
+    grp_count = row_count(
+        conn, f"select count(*) from internal.labels where group_name = '{group_name}'"
+    )
+    assert (
+        grp_count == 2
+    ), f"Should have two grouped labels with group name '{group_name}'"
+
     # Cleanup for the next test
     sql = "truncate table internal.labels"
     assert "successfully" in str(
