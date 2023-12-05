@@ -310,6 +310,36 @@ $$
     insert into internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC") select name, group_name, group_rank, label_created_at, condition, label_modified_at, IS_DYNAMIC from internal.predefined_labels where name not in (select name from internal.labels);
 $$;
 
+
+CREATE OR REPLACE PROCEDURE INTERNAL.REMOVE_DUPLICATE_LABELS()
+    RETURNS STRING
+    LANGUAGE SQL
+    EXECUTE AS OWNER
+AS
+$$
+BEGIN
+    -- Fix any duplicate labels which were incorrectly created in the past.
+    create or replace table internal.labels2 like internal.labels;
+    -- Migrate ungrouped labels
+    insert into internal.labels2
+      select * exclude rn from (
+          select *, row_number() over (partition by name order by name) as rn
+          from internal.labels where group_name is null)
+      where rn = 1;
+    -- Migrated grouped and dynamic grouped labels
+    insert into internal.labels2
+      select * exclude rn from (
+          select *, row_number() over (partition by group_name, name order by group_name, name) as rn
+          from internal.labels where group_name is not null)
+      where rn = 1;
+    -- Swap the original table with the deduplicated table
+    alter table internal.labels swap with internal.labels2;
+    -- Drop the new table
+    drop table internal.labels2;
+END;
+$$;
+
+
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_LABELS(gap_in_seconds NUMBER)
     RETURNS BOOLEAN
     LANGUAGE SQL
@@ -317,6 +347,27 @@ CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_PREDEFINED_LABELS(gap_in_seconds NU
 AS
 $$
 BEGIN
+    -- Fix any duplicate labels which were incorrectly created in the past.
+    begin
+      create or replace table internal.labels2 like internal.labels;
+      -- Migrate ungrouped labels
+      insert into internal.labels2
+        select * exclude rn from (
+            select *, row_number() over (partition by name order by name) as rn
+            from internal.labels where group_name is null)
+        where rn = 1;
+      -- Migrated grouped and dynamic grouped labels
+      insert into internal.labels2
+        select * exclude rn from (
+            select *, row_number() over (partition by group_name, name order by group_name, name) as rn
+            from internal.labels where group_name is not null)
+        where rn = 1;
+      -- Swap the original table with the deduplicated table
+      alter table internal.labels swap with internal.labels2;
+      -- Drop the new table
+      drop table internal.labels2;
+    end;
+
     -- Count the number of predefined labels that have newer creation time than user-defined labels' modification time.
     let rowCount1 number := (
         WITH

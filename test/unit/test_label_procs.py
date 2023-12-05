@@ -482,3 +482,97 @@ def test_migrate_predefined_labels(conn, timestamp_string):
 
     sql = "delete from internal.config where KEY = 'LABELS_INITED'"
     run_sql(conn, sql)
+
+
+def test_fixes_duplicate_labels(conn, timestamp_string):
+    # clean up the labels table and predefined_labels table
+    sql = "truncate table internal.labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "truncate table internal.predefined_labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "delete from internal.config where KEY = 'LABELS_INITED'"
+    run_sql(conn, sql)
+
+    # Populate predefined_labels table, make sure we have some predefined_labels
+    sql = "CALL INTERNAL.POPULATE_PREDEFINED_LABELS();"
+    assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
+
+    sql = "select count(*) from internal.PREDEFINED_LABELS"
+    num_predefined_labels = row_count(conn, sql)
+    assert (
+        num_predefined_labels > 0
+    ), f"SQL output {num_predefined_labels} does not match expected result!"
+
+    # Copy the predefined labels into the labels table
+    sql = "call INTERNAL.INITIALIZE_LABELS()"
+    output = str(run_sql(conn, sql))
+    assert "True" in output, "SQL output" + output + " does not match expected result!"
+
+    # verify the number of rows in labels table
+    sql = "select count(*) from internal.LABELS"
+    num_labels = row_count(conn, sql)
+    assert (
+        num_labels == num_predefined_labels
+    ), "Number of user labels did not match predefined labels"
+
+    # Create some grouped labels
+    group_name = generate_unique_name("group", timestamp_string)
+    assert (
+        run_proc(
+            conn,
+            f"call ADMIN.CREATE_LABEL('l1', '{group_name}', 50, 'query_type = \\'SELECT\\'');",
+        )
+        is None
+    ), "did not create grouped label"
+    assert (
+        run_proc(
+            conn,
+            f"call ADMIN.CREATE_LABEL('l2', '{group_name}', 60, 'query_type = \\'INSERT\\'');",
+        )
+        is None
+    ), "did not create grouped label"
+
+    # Insert duplicate grouped labels
+    num_inserts = row_count(
+        conn,
+        "INSERT INTO INTERNAL.LABELS SELECT * FROM INTERNAL.LABELS WHERE GROUP_NAME IS NOT NULL",
+    )
+    assert num_inserts > 0, "Should have created some duplicates"
+
+    # Insert duplicate ungrouped labels
+    num_inserts = row_count(
+        conn,
+        "INSERT INTO INTERNAL.LABELS SELECT * FROM INTERNAL.LABELS WHERE GROUP_NAME IS NULL",
+    )
+    assert num_inserts > 0, "Should have created some duplicates"
+
+    # Call migrate_predefined_labels which should remove any duplicate from internal.labels
+    sql = "call INTERNAL.REMOVE_DUPLICATE_LABELS()"
+    output = run_proc(conn, sql)
+    assert output is None, "failed to remove duplicate labels"
+
+    # Verify migration removed duplicates (num predefined labels + two grouped labels made)
+    num_labels_after_migrate = row_count(conn, "select count(*) from internal.LABELS")
+    assert (
+        num_predefined_labels + 2 == num_labels_after_migrate
+    ), "Duplicate labels should have been removed"
+
+    # Cleanup for the next test
+    sql = "truncate table internal.labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "truncate table internal.predefined_labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "delete from internal.config where KEY = 'LABELS_INITED'"
+    run_sql(conn, sql)

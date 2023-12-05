@@ -21,6 +21,8 @@ call INTERNAL.POPULATE_PREDEFINED_LABELS();
 -- does not have user-created labels.
 call INTERNAL.INITIALIZE_LABELS();
 
+call INTERNAL.REMOVE_DUPLICATE_LABELS();
+
 -- Migrate predefined labels to user's labels if user
 -- 1) does not make any change to predefined label,
 -- 2) and does not create new user label
