@@ -9,6 +9,7 @@ from .wh_sched import WarehouseSchedules, WarehouseAlterStatements
 _TYPES = {
     "LABEL": Label,
     "PROBE": Probe,
+    "QUERY_MONITOR": Probe,
     "WAREHOUSE_SCHEDULES": WarehouseSchedules,
     "WAREHOUSE_ALTER_STATEMENTS": WarehouseAlterStatements,
 }
