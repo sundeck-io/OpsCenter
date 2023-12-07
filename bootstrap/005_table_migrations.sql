@@ -86,6 +86,7 @@ BEGIN
     call INTERNAL.create_view_enriched_query_history_daily();
     call INTERNAL.create_view_enriched_query_history_hourly();
     call INTERNAL.UPDATE_LABEL_VIEW();
+    call internal.update_dbt_view();
     return 'Success';
 END;
 

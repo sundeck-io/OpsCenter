@@ -68,3 +68,39 @@ when bytes_spilled_local >  5 * 1000000000 and bytes_spilled_remote = 0  then 'P
 else 'VeryPoor'
 end
 $$;
+
+create or replace procedure internal.update_dbt_view()
+returns varchar
+language sql
+as
+$$
+create or replace view reporting.dbt_history as
+select
+        query_text,
+        query_id,
+        cost,
+        start_time,
+        warehouse_name,
+        warehouse_size,
+        warehouse_id,
+        user_name,
+        total_elapsed_time,
+        end_time,
+        qtag,
+        query_type,
+        tools.model_run_time(total_elapsed_time) as run_time_Grade,
+        tools.model_size(tools.model_size_rows(zeroifnull(rows_produced)),          tools.model_size_bytes(bytes_written_to_result)) as size_grade,
+        tools.model_efficiency(bytes_spilled_to_local_storage, bytes_spilled_to_remote_storage) as efficiency_grade,
+        tools.qtag_value(qtag_filter, 'dbt', 'invocation_id') as invocation_id,
+        tools.qtag_value(qtag_filter, 'dbt', 'materialized') as materialized,
+        tools.qtag_value(qtag_filter, 'dbt', 'node_name') as node_name,
+        tools.qtag_value(qtag_filter, 'dbt', 'target_schema') as target_schema,
+        tools.qtag_value(qtag_filter, 'dbt', 'target_database') as target_database,
+        tools.qtag_value(qtag_filter, 'dbt', 'project_name') as project_name,
+        coalesce(tools.qtag_value(qtag_filter, 'dbt', 'full_refresh'), tools.qtag_value(qtag_filter, 'undefined', 'full_refresh')) as full_refresh,
+        coalesce(tools.qtag_value(qtag_filter, 'dbt', 'which'), tools.qtag_value(qtag_filter, 'undefined', 'which')) as which,
+        tools.qtag_value(qtag_filter, 'dbt', 'node_refs') as node_refs
+    from reporting.labeled_query_history
+    where
+        tools.qtag_exists(qtag_filter, 'dbt', 'invocation_id');
+$$;
