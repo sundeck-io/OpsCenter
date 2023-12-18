@@ -242,6 +242,7 @@ class PredefinedLabel(Label):
             columns={col_name: col_name.lower() for col_name in df.axes[1]},
             inplace=True,
         )
+        df["label_id"] = "predefined"
         for row in df.to_dict(orient="records"):
             # Validate each predefined label
             _ = Label.parse_obj(row)
