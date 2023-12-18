@@ -400,7 +400,7 @@ BEGIN
           select label_id, row_number() over (partition by label_id order by label_id) as rn from internal.labels
     ) x
 
-          where x.rn <> 1 and t.label_id = x.label_id;
+          where x.rn = 1 and t.label_id = x.label_id;
 
 END;
 $$;
