@@ -216,8 +216,9 @@ CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text
 $$
 from crud import update_entity
 from datetime import datetime
+from uuid import uuid4
 def update_label(session, old_name, name, grp, rank, condition, is_dynamic):
-    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now()})
+    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now(), 'label_id': str(uuid4())})
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text)
@@ -232,8 +233,9 @@ CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text
 $$
 from crud import update_entity
 from datetime import datetime
+from uuid import uuid4
 def update_label(session, old_name, name, grp, rank, condition):
-    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': False, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now()})
+    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': False, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now(), 'label_id': str(uuid4())})
 $$;
 
 CREATE OR REPLACE VIEW CATALOG.LABELS AS SELECT * FROM INTERNAL.LABELS;

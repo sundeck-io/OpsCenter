@@ -3,6 +3,7 @@ from datetime import datetime
 import math
 import pandas as pd
 from .labels import Label
+from uuid import uuid4
 
 
 def _get_label(
@@ -19,6 +20,7 @@ def _get_label(
         label_created_at=datetime.now(),
         enabled=True,
         is_dynamic=dynamic,
+        label_id=str(uuid4()),
     )
     if dynamic:
         del d["name"]
@@ -119,7 +121,7 @@ def test_create_table(session):
         """create table if not exists internal.labels
         (name string null, group_name string null, group_rank number null,
         label_created_at timestamp, condition string, enabled boolean, label_modified_at timestamp,
-        is_dynamic boolean)""".split()
+        is_dynamic boolean, label_id string)""".split()
     ), "Expected create table statement, got {}".format(session._sql[0])
     assert (
         session._sql[1].lower()
@@ -138,6 +140,7 @@ def test_from_pandas():
             "enabled": True,
             "label_modified_at": pd.Timestamp("2023-09-20 09:55:43.469000"),
             "is_dynamic": True,
+            "label_id": str(uuid4()),
         }
     )
 

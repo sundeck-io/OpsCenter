@@ -28,10 +28,12 @@ class Label(BaseOpsCenterModel):
     label_id: str
 
     def get_id_col(self) -> str:
-        return "LABEL_ID"
+        # todo update after we add the id column
+        return "name" if self.name else "group_name"
 
     def get_id(self) -> str:
-        return self.label_id
+        # todo update after we add the id column
+        return self.name if self.name else self.group_name
 
     def delete(self, session):
         with transaction(session) as txn:
