@@ -541,14 +541,14 @@ def test_fixes_duplicate_labels(conn, timestamp_string):
     # Insert duplicate grouped labels
     num_inserts = row_count(
         conn,
-        "INSERT INTO INTERNAL.LABELS SELECT * FROM INTERNAL.LABELS WHERE GROUP_NAME IS NOT NULL",
+        "INSERT INTO INTERNAL.LABELS SELECT *,uuid_string() as label_id FROM (select * exclude (label_id) from INTERNAL.LABELS) WHERE GROUP_NAME IS NOT NULL",
     )
     assert num_inserts > 0, "Should have created some duplicates"
 
     # Insert duplicate ungrouped labels
     num_inserts = row_count(
         conn,
-        "INSERT INTO INTERNAL.LABELS SELECT * FROM INTERNAL.LABELS WHERE GROUP_NAME IS NULL",
+        "INSERT INTO INTERNAL.LABELS SELECT *,uuid_string() as label_id FROM (select * exclude (label_id) from INTERNAL.LABELS) WHERE GROUP_NAME IS NULL",
     )
     assert num_inserts > 0, "Should have created some duplicates"
 

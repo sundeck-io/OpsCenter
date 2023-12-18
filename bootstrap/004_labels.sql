@@ -2,7 +2,7 @@
 -- we should remove this and the other creaste statement in favour of driving the creation of htese tables from the python model
 CREATE TABLE INTERNAL.LABELS if not exists (name string, group_name string null, group_rank number, label_created_at timestamp, condition string, enabled boolean, label_modified_at timestamp, is_dynamic boolean, label_id string);
 
-CREATE TABLE INTERNAL.PREDEFINED_LABELS if not exists (name string, group_name string null, group_rank number, label_created_at timestamp, condition string, enabled boolean, label_modified_at timestamp, is_dynamic boolean, label_id string);
+CREATE TABLE INTERNAL.PREDEFINED_LABELS if not exists (name string, group_name string null, group_rank number, label_created_at timestamp, condition string, enabled boolean, label_modified_at timestamp, is_dynamic boolean);
 
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_LABELS_TABLE()
 RETURNS OBJECT
@@ -53,12 +53,6 @@ BEGIN
     IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PREDEFINED_LABELS' AND COLUMN_NAME = 'IS_DYNAMIC')) THEN
         ALTER TABLE INTERNAL.PREDEFINED_LABELS ADD COLUMN IS_DYNAMIC BOOLEAN;
         UPDATE INTERNAL.PREDEFINED_LABELS SET IS_DYNAMIC = FALSE WHERE IS_DYNAMIC IS NULL;
-    END IF;
-
-    -- Add unique id column
-    IF (NOT EXISTS(SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'INTERNAL' AND TABLE_NAME = 'PREDEFINED_LABELS' AND COLUMN_NAME = 'LABEL_ID')) THEN
-        ALTER TABLE INTERNAL.PREDEFINED_LABELS ADD COLUMN LABEL_ID STRING;
-        UPDATE INTERNAL.PREDEFINED_LABELS SET LABEL_ID = UUID_STRING() WHERE LABEL_ID IS NULL;
     END IF;
 
     -- Set ENABLED=TRUE for all labels, until we have a use-case where labels can be disabled.
@@ -170,7 +164,7 @@ BEGIN
         RETURN FALSE;
     ELSE
         INSERT INTO INTERNAL.LABELS (NAME, GROUP_NAME, GROUP_RANK, LABEL_CREATED_AT, CONDITION, ENABLED, LABEL_MODIFIED_AT, IS_DYNAMIC, LABEL_ID)
-            SELECT NAME, GROUP_NAME, GROUP_RANK, LABEL_CREATED_AT, CONDITION, ENABLED, LABEL_CREATED_AT, IS_DYNAMIC, LABEL_ID
+            SELECT NAME, GROUP_NAME, GROUP_RANK, LABEL_CREATED_AT, CONDITION, ENABLED, LABEL_CREATED_AT, IS_DYNAMIC, UUID_STRING()
             FROM INTERNAL.PREDEFINED_LABELS;
         CALL INTERNAL.SET_CONFIG('LABELS_INITED', 'True');
         SYSTEM$LOG_INFO('Predefined labels are imported into LABELS table. \n');
@@ -274,8 +268,8 @@ BEGIN
             T.IS_DYNAMIC = FALSE, T.ENABLED = TRUE
     WHEN NOT MATCHED THEN
     INSERT
-        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED", "LABEL_ID")
-        VALUES (s.name, NULL, NULL,  current_timestamp(), s.condition, current_timestamp(), FALSE, TRUE, UUID_STRING());
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
+        VALUES (s.name, NULL, NULL,  current_timestamp(), s.condition, current_timestamp(), FALSE, TRUE);
 
     -- populate for dynamic labels
     MERGE INTO internal.predefined_labels t
@@ -292,8 +286,8 @@ BEGIN
             T.IS_DYNAMIC = TRUE, T.ENABLED = TRUE
     WHEN NOT MATCHED THEN
     INSERT
-        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED", "LABEL_ID")
-        VALUES (NULL, s.group_name, NULL,  current_timestamp(), s.condition, current_timestamp(), TRUE, TRUE, UUID_STRING());
+        ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED")
+        VALUES (NULL, s.group_name, NULL,  current_timestamp(), s.condition, current_timestamp(), TRUE, TRUE);
 
     RETURN NULL;
 EXCEPTION
@@ -322,7 +316,7 @@ LANGUAGE SQL
 EXECUTE AS OWNER
 AS
 $$
-    insert into internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "LABEL_ID") select name, group_name, group_rank, label_created_at, condition, label_modified_at, IS_DYNAMIC, LABEL_ID from internal.predefined_labels where name not in (select name from internal.labels);
+    insert into internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "LABEL_ID") select name, group_name, group_rank, label_created_at, condition, label_modified_at, IS_DYNAMIC, UUID_STRING() from internal.predefined_labels where name not in (select name from internal.labels);
 $$;
 
 
@@ -364,11 +358,11 @@ BEGIN
     ) s ON t.name = s.name
     WHEN MATCHED THEN
     UPDATE
-        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT, t.IS_DYNAMIC = s.IS_DYNAMIC, t.ENABLED = s.ENABLED, t.LABEL_ID = s.LABEL_ID
+        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT, t.IS_DYNAMIC = s.IS_DYNAMIC, t.ENABLED = s.ENABLED
     WHEN NOT MATCHED THEN
     INSERT
         ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED", "LABEL_ID")
-        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT, S.IS_DYNAMIC, S.ENABLED, S.LABEL_ID);
+        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT, S.IS_DYNAMIC, S.ENABLED, UUID_STRING());
 
     -- grouped and dynamic grouped labels
     MERGE INTO internal.labels t
@@ -377,11 +371,11 @@ BEGIN
     ) s ON t.group_name = s.group_name
     WHEN MATCHED THEN
     UPDATE
-        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT, t.IS_DYNAMIC = s.IS_DYNAMIC, t.ENABLED = s.ENABLED, t.LABEL_ID=s.LABEL_ID
+        SET t.GROUP_NAME = s.GROUP_NAME, t.GROUP_RANK = s.GROUP_RANK, t.CONDITION = s.condition, t.LABEL_MODIFIED_AT = s.LABEL_CREATED_AT, t.IS_DYNAMIC = s.IS_DYNAMIC, t.ENABLED = s.ENABLED
     WHEN NOT MATCHED THEN
     INSERT
         ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "ENABLED", "LABEL_ID")
-        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT, S.IS_DYNAMIC, S.ENABLED, S.LABEL_ID);
+        VALUES (s.name, s.GROUP_NAME, s.GROUP_RANK,  S.LABEL_CREATED_AT, s.condition, S.LABEL_CREATED_AT, S.IS_DYNAMIC, S.ENABLED, UUID_STRING());
 
     return TRUE;
 END;
@@ -396,18 +390,21 @@ AS
 $$
 BEGIN
         -- Migrate ungrouped labels
-        delete from internal.labels t using (
-          select label_id, row_number() over (partition by label_id order by label_id) as rn from internal.labels
-    ) x
+        delete from internal.labels t using(
+          select name, label_id, row_number() over (partition by name order by label_id) as rn from internal.labels where group_name is null
+          ) s where s.name = t.name and t.group_name is null and s.label_id != t.label_id and s.rn > 1;
 
-          where x.rn = 1 and t.label_id = x.label_id;
+        -- Migrate grouped labels
+        delete from internal.labels t using(
+          select name, group_name, label_id, row_number() over (partition by name, group_name order by label_id) as rn from internal.labels where group_name is not null
+          ) s where (s.name = t.name or t.name is null) and t.group_name =s.group_name and s.label_id != t.label_id and s.rn > 1;
 
 END;
 $$;
 
 -- Delete any duplicate labels from a previous bugfix. Run this ASAP to prevent any future code from failing because
 -- we happen to have latent duplicated labels.
-call INTERNAL.REMOVE_DUPLICATE_LABELS();
+-- call INTERNAL.REMOVE_DUPLICATE_LABELS();
 
 -- Remove any outdated objects
 DROP PROCEDURE IF EXISTS INTERNAL.VALIDATE_LABEL_CONDITION(string, string);

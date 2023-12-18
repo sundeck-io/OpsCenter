@@ -25,12 +25,13 @@ class Label(BaseOpsCenterModel):
     enabled: bool = True
     label_modified_at: datetime.datetime  # todo should this have a default?
     is_dynamic: bool = False
+    label_id: str
 
     def get_id_col(self) -> str:
-        return "name" if self.name else "group_name"
+        return "LABEL_ID"
 
     def get_id(self) -> str:
-        return self.name if self.name else self.group_name
+        return self.label_id
 
     def delete(self, session):
         with transaction(session) as txn:
