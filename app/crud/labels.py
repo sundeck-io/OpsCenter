@@ -25,11 +25,14 @@ class Label(BaseOpsCenterModel):
     enabled: bool = True
     label_modified_at: datetime.datetime  # todo should this have a default?
     is_dynamic: bool = False
+    label_id: str
 
     def get_id_col(self) -> str:
+        # todo update after we add the id column
         return "name" if self.name else "group_name"
 
     def get_id(self) -> str:
+        # todo update after we add the id column
         return self.name if self.name else self.group_name
 
     def delete(self, session):
@@ -239,6 +242,7 @@ class PredefinedLabel(Label):
             columns={col_name: col_name.lower() for col_name in df.axes[1]},
             inplace=True,
         )
+        df["label_id"] = "predefined"
         for row in df.to_dict(orient="records"):
             # Validate each predefined label
             _ = Label.parse_obj(row)
