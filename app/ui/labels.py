@@ -1,6 +1,7 @@
 import datetime
 
 import pydantic
+import uuid
 import streamlit as st
 from connection import Connection
 import session as general_session
@@ -189,6 +190,7 @@ class Label:
                     obj = ModelLabel.parse_obj(
                         {
                             "name": name,
+                            "label_id": str(uuid.uuid4()),
                             "condition": condition,
                             "group_rank": rank,
                             "group_name": group,
@@ -234,6 +236,7 @@ class Label:
                         {
                             "old_name": oldname,
                             "name": name,
+                            "label_id": str(uuid.uuid4()),
                             "condition": condition,
                             "group_rank": rank,
                             "group_name": group,
