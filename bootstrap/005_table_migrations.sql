@@ -25,43 +25,52 @@ BEGIN
       RAISE TABLE_NOT_EXISTS;
   END IF;
 
-  -- Super important that the columns to add are generated in the same order as the view. This ordering is pivotal for
-	-- the migration algorithm to successfully function and make sure the multiple materialized views in
-	-- INTERNAL_REPORTING_MV have the same schema (and can be UNION'ed together).
-  let columns_to_add string := (
-      SELECT LISTAGG('"' || COLUMN_NAME || '" ' || DATA_TYPE, ', ') WITHIN GROUP (ORDER BY ORDINAL_POSITION)
-      FROM (
-      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
-      MINUS
-      SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
-      )
+  let alter_statement string := 'ALTER TABLE "' || :table_schema || '"."' || :table_name || '"';
 
-      );
+  let alter_table_drop_column string := '';
 
   -- Any columns which exist in the table but not in the view should be dropped, regardless of the ordinal_position.
   let columns_to_drop string := (
       SELECT LISTAGG('"' || COLUMN_NAME || '" ' , ', ')
       FROM (
-      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
+      SELECT COLUMN_NAME, DATA_TYPE, ROW_NUMBER() OVER (ORDER BY ORDINAL_POSITION) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
       MINUS
-      SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
+      SELECT COLUMN_NAME, DATA_TYPE, ROW_NUMBER() OVER (ORDER BY ORDINAL_POSITION) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
       )
+  );
 
-      );
-
-  let alter_statement string := 'ALTER TABLE "' || :table_schema || '"."' || :table_name || '"';
-
-  let alter_table_add_column string := '';
-  let alter_table_drop_column string := '';
-
-  if (columns_to_add <> '') then
-    alter_table_add_column := ' ADD ' || columns_to_add;
-    execute immediate alter_statement || alter_table_add_column;
-  end if;
-
+  -- Drop those columns first to avoid automatic re-creation of misordered columns
   if (columns_to_drop <> '') then
+    SYSTEM$LOG_INFO('Will drop columns from ' || :table_schema || '.' || :table_name || ': ' || columns_to_drop);
     alter_table_drop_column := ' DROP ' || columns_to_drop;
     execute immediate alter_statement || alter_table_drop_column;
+  end if;
+
+  -- Super important that the columns to add are generated in the same order as the view. This ordering is pivotal for
+  -- the migration algorithm to successfully function and make sure the multiple materialized views in
+  -- INTERNAL_REPORTING_MV have the same schema (and can be UNION'ed together).
+  -- We cannot, however, rely on the discrete ORDINAL_POSITION values because (due to previous bugs) we cannot guarantee
+  -- that we have the same actual values for ORDINAL_POSITION. The goal after we drop and add columns is that the order
+  -- of column_name are the same between the view and the table.
+  let columns_to_add string := (
+      -- we want to compare the columns in the ordering that ORDINAL_POSITION indicates, not the discrete values of ORDINAL_POSITION
+      with view_columns as (
+          SELECT COLUMN_NAME, DATA_TYPE, ROW_NUMBER() OVER (ORDER BY ORDINAL_POSITION) as rn FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :view_schema AND TABLE_NAME = :view_name
+      ), table_columns as (
+          SELECT COLUMN_NAME, DATA_TYPE, ROW_NUMBER() OVER (ORDER BY ORDINAL_POSITION) as rn FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = :table_schema AND TABLE_NAME = :table_name
+      ), cols_to_add as (
+          select * from view_columns
+            MINUS
+          select * from table_columns
+      ) SELECT LISTAGG('"' || COLUMN_NAME || '" ' || DATA_TYPE, ', ') within group (order by rn) from cols_to_add
+  );
+
+  let alter_table_add_column string := '';
+
+  if (columns_to_add <> '') then
+    SYSTEM$LOG_INFO('Will add columns to ' || :table_schema || '.' || :table_name || ': ' || columns_to_add);
+    alter_table_add_column := ' ADD ' || columns_to_add;
+    execute immediate alter_statement || alter_table_add_column;
   end if;
 
   if (columns_to_add <> '' OR columns_to_drop <> '') then
