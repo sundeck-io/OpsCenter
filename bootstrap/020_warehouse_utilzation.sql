@@ -9,14 +9,15 @@ select
     SUM(unloaded_direct_compute_credits) AS UNLOADED_COMPUTE_CREDITS
 from REPORTING.ENRICHED_QUERY_HISTORY_DAILY
 where END_TIME < timestampadd(minute, -180, current_timestamp) 
+AND NOT internal.is_serverless_warehouse(WAREHOUSE_NAME)
 GROUP BY 1,2,3
 ),
 WAREHOUSE_PERIODIC AS (
 select DATE_TRUNC('day', START_TIME) AS M_PERIOD, WAREHOUSE_ID, SUM(CREDITS_USED_COMPUTE) AS LOADED_COMPUTE_CREDITS, SUM(CREDITS_USED_CLOUD_SERVICES) AS WAREHOUSE_CLOUD_CREDITS, SUM(CREDITS_USED_COMPUTE) + SUM(CREDITS_USED_CLOUD_SERVICES) AS TOTAL_CREDITS, TOTAL_CREDITS * INTERNAL.GET_CREDIT_COST() AS COST
 FROM ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
 GROUP BY M_PERIOD, WAREHOUSE_ID, WAREHOUSE_NAME
-UNION ALL
-select date_trunc('day', start_time), -1, sum(credits_used), 0, sum(credits_used), sum(credits_used) * INTERNAL.GET_SERVERLESS_CREDIT_COST() from account_usage.serverless_task_history group by 1
+--UNION ALL
+--select date_trunc('day', start_time), -1, sum(credits_used), 0, sum(credits_used), sum(credits_used) * INTERNAL.GET_SERVERLESS_CREDIT_COST() from account_usage.serverless_task_history group by 1
 )
 select
     COALESCE(ST_PERIOD, M_PERIOD) AS PERIOD,
