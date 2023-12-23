@@ -3,20 +3,21 @@ CREATE OR REPLACE VIEW REPORTING.WAREHOUSE_DAILY_UTILIZATION AS
 with QUERY_WH_UTIL AS (
 select
     ST_PERIOD,
-    case when internal.is_serverless_warehouse(warehouse_id) then 'Serverless Task' else WAREHOUSE_NAME end as WAREHOUSE_NAME,
-    case when internal.is_serverless_warehouse(warehouse_id) then -1 else WAREHOUSE_ID end as WAREHOUSE_ID,
+    case when internal.is_serverless_warehouse(WAREHOUSE_NAME) then 'Serverless Task' else WAREHOUSE_NAME end as WAREHOUSE_NAME,
+    case when internal.is_serverless_warehouse(WAREHOUSE_NAME) then -1 else WAREHOUSE_ID end as WAREHOUSE_ID,
     COUNT(*) AS QUERIES_EXECUTED,
     SUM(unloaded_direct_compute_credits) AS UNLOADED_COMPUTE_CREDITS
 from REPORTING.ENRICHED_QUERY_HISTORY_DAILY
-WHERE NOT INTERNAL.IS_SERVERLESS_WAREHOUSE(WAREHOUSE_ID)
-GROUP BY ST_PERIOD, WAREHOUSE_ID, WAREHOUSE_NAME
+where END_TIME < timestampadd(minute, -180, current_timestamp)
+AND NOT internal.is_serverless_warehouse(WAREHOUSE_NAME)
+GROUP BY 1,2,3
 ),
 WAREHOUSE_PERIODIC AS (
 select DATE_TRUNC('day', START_TIME) AS M_PERIOD, WAREHOUSE_ID, SUM(CREDITS_USED_COMPUTE) AS LOADED_COMPUTE_CREDITS, SUM(CREDITS_USED_CLOUD_SERVICES) AS WAREHOUSE_CLOUD_CREDITS, SUM(CREDITS_USED_COMPUTE) + SUM(CREDITS_USED_CLOUD_SERVICES) AS TOTAL_CREDITS, TOTAL_CREDITS * INTERNAL.GET_CREDIT_COST() AS COST
 FROM ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
 GROUP BY M_PERIOD, WAREHOUSE_ID, WAREHOUSE_NAME
-UNION ALL
-select date_trunc('day', start_time), -1, sum(credits_used), 0, sum(credits_used), sum(credits_used) * INTERNAL.GET_SERVERLESS_CREDIT_COST() from account_usage.serverless_task_history group by 1
+--UNION ALL
+--select date_trunc('day', start_time), -1, sum(credits_used), 0, sum(credits_used), sum(credits_used) * INTERNAL.GET_SERVERLESS_CREDIT_COST() from account_usage.serverless_task_history group by 1
 )
 select
     COALESCE(ST_PERIOD, M_PERIOD) AS PERIOD,
@@ -36,6 +37,7 @@ FROM
     FULL OUTER JOIN WAREHOUSE_PERIODIC ON QUERY_WH_UTIL.WAREHOUSE_ID = WAREHOUSE_PERIODIC.WAREHOUSE_ID AND ST_PERIOD = M_PERIOD;
 ;
 
+-- NOTE that this query does not include serverless tasks
 CREATE OR REPLACE VIEW REPORTING.WAREHOUSE_HOURLY_UTILIZATION AS
 with QUERY_WH_UTIL AS (
 select
@@ -45,7 +47,7 @@ select
     COUNT(*) AS QUERIES_EXECUTED,
     SUM(unloaded_direct_compute_credits) AS UNLOADED_COMPUTE_CREDITS
 from REPORTING.ENRICHED_QUERY_HISTORY_HOURLY
-WHERE NOT INTERNAL.IS_SERVERLESS_WAREHOUSE(WAREHOUSE_ID)
+WHERE NOT INTERNAL.IS_SERVERLESS_WAREHOUSE(WAREHOUSE_NAME)
 GROUP BY ST_PERIOD, WAREHOUSE_ID, WAREHOUSE_NAME
 ),
 WAREHOUSE_PERIODIC AS (
