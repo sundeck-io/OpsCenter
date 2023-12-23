@@ -8,7 +8,7 @@ select
     COUNT(*) AS QUERIES_EXECUTED,
     SUM(unloaded_direct_compute_credits) AS UNLOADED_COMPUTE_CREDITS
 from REPORTING.ENRICHED_QUERY_HISTORY_DAILY
-where END_TIME < timestampadd(minute, -180, current_timestamp) 
+where END_TIME < timestampadd(minute, -180, current_timestamp)
 AND NOT internal.is_serverless_warehouse(WAREHOUSE_NAME)
 GROUP BY 1,2,3
 ),
