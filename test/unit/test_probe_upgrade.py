@@ -109,3 +109,36 @@ def test_initialize_then_migrate_probes(conn, timestamp_string):
     assert "successfully" in str(
         run_sql(conn, sql)
     ), "SQL output does not match expected result!"
+
+
+def test_probe_migration(conn):
+    with conn() as cnx, cnx.cursor() as cur:
+        # If a user never opened OPSCENTER, ADMIN.FINALIZE_SETUP() never could run and the predefined_probes tables
+        # be left in an old state because it did not get proper migration.
+
+        # mess up the table
+        cur.execute(
+            "CREATE OR REPLACE TABLE INTERNAL.PREDEFINED_PROBES (name string, condition string, email_writer boolean, email_other string, cancel boolean, enabled boolean)"
+        )
+
+        # call migration
+        cur.execute("CALL INTERNAL.MIGRATE_PREDEFINED_PROBES_TABLE()")
+
+        # verify table got fixed
+        rows = cur.execute(
+            "select column_name, data_type from information_schema.columns where table_name = 'PREDEFINED_PROBES' and table_schema = 'INTERNAL'"
+        ).fetchall()
+        columns_to_types = {row[0]: row[1] for row in rows}
+
+        assert "EMAIL_WRITER" not in columns_to_types
+        assert "EMAIL_OTHER" not in columns_to_types
+
+        assert "NOTIFY_WRITER" in columns_to_types
+        assert columns_to_types["NOTIFY_WRITER"] == "BOOLEAN"
+        assert "NOTIFY_WRITER_METHOD" in columns_to_types
+        assert columns_to_types["NOTIFY_WRITER_METHOD"] == "TEXT"
+
+        assert "NOTIFY_OTHER" in columns_to_types
+        assert columns_to_types["NOTIFY_OTHER"] == "TEXT"
+        assert "NOTIFY_OTHER_METHOD" in columns_to_types
+        assert columns_to_types["NOTIFY_OTHER_METHOD"] == "TEXT"
