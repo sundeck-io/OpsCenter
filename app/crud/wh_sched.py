@@ -489,6 +489,10 @@ def verify_and_clean(
 
 def describe_warehouse(session: Session, warehouse: str):
     wh_df = session.sql(f"show warehouses like '{warehouse}'").collect()
+    if len(wh_df) == 0:
+        raise ValueError(
+            "Warehouse '{warehouse}' was not found or permissions are missing."
+        )
     wh_dict = wh_df[0].as_dict()
     return WarehouseSchedules(
         name=warehouse,
