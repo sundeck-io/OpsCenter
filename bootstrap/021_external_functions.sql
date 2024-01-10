@@ -159,6 +159,111 @@ $$
     internal.wrapper_report_quota_used(quota_used)
 $$;
 
+
+-- Add query signature helper to Sundeck
+BEGIN
+    CREATE FUNCTION IF NOT EXISTS internal.ef_has_signature(request object)
+        RETURNS VARIANT
+        LANGUAGE JAVASCRIPT
+    AS 'throw "You must configure a Sundeck token before using has_signature.";';
+EXCEPTION
+    WHEN statement_error THEN
+        let isalreadyef boolean := (select CONTAINS(:SQLERRM, 'API_INTEGRATION') AND CONTAINS(:SQLERRM, 'must be specified'));
+        if (not isalreadyef) then
+            RAISE;
+        end if;
+    WHEN OTHER THEN
+        RAISE;
+END;
+
+
+create or replace function internal.wrapper_has_signature(request object)
+    returns boolean
+    immutable
+as
+$$
+    iff(length(internal.ef_has_signature(request):error) != 0,
+        internal.throw_exception(internal.ef_has_signature(request):error),
+        internal.ef_has_signature(request):has_query_signature)::boolean
+$$;
+
+create or replace function tools.has_signature(query_db varchar, query_schema varchar, query_text varchar)
+    returns boolean
+as
+$$
+    internal.wrapper_has_signature(object_construct('database', query_db, 'schema', query_schema, 'query_text', query_text))
+$$;
+
+BEGIN
+    CREATE FUNCTION IF NOT EXISTS internal.ef_signatures_match(request object)
+        RETURNS VARIANT
+        LANGUAGE JAVASCRIPT
+    AS 'throw "You must configure a Sundeck token before using signatures_match.";';
+EXCEPTION
+    WHEN statement_error THEN
+        let isalreadyef boolean := (select CONTAINS(:SQLERRM, 'API_INTEGRATION') AND CONTAINS(:SQLERRM, 'must be specified'));
+        if (not isalreadyef) then
+            RAISE;
+        end if;
+    WHEN OTHER THEN
+        RAISE;
+END;
+
+
+create or replace function internal.wrapper_signatures_match(request object)
+    returns boolean
+    immutable
+as
+$$
+    iff(length(internal.ef_signatures_match(request):error) != 0,
+        internal.throw_exception(internal.ef_signatures_match(request):error),
+        internal.ef_signatures_match(request):has_signature_matched)::boolean
+$$;
+
+create or replace function tools.signatures_match(db_first varchar, schema_first varchar, query_text_first varchar,
+            db_second varchar, schema_second varchar, query_text_second varchar)
+    returns boolean
+as
+$$
+    internal.wrapper_signatures_match(object_construct('database_first', db_first, 'schema_first', schema_first, 'query_text_first', query_text_first,
+    'database_second', db_second, 'schema_second', schema_second, 'query_text_second', query_text_second))
+$$;
+
+BEGIN
+    CREATE FUNCTION IF NOT EXISTS internal.ef_signature_target(request object)
+        RETURNS VARIANT
+        LANGUAGE JAVASCRIPT
+    AS 'throw "You must configure a Sundeck token before using signature_target.";';
+EXCEPTION
+    WHEN statement_error THEN
+        let isalreadyef boolean := (select CONTAINS(:SQLERRM, 'API_INTEGRATION') AND CONTAINS(:SQLERRM, 'must be specified'));
+        if (not isalreadyef) then
+            RAISE;
+        end if;
+    WHEN OTHER THEN
+        RAISE;
+END;
+
+
+create or replace function internal.wrapper_signature_target(request object)
+    returns variant
+    immutable
+as
+$$
+    iff(length(internal.ef_signature_target(request):error) != 0,
+        internal.throw_exception(internal.ef_signature_target(request):error),
+        internal.ef_signature_target(request):target_warehouse)::variant
+$$;
+
+create or replace function tools.signature_target(query_db varchar, query_schema varchar, query_text varchar,
+        pin_table_dbname varchar, pin_table_schemaname varchar, pin_table_tablename varchar))
+    returns variant
+as
+$$
+    internal.wrapper_signature_target(object_construct('database', query_db, 'schema', query_schema, 'query_text', query_text,
+    'pin_table', object_construct('database', pin_table_dbname, 'schema', pin_table_schemaname, 'table', pin_table_tablename)))
+$$
+
 create function if not exists internal.get_ef_url()
     returns string
     language javascript
@@ -280,6 +385,29 @@ BEGIN
             api_integration = reference(\'' || api_integration_name || '\')
             headers = (\'sndk-token\' = \'' || token || '\')
             as \'' || url || '/extfunc/register_service_account\';
+
+            create or replace external function internal.ef_has_signature(sig_params object)
+            returns object
+            context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
+            api_integration = reference(\'' || api_integration_name || '\')
+            headers = (\'sndk-token\' = \'' || token || '\')
+            as \'' || url || '/extfunc/has_signature\';
+
+            create or replace external function internal.ef_signatures_match(sig_params object)
+            returns object
+            context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
+            api_integration = reference(\'' || api_integration_name || '\')
+            headers = (\'sndk-token\' = \'' || token || '\')
+            as \'' || url || '/extfunc/signatures_match\';
+
+
+            create or replace external function internal.ef_signature_target(sig_params object)
+            returns object
+            context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
+            api_integration = reference(\'' || api_integration_name || '\')
+            headers = (\'sndk-token\' = \'' || token || '\')
+            as \'' || url || '/extfunc/signature_target\';
+
         END;
     ';
 
