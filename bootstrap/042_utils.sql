@@ -52,10 +52,10 @@ $$
 $$;
 
 create or replace function tools.signature_target(query_db varchar, query_schema varchar, query_text varchar,
-        pin_table_dbname varchar, pin_table_schemaname varchar, pin_table_tablename varchar))
+        pin_table_dbname varchar, pin_table_schemaname varchar, pin_table_tablename varchar)
     returns variant
 as
 $$
     internal.wrapper_signature_target(object_construct('database', query_db, 'schema', query_schema, 'query_text', query_text,
     'pin_table', object_construct('database', pin_table_dbname, 'schema', pin_table_schemaname, 'table', pin_table_tablename)))
-$$
+$$;

@@ -242,7 +242,6 @@ $$
 $$;
 
 
-
 create function if not exists internal.get_ef_url()
     returns string
     language javascript
