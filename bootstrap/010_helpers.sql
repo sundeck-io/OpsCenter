@@ -67,6 +67,10 @@ LANGUAGE SQL
 AS
 $$
   case
+      WHEN period = 'second' then split(repeat(',', DATEDIFF(second, st, ed)), ',')
+      WHEN period = 'SECOND' then split(repeat(',', DATEDIFF(second, st, ed)), ',')
+      WHEN period = 'minute' then split(repeat(',', DATEDIFF(minute, st, ed)), ',')
+      WHEN period = 'MINUTE' then split(repeat(',', DATEDIFF(minute, st, ed)), ',')
       WHEN period = 'day' then split(repeat(',', DATEDIFF(day, st, ed)), ',')
       WHEN period = 'DAY' then split(repeat(',', DATEDIFF(day, st, ed)), ',')
       WHEN period = 'hour' then split(repeat(',', DATEDIFF(hour, st, ed)), ',')
@@ -81,6 +85,10 @@ LANGUAGE SQL
 AS
 $$
   case
+      WHEN period = 'second' then split(repeat(',', DATEDIFF(second, st, ed) + 1), ',')
+      WHEN period = 'SECOND' then split(repeat(',', DATEDIFF(second, st, ed) + 1), ',')
+      WHEN period = 'minute' then split(repeat(',', DATEDIFF(minute, st, ed) + 1), ',')
+      WHEN period = 'MINUTE' then split(repeat(',', DATEDIFF(minute, st, ed) + 1), ',')
       WHEN period = 'day' then split(repeat(',', DATEDIFF(day, st, ed) + 1), ',')
       WHEN period = 'DAY' then split(repeat(',', DATEDIFF(day, st, ed) + 1), ',')
       WHEN period = 'hour' then split(repeat(',', DATEDIFF(hour, st, ed) + 1), ',')
