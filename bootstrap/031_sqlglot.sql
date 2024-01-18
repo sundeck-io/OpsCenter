@@ -47,6 +47,8 @@ as
 $$
 from sqlglot import parse_one
 import sqlglot.expressions as exp
+import hashlib
+import random
 def transform(node, database, schema):
     if schema is None:
         schema = ''
@@ -59,16 +61,16 @@ def transform(node, database, schema):
             tbl_str += ' ' + node.alias
         if hasattr(node, '_comments'):
             tbl_str += ' ' + node._comments
-        return parse_one(tbl_str, dialect='snowflake', error_level='IGNORE')
+        if hasattr(node, 'comments') and node.comments is not None:
+            tbl_str += ' ' + node.comments
+        return parse_one(tbl_str, dialect='snowflake')
     if isinstance(node, exp.Literal):
-        l = exp.Literal(this='xxx', is_string=True) if node.is_string else exp.Literal(this=999, is_string=False)
-        if hasattr(node, '_comments'):
-            l._comments = node._comments
-        return l
+        return hash_literal(node)
     return node
+
 def parse(sql, database, schema, include_comments):
     try:
-        pt = parse_one(sql.encode().decode('unicode_escape'), dialect='snowflake', error_level='IGNORE')
+        pt = parse_one(sql.encode().decode('unicode_escape'), dialect='snowflake')
     except:
         return "parse_error"
     try:
@@ -76,8 +78,38 @@ def parse(sql, database, schema, include_comments):
     except:
         return "transform_error"
     try:
-        return npt.sql(dialect='snowflake', normalize=True, normalize_functions=True, comments=include_comments, unsupported_level='IGNORE')
+        return npt.sql(dialect='snowflake', normalize=True, normalize_functions=True, comments=include_comments)
     except:
         return "generate_error"
 
+def hash_literal(lit):
+    if lit.is_string:
+        v = hashlib.md5(lit.this.encode()).hexdigest()
+    else:
+        random.seed(lit.this)
+        v = random.randint(0, 1000000000)
+    l = exp.Literal(this=v, is_string=lit.is_string)
+    if hasattr(lit, 'comments') and lit.comments is not None:
+        l.comments = lit.comments
+    if hasattr(lit, '_comments'):
+        l._comments = lit._comments
+    return l
 $$;
+
+
+-- sp to create view reporting.enriched_query_history
+CREATE OR REPLACE PROCEDURE INTERNAL.create_view_enriched_query_history_normalized()
+    RETURNS STRING
+    LANGUAGE SQL
+AS
+BEGIN
+    execute immediate
+    $$
+        create or replace view reporting.enriched_query_history_normalized
+        COPY GRANTS
+        AS
+            select * exclude (query_text), tools.normalize(query_text, database_name, schema_name) as query_text from reporting.enriched_query_history
+            ;
+    $$;
+    RETURN 'Success';
+END;

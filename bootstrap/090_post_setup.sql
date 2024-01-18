@@ -37,6 +37,7 @@ BEGIN
 call internal.migrate_queries();
 call internal.migrate_warehouse_events();
 call internal.migrate_view();
+call INTERNAL.create_view_enriched_query_history_normalized();
 
 -- These can't be created until after EXECUTE MANAGED TASK is granted to application.
 CREATE OR REPLACE TASK TASKS.WAREHOUSE_EVENTS_MAINTENANCE
