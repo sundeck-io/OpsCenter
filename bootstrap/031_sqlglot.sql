@@ -103,15 +103,12 @@ CREATE OR REPLACE PROCEDURE INTERNAL.create_view_enriched_query_history_normaliz
     LANGUAGE SQL
 AS
 BEGIN
-    execute immediate
-    $$
-        create or replace view reporting.enriched_query_history_normalized
-        COPY GRANTS
-        AS
-            select * exclude (query_text), tools.normalize(query_text, database_name, schema_name) as query_text from reporting.enriched_query_history
-            ;
-        grant select on reporting.enriched_query_history_normalized to role admin;
-        grant select on reporting.enriched_query_history_normalized to role read_only;
-    $$;
+    create or replace view reporting.enriched_query_history_normalized
+    COPY GRANTS
+    AS
+        select * exclude (query_text), tools.normalize(query_text, database_name, schema_name) as query_text from reporting.enriched_query_history
+        ;
+    grant select on reporting.enriched_query_history_normalized to role admin;
+    grant select on reporting.enriched_query_history_normalized to role read_only;
     RETURN 'Success';
 END;
