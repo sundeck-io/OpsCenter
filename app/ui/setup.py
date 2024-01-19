@@ -396,6 +396,27 @@ class RegionMap:
         "AWS_AP_SOUTHEAST_3": {"region": "ap-southeast-3", "sd_region": "us-west-2"},
         "AWS_US_GOV_WEST_1": {"region": "us-gov-west-2", "sd_region": "us-west-2"},
         "AWS_US_EAST_1_GOV": {"region": "us-east-1", "sd_region": "us-east-1"},
+        "AZURE_EASTUS2": {"region": "east-us-2", "sd_region": "us-west-2"},
+        "AZURE_WESTEUROPE": {"region": "west-europe", "sd_region": "us-west-2"},
+        "AZURE_AUSTRALIAEAST": {"region": "australia-east", "sd_region": "us-west-2"},
+        "AZURE_CANADACENTRAL": {"region": "canada-central", "sd_region": "us-west-2"},
+        "AZURE_SOUTHEASTASIA": {"region": "southeast-asia", "sd_region": "us-west-2"},
+        "AZURE_WESTUS2": {"region": "west-us-2", "sd_region": "us-west-2"},
+        "AZURE_SWITZERLANDN": {"region": "switzerland-north", "sd_region": "us-west-2"},
+        "AZURE_CENTRALUS": {"region": "central-us", "sd_region": "us-west-2"},
+        "AZURE_JAPANEAST": {"region": "japan-east", "sd_region": "us-west-2"},
+        "AZURE_NORTHEUROPE": {"region": "north-europe", "sd_region": "us-west-2"},
+        "AZURE_SOUTHCENTRALUS": {
+            "region": "south-central-us",
+            "sd_region": "us-west-2",
+        },
+        "AZURE_UAENORTH": {"region": "uae-north", "sd_region": "us-west-2"},
+        "AZURE_CENTRALINDIA": {"region": "central-india", "sd_region": "us-west-2"},
+        "AZURE_UKSOUTH": {"region": "uk-south", "sd_region": "us-west-2"},
+        "GCP_US_CENTRAL1": {"region": "us-central1", "sd_region": "us-west-2"},
+        "GCP_EUROPE_WEST2": {"region": "europe-west2", "sd_region": "us-west-2"},
+        "GCP_EUROPE_WEST4": {"region": "europe-west4", "sd_region": "us-west-2"},
+        "GCP_US_EAST4": {"region": "us-east4", "sd_region": "us-west-2"},
     }
 
     @classmethod
