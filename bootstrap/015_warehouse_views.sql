@@ -19,20 +19,20 @@ EVENTS AS (
             when event_name = 'RESUME_WAREHOUSE' and event_state = 'STARTED' then 1
             when event_name = 'RESUME_CLUSTER' and event_state = 'COMPLETED' then 1
             when event_name = 'SUSPEND_CLUSTER' and event_state = 'COMPLETED' then 2
-            when event_name = 'SUSPEND_WAREHOUSE' and event_state = 'COMPLETED' then 2
+            when event_name = 'SUSPEND_WAREHOUSE' and event_state = 'STARTED' then 2
             else null
         end as SESSION_BEHAVIOR,
         case
             when event_name = 'RESUME_WAREHOUSE' and event_state = 'STARTED' then 1
             when event_name = 'RESUME_CLUSTER' and event_state = 'COMPLETED' then 2
             when event_name = 'SUSPEND_CLUSTER' and event_state = 'COMPLETED' then 3
-            when event_name = 'SUSPEND_WAREHOUSE' and event_state = 'COMPLETED' then 4
+            when event_name = 'SUSPEND_WAREHOUSE' and event_state = 'STARTED' then 4
             else null
         end as EVENT
     FROM ACCOUNT_USAGE.WAREHOUSE_EVENTS_HISTORY
     WHERE (event_name, event_state) IN (
         ('RESUME_WAREHOUSE', 'STARTED'),
-        ('SUSPEND_WAREHOUSE', 'COMPLETED'),
+        ('SUSPEND_WAREHOUSE', 'STARTED'),
         ('RESUME_CLUSTER', 'COMPLETED'),
         ('SUSPEND_CLUSTER', 'COMPLETED')
         )
