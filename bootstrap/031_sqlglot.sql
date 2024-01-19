@@ -108,7 +108,7 @@ BEGIN
     AS
         select * exclude (query_text), tools.normalize(query_text, database_name, schema_name) as query_text from reporting.enriched_query_history
         ;
-    grant select on reporting.enriched_query_history_normalized to role admin;
-    grant select on reporting.enriched_query_history_normalized to role read_only;
+    grant select on reporting.enriched_query_history_normalized to application role admin;
+    grant select on reporting.enriched_query_history_normalized to application role read_only;
     RETURN 'Success';
 END;
