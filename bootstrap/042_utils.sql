@@ -34,3 +34,28 @@ create function if not exists tools.is_ad_hoc_query(qph varchar, size number)
 returns boolean
 as
 'false';
+
+create or replace function tools.has_signature(query_db varchar, query_schema varchar, query_text varchar)
+    returns boolean
+as
+$$
+    internal.wrapper_has_signature(object_construct('database', query_db, 'schema', query_schema, 'query_text', query_text))
+$$;
+
+create or replace function tools.signatures_match(db_first varchar, schema_first varchar, query_text_first varchar,
+            db_second varchar, schema_second varchar, query_text_second varchar)
+    returns boolean
+as
+$$
+    internal.wrapper_signatures_match(object_construct('database_first', db_first, 'schema_first', schema_first, 'query_text_first', query_text_first,
+    'database_second', db_second, 'schema_second', schema_second, 'query_text_second', query_text_second))
+$$;
+
+create or replace function tools.signature_target(query_db varchar, query_schema varchar, query_text varchar,
+        pin_table_dbname varchar, pin_table_schemaname varchar, pin_table_tablename varchar)
+    returns variant
+as
+$$
+    internal.wrapper_signature_target(object_construct('database', query_db, 'schema', query_schema, 'query_text', query_text,
+    'pin_table', object_construct('database', pin_table_dbname, 'schema', pin_table_schemaname, 'table', pin_table_tablename)))
+$$;
