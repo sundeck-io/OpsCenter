@@ -3,7 +3,6 @@ import base64
 import plotly.graph_objects as go
 import streamlit as st
 import urllib.parse
-import connection
 
 # Show a streamlit image without using st.image (since it is disabled)
 # Uses plotly and writes a png to the background.
@@ -114,16 +113,8 @@ def chrome(name: str = None):
         name = "Sundeck OpsCenter"
     else:
         name = f"Sundeck OpsCenter - {name}"
-    region = connection.execute_select("select current_region()").values[0][0]
 
     st.set_page_config(layout="wide", page_title=name, page_icon=":pilot:")
-    if "AZURE" in region:
-        st.error(
-            """
-        NOTE: OpsCenter is in preview release on Azure and some functionality is currently unavailable.
-        The Sundeck team is working on updating the app to fully support Azure.
-        If you have any questions reach out to support@sundeck.io."""
-        )
     with st.sidebar:
         cols = st.columns([1, 20, 1])
         with cols[1]:
