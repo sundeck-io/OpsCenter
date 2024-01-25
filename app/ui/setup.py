@@ -1,10 +1,14 @@
+import logging
 import json
 from urllib.parse import urlencode
 import config
 import streamlit as st
 import connection
 import base64
+from snowflake import telemetry
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 try:
     import snowflake.permissions as perms
 except ImportError:
@@ -45,7 +49,9 @@ def decode_token(token: str):
 
 
 def setup_permissions():
+    logger.info(f"Loaded snowflake.permissions version {perms.__version__}")
     db = connection.execute("select current_database() as db").values[0][0]
+    logger.debug(f"Setting up permissions for {db}")
 
     privileges = [
         "EXECUTE MANAGED TASK",
@@ -54,10 +60,30 @@ def setup_permissions():
         "IMPORTED PRIVILEGES ON SNOWFLAKE DB",
     ]
     missing_privileges = perms.get_missing_account_privileges(privileges)
+    logger.debug(f"Missing privileges: {missing_privileges}")
     if len(missing_privileges) > 0:
-        perms.request_account_privileges(missing_privileges)
+        telemetry.add_event(
+            "setup_permissions", {"missing_privileges": missing_privileges}
+        )
+        logger.debug("Requesting privileges")
+        res = perms.request_account_privileges(missing_privileges)
+        logger.debug(f"Request result: {res}")
     else:
+        logger.debug("No privileges to request")
         if not config.up_to_date():
+            logger.debug("Updating config")
+            expected, current = config.get_current_and_expected_version()
+            telemetry.add_event(
+                "setup_permissions",
+                {
+                    "config_updated": True,
+                    "expected_version": expected,
+                    "current_version": current,
+                },
+            )
+            telemetry.set_span_attribute("config_updated", True)
+            telemetry.set_span_attribute("expected_version", expected)
+            telemetry.set_span_attribute("current_version", current)
             with connection.Connection.get() as conn:
                 conn.call(f"{db}.ADMIN.FINALIZE_SETUP")
 
