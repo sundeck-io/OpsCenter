@@ -5,7 +5,11 @@ import config
 import streamlit as st
 import connection
 import base64
-from snowflake import telemetry
+
+try:
+    from snowflake import telemetry
+except ImportError:
+    import faketelemetry as telemetry
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -49,7 +53,6 @@ def decode_token(token: str):
 
 
 def setup_permissions():
-    logger.info(f"Loaded snowflake.permissions version {perms.__version__}")
     db = connection.execute("select current_database() as db").values[0][0]
     logger.debug(f"Setting up permissions for {db}")
 
