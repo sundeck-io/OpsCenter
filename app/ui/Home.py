@@ -1,6 +1,10 @@
 import streamlit as st
 import config
 import sthelp
+from modules import add_custom_modules
+
+if not add_custom_modules():
+    st.warning("Unable to load OpsCenter modules.")
 import permissions
 
 sthelp.chrome()
