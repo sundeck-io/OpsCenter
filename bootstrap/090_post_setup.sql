@@ -61,6 +61,13 @@ CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
     AS
     CALL INTERNAL.refresh_users();
 
+CREATE OR REPLACE TASK TASKS.UPGRADE_CHECK
+    SCHEDULE = '1440 minute'
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
+    AS
+    CALL ADMIN.UPGRADE_CHECK();
+
 CREATE OR REPLACE TASK TASKS.PROBE_MONITORING
     SCHEDULE = '1 minute'
     ALLOW_OVERLAPPING_EXECUTION = FALSE
@@ -311,6 +318,7 @@ call ADMIN.UPDATE_PROBE_MONITOR_RUNNING();
 alter task TASKS.SFUSER_MAINTENANCE resume;
 alter task TASKS.WAREHOUSE_EVENTS_MAINTENANCE resume;
 alter task TASKS.QUERY_HISTORY_MAINTENANCE resume;
+alter task TASKS.UPGRADE_CHECK resume;
 -- Do not enable any warehouse_scheduling tasks. They are programmatically resumed when a warehouse schedule is enabled.
 
 -- Kick off the maintenance tasks.
