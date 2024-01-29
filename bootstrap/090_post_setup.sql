@@ -374,5 +374,9 @@ call internal.has_config('tenant_url') into :has_tenant_url;
 if (:has_url or :has_tenant_url) then
     call internal.start_user_limits_task();
 end if;
+call internal.maybe_set_config('compute_credit_cost', '2.0');
+call internal.maybe_set_config('serverless_credit_cost', '3.0');
+call internal.maybe_set_config('storage_cost', '40.0');
+call internal.maybe_set_config('default_timezone', 'America/Los_Angeles');
 
 END;
