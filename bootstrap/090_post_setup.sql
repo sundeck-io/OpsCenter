@@ -329,5 +329,6 @@ end if;
 call internal.maybe_set_config('compute_credit_cost', '2.0');
 call internal.maybe_set_config('serverless_credit_cost', '3.0');
 call internal.maybe_set_config('storage_cost', '40.0');
+call internal.maybe_set_config('default_timezone', 'America/Los_Angeles');
 
 END;
