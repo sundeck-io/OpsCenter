@@ -329,6 +329,8 @@ end if;
 call internal.set_config('compute_credit_cost', '2.0');
 call internal.set_config('serverless_credit_cost', '3.0');
 call internal.set_config('storage_cost', '40.0');
-call internal.set_config('default_timezone', 'America/Los_Angeles');
+show parameters like 'TIMEZONE';
+let tz string := (select value from table(result_scan(last_query_id())) where parameter = 'TIMEZONE');
+call internal.set_config('default_timezone', tz);
 
 END;
