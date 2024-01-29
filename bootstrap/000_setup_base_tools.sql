@@ -48,6 +48,18 @@ BEGIN
     return :val is not null;
 END;
 
+CREATE OR REPLACE PROCEDURE internal.maybe_set_config(key string, value string) RETURNS BOOLEAN LANGUAGE SQL
+    AS
+BEGIN
+    let cfg boolean;
+    call internal.has_config(:key) into cfg;
+    if (not cfg) then
+        call internal.set_config(:key, :value);
+        return true;
+    end if;
+    return false;
+END;
+
 create or replace function internal.get_version() returns string language sql
 as
 $$
