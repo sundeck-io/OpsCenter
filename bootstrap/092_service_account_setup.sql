@@ -1,5 +1,5 @@
 
-CREATE OR REPLACE PROCEDURE admin.finalize_setup_from_service_account(token varchar, url varchar, web_url varchar)
+CREATE OR REPLACE PROCEDURE admin.finalize_setup_from_service_account(url varchar, web_url varchar)
 RETURNS varchar
 LANGUAGE sql
 as
@@ -10,8 +10,6 @@ begin
     call internal.set_config('tenant_url', web_url);
     call internal.set_config('url', url);
     call admin.update_reference('OPSCENTER_API_INTEGRATION', 'ADD', SYSTEM$REFERENCE('API Integration', 'OPSCENTER_API_INTEGRATION', 'persistent', 'usage'));
-    call admin.connect_sundeck(token);
-    call admin.finalize_setup();
 end;
 
 CREATE OR REPLACE PROCEDURE admin.upgrade_check()
@@ -22,7 +20,7 @@ begin
     let version varchar;
     call internal.get_config('post_setup') into :version;
     let setup_version varchar := (select internal.setup_version());
-    if (:version <> :setup_version) then
+    if (version is null or version <> setup_version) then
         call admin.finalize_setup();
     end if;
 
