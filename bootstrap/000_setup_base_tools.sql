@@ -51,7 +51,9 @@ END;
 CREATE OR REPLACE PROCEDURE internal.maybe_set_config(key string, value string) RETURNS BOOLEAN LANGUAGE SQL
     AS
 BEGIN
-    if (not internal.has_config(:key)) then
+    let cfg boolean;
+    call internal.has_config(:key) into cfg;
+    if (not cfg) then
         call internal.set_config(:key, :value);
         return true;
     end if;
