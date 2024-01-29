@@ -6,6 +6,7 @@ dependencies:
 - plotly
 - altair
 - snowflake-native-apps-permission
+- snowflake-telemetry-python
 - streamlit=1.22.0
 - pydantic
 - pytz

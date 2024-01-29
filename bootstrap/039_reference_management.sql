@@ -26,7 +26,7 @@ begin
     when 'REMOVE' then
        select system$remove_reference(:ref_name, :ref_or_alias);
     when 'CLEAR' then
-       select system$remove_all_references();
+       select system$remove_all_references(:ref_name);
     else
        return 'Unknown operation: ' || operation;
   end case;

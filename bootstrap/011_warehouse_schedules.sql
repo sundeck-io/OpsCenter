@@ -165,7 +165,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.CREATE_WAREHOUSE_SCHEDULE(warehouse_name text,
     LANGUAGE PYTHON
     runtime_version = "3.10"
     handler = 'create_warehouse_schedule'
-    packages = ('snowflake-snowpark-python', 'pydantic')
+    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -222,7 +222,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.DELETE_WAREHOUSE_SCHEDULE(name text, start_at 
     LANGUAGE PYTHON
     runtime_version = "3.10"
     handler = 'run_delete'
-    packages = ('snowflake-snowpark-python', 'pydantic')
+    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -257,7 +257,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_WAREHOUSE_SCHEDULE(warehouse_name text,
     LANGUAGE PYTHON
     runtime_version = "3.10"
     handler = 'update_warehouse_schedule'
-    packages = ('snowflake-snowpark-python', 'pydantic')
+    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -311,7 +311,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.ENABLE_WAREHOUSE_SCHEDULING(warehouse_name tex
     LANGUAGE PYTHON
     runtime_version = "3.10"
     handler = 'run'
-    packages = ('snowflake-snowpark-python', 'pydantic')
+    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -330,7 +330,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.DISABLE_WAREHOUSE_SCHEDULING(warehouse_name te
     LANGUAGE PYTHON
     runtime_version = "3.10"
     handler = 'run'
-    packages = ('snowflake-snowpark-python', 'pydantic')
+    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -348,7 +348,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.CREATE_DEFAULT_SCHEDULES(warehouse_name text)
     LANGUAGE PYTHON
     runtime_version = "3.10"
     handler = 'run'
-    packages = ('snowflake-snowpark-python', 'pydantic')
+    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -383,7 +383,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.RESET_WAREHOUSE_SCHEDULE(warehouse_name text)
     LANGUAGE PYTHON
     runtime_version = "3.10"
     handler = 'run'
-    packages = ('snowflake-snowpark-python', 'pydantic')
+    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
