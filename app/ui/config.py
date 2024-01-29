@@ -21,6 +21,10 @@ def up_to_date():
     return str(Config.get("post_setup")) == CurrentVersion.get()
 
 
+def get_current_and_expected_version():
+    return CurrentVersion.get(), Config.get("post_setup")
+
+
 def has_sundeck():
     return has_tenant_url() or Config.get("url") is not None
 
