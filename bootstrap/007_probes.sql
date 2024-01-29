@@ -203,7 +203,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.CREATE_QUERY_MONITOR(name text, condition text
     LANGUAGE PYTHON
     runtime_version = "3.10"
     handler = 'create_probe'
-    packages = ('snowflake-snowpark-python', 'pydantic')
+    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -220,7 +220,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.DELETE_QUERY_MONITOR(name text)
     LANGUAGE PYTHON
     runtime_version = "3.10"
     handler = 'delete_probe'
-    packages = ('snowflake-snowpark-python', 'pydantic')
+    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -236,7 +236,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_QUERY_MONITOR(oldname text, name text, 
     LANGUAGE PYTHON
     runtime_version = "3.10"
     handler = 'update_probe'
-    packages = ('snowflake-snowpark-python', 'pydantic')
+    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS

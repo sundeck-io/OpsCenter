@@ -5,7 +5,7 @@ CREATE OR REPLACE PROCEDURE INTERNAL_PYTHON.CREATE_TABLE(name text)
     language python
     runtime_version = "3.10"
     handler = 'create_table'
-    packages = ('snowflake-snowpark-python', 'pydantic')
+    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
  AS
