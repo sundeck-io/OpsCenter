@@ -10,7 +10,11 @@ from .common import (  # noqa F401
 from .labels import PredefinedLabel
 from .session import snowpark_session
 from .wh_sched import regenerate_alter_statements  # noqa F401
-from .account import sundeck_signup_with_snowflake_sso  # noqa F401
+from .account import (
+    sundeck_signup_with_snowflake_sso,  # noqa F401
+    get_api_gateway_url,  # noqa F401
+    OPSCENTER_ROLE_ARN,  # noqa F401
+)
 
 
 def validate_predefined_labels(sess: snowflake.snowpark.Session):

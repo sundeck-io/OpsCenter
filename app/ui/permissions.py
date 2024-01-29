@@ -4,10 +4,10 @@ import connection
 from modules import add_custom_modules
 
 if not add_custom_modules():
-    st.warning("Unable to laod OpsCenter modules.")
+    st.warning("Unable to load OpsCenter modules.")
 
 
-from crud.account import OPSCENTER_ROLE_ARN, get_api_gateway_url  # noqa E402
+from crud import OPSCENTER_ROLE_ARN, get_api_gateway_url  # noqa E402
 
 try:
     import snowflake.permissions as perms
