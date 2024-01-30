@@ -7,8 +7,8 @@ begin
     execute immediate 'create or replace function internal.get_ef_url() returns string as \'\\\'' || url || '\\\'\';';
     execute immediate 'create or replace function internal.get_tenant_url() returns string as \'\\\'' || web_url || '\\\'\';';
 
-    call internal.set_config('tenant_url', web_url);
-    call internal.set_config('url', url);
+    call internal.set_config('tenant_url', :web_url);
+    call internal.set_config('url', :url);
     call admin.update_reference('OPSCENTER_API_INTEGRATION', 'ADD', SYSTEM$REFERENCE('API Integration', 'OPSCENTER_API_INTEGRATION', 'persistent', 'usage'));
 end;
 
