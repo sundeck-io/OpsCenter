@@ -101,13 +101,6 @@ call INTERNAL.INITIALIZE_PROBES();
 call INTERNAL.MIGRATE_PREDEFINED_PROBES(7200);
 
 
-CREATE OR REPLACE TASK TASKS.UPGRADE_CHECK
-    SCHEDULE = '1440 minute'
-    ALLOW_OVERLAPPING_EXECUTION = FALSE
-    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
-    AS
-    CALL ADMIN.UPGRADE_CHECK();
-
 CREATE OR REPLACE TASK TASKS.PROBE_MONITORING
     SCHEDULE = '1 minute'
     ALLOW_OVERLAPPING_EXECUTION = FALSE
@@ -380,3 +373,12 @@ call internal.maybe_set_config('storage_cost', '40.0');
 call internal.maybe_set_config('default_timezone', 'America/Los_Angeles');
 
 END;
+
+
+-- Create the task outside of finalize_setup (but don't start it) so we can exec the task asynchronously.
+CREATE OR REPLACE TASK TASKS.UPGRADE_CHECK
+    SCHEDULE = '1440 minute'
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
+    AS
+    CALL ADMIN.UPGRADE_CHECK();
