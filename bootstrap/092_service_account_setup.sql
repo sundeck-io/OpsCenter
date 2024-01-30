@@ -19,7 +19,7 @@ as
 begin
     let version varchar;
     call internal.get_config('post_setup') into :version;
-    let setup_version varchar := (select internal.setup_version());
+    let setup_version varchar := (select internal.get_version());
     if (version is null or version <> setup_version) then
         call admin.finalize_setup();
     end if;
