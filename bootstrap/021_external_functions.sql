@@ -450,21 +450,12 @@ create or replace procedure admin.connect_sundeck(token text)
     execute as owner
 as
 DECLARE
-    -- We could also use the internal.reference_management table for OpsCenter V2, but not clear if there is value in that.
     has_api_integration boolean default (select ARRAY_SIZE(PARSE_JSON(SYSTEM$GET_ALL_REFERENCES('OPSCENTER_API_INTEGRATION'))) > 0);
-    integration_name text default (select 'OPSCENTER_SUNDECK_EXTERNAL_FUNCTIONS');
-    deployment text default (select internal.get_sundeck_deployment());
     error_details text default 'unhandled exception caught.';
 BEGIN
-    -- Make sure OpsCenter has been opened and the API Integration permission has been granted (and created)
+    -- Verify the OPSCENTER_API_INTEGRATION reference has been created
     if (not has_api_integration) then
         return object_construct('details', 'Please open the Native App in Snowflake and approve the permission request to create the API Integration.');
-    end if;
-
-    error_details := 'Failed to compute API integration name.';
-    -- Prevent collisions of api integration name
-    if (deployment != 'prod') then
-        integration_name := (select :integration_name || '_' || current_database());
     end if;
 
     error_details := 'Failed to store Sundeck token.';
