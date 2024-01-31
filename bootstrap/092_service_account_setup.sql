@@ -19,10 +19,10 @@ begin
     call internal.set_config('tenant_url', :web_url);
     call internal.set_config('url', :url);
 
-    // Bind the given reference ID to the 'OPSCENTER_API_INTEGRATION' reference. Must match the reference in manifest.yml
+    -- Bind the given reference ID to the 'OPSCENTER_API_INTEGRATION' reference. Must match the reference in manifest.yml
     let ref_name text := (select 'OPSCENTER_API_INTEGRATION');
 
-    // We can't use admin.update_reference because it expects that the OpsCenter token is already set.
+    -- We can't use admin.update_reference because it expects that the OpsCenter token is already set.
     select system$set_reference(:ref_name, :api_integration_ref_id);
     insert into internal.reference_management (ref_name, operation, ref_or_alias) values (:ref_name, 'finalize_setup_from_service_account', :api_integration_ref_id);
 end;
