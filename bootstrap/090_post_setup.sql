@@ -101,6 +101,7 @@ call INTERNAL.INITIALIZE_PROBES();
 call INTERNAL.MIGRATE_PREDEFINED_PROBES(7200);
 
 
+-- Create the task so the user never has to open OpsCenter to upgrade (duplicated in finalize_setup_from_service_account)
 CREATE OR REPLACE TASK TASKS.UPGRADE_CHECK
     SCHEDULE = '1440 minute'
     ALLOW_OVERLAPPING_EXECUTION = FALSE
