@@ -7,7 +7,8 @@ begin
     execute immediate 'create or replace function internal.get_ef_url() returns string as \'\\\'' || url || '\\\'\';';
     execute immediate 'create or replace function internal.get_tenant_url() returns string as \'\\\'' || web_url || '\\\'\';';
 
-    -- Create the task so we can run finalize_setup asynchronously
+    -- Create the task so we can run finalize_setup asynchronously (duplicated in finalize_setup)
+    -- Does not start the task -- the first time the task runs, finalize_setup() will start the task.
     CREATE OR REPLACE TASK TASKS.UPGRADE_CHECK
         SCHEDULE = '1440 minute'
         ALLOW_OVERLAPPING_EXECUTION = FALSE
