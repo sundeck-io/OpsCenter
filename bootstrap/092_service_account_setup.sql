@@ -15,6 +15,7 @@ begin
         USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
         AS
         CALL ADMIN.UPGRADE_CHECK();
+    grant MONITOR, OPERATE on TASK TASKS.UPGRADE_CHECK to APPLICATION ROLE ADMIN;
 
     call internal.set_config('tenant_url', :web_url);
     call internal.set_config('url', :url);
