@@ -4,7 +4,13 @@ returns string
 language sql
 execute as owner
 AS
+DECLARE
+    finalize_start_time timestamp_ltz default (select current_timestamp());
+    old_version text;
 BEGIN
+    -- Get the old version of the native app
+    call internal.get_config('post_setup') into :old_version;
+
     -- These can't be created until after IMPORTED PRIVILEGES ON SNOWFLAKE DB is granted to application.
     BEGIN
         DECLARE
@@ -43,7 +49,6 @@ call INTERNAL.MIGRATE_PREDEFINED_LABELS_TABLE();
 call internal.migrate_queries();
 call internal.migrate_warehouse_events();
 call internal.migrate_view();
-call INTERNAL.create_view_enriched_query_history_normalized();
 
 -- These can't be created until after EXECUTE MANAGED TASK is granted to application.
 CREATE OR REPLACE TASK TASKS.WAREHOUSE_EVENTS_MAINTENANCE
@@ -380,4 +385,15 @@ call internal.maybe_set_config('serverless_credit_cost', '3.0');
 call internal.maybe_set_config('storage_cost', '40.0');
 call internal.maybe_set_config('default_timezone', 'America/Los_Angeles');
 
+INSERT INTO internal.upgrade_history SELECT :finalize_start_time, CURRENT_TIMESTAMP(), :old_version, internal.get_version(), 'Success';
+
+EXCEPTION
+   WHEN OTHER THEN
+       SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during finalize_setup.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+       INSERT INTO internal.upgrade_history SELECT :finalize_start_time, CURRENT_TIMESTAMP(), :old_version, internal.get_version(), '(' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
+       RAISE;
 END;
+
+-- Create a table and view for the outcome from ADMIN.FINALIZE_SETUP
+CREATE TABLE IF NOT EXISTS INTERNAL.UPGRADE_HISTORY(start_time timestamp_ltz, end_time timestamp_ltz, old_version string, new_version string, outcome string);
+CREATE OR REPLACE VIEW REPORTING.UPGRADE_HISTORY AS SELECT * FROM INTERNAL.UPGRADE_HISTORY;
