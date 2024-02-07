@@ -401,3 +401,33 @@ def run(bare_session, warehouse_name: str):
         after_schedule_change(session)
         return ""
 $$;
+
+CREATE OR REPLACE PROCEDURE INTERNAL.ACCOUNT_HAS_AUTOSCALING()
+    RETURNS BOOLEAN
+    LANGUAGE SQL
+AS
+begin
+    show warehouses;
+    select "min_cluster_count" from table(result_scan(last_query_id()));
+    return true;
+exception
+    when statement_error then
+        let missing_column boolean := (select CONTAINS(:SQLERRM, 'invalid identifier') AND CONTAINS(:SQLERRM, 'min_cluster_count'));
+        if (missing_column) then
+            return false;
+        end if;
+        raise;
+    when other then
+        raise;
+end;
+
+CREATE OR REPLACE PROCEDURE ADMIN.SHOW_WAREHOUSES()
+    RETURNS TABLE(name text, size text)
+    LANGUAGE SQL
+    execute as owner
+AS
+BEGIN
+    show warehouses;
+    let rs resultset := (select "name", "size" from table(result_scan(last_query_id())));
+    return table(rs);
+END;
