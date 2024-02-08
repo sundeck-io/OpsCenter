@@ -381,8 +381,8 @@ BEGIN
         show tasks in schema tasks;
         let has_task text := (select any_value("name") from table(result_scan(last_query_id())) where "name" = 'USER_LIMITS_CHECK');
         if (:has_task is not null) then
-            -- If the user is setting up the native app via the Streamlit UI, the task exists but has not been started.
-            -- If the user is setting up the native app via Sundeck, the task does not yet exist and will be started after it is created.
+            -- If the user is setting up the native app via the Streamlit UI, the task exists but has not been started. Need to start it here.
+            -- If the user is setting up the native app via Sundeck, the task does not yet exist. UPGRADE_CHECK() will create it and start it.
             CALL internal.start_user_limits_task();
         end if;
     end;
