@@ -344,6 +344,11 @@ call internal.maybe_set_config('serverless_credit_cost', '3.0');
 call internal.maybe_set_config('storage_cost', '40.0');
 call internal.maybe_set_config('default_timezone', 'America/Los_Angeles');
 
+-- Determine if the account has warehouse autoscaling and cache it in the config
+let has_autoscaling boolean;
+call internal.account_has_autoscaling() into :has_autoscaling;
+call internal.set_config('autoscaling_available', :has_autoscaling);
+
 INSERT INTO internal.upgrade_history SELECT :finalize_start_time, CURRENT_TIMESTAMP(), :old_version, internal.get_version(), 'Success';
 
 EXCEPTION
