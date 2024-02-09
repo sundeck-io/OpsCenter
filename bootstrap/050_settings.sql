@@ -18,7 +18,7 @@ AS
 $$
 BEGIN
     let res text := '';
-    call internal.set_config(:name, :value) into :res;
+    call internal.set_config(:name, :value);
     return res;
 END;
 $$;
