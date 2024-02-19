@@ -376,6 +376,11 @@ END;
 
 CREATE OR REPLACE PROCEDURE admin.setup_external_functions(api_integration_name string) RETURNS STRING LANGUAGE SQL AS
 BEGIN
+    let hasUrl varchar;
+    call internal.get_config('ef_url') into :hasUrl;
+    if (:hasUrl is null) then
+        return 'You must configure a Sundeck token to use this.';
+    end if;
     let url string := (select internal.get_ef_url());
     let token string := (select internal.get_ef_token());
     execute immediate '
