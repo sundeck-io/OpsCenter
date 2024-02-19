@@ -408,13 +408,6 @@ BEGIN
             headers = (\'sndk-token\' = \'' || token || '\')
             as \'' || url || '/extfunc/update_usage_stats\';
 
-            create or replace external function internal.ef_register_service_account(service_account object)
-            returns object
-            context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
-            api_integration = reference(\'' || api_integration_name || '\')
-            headers = (\'sndk-token\' = \'' || token || '\')
-            as \'' || url || '/extfunc/register_service_account\';
-
             create or replace external function internal.ef_has_signature(sig_params object)
             returns object
             context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
@@ -454,16 +447,6 @@ BEGIN
         END;
     ';
 
-    MERGE INTO internal.config AS target
-    USING (SELECT 'url' AS key, :url AS value
-    ) AS source
-    ON target.key = source.key
-    WHEN MATCHED THEN
-      UPDATE SET value = source.value
-    WHEN NOT MATCHED THEN
-      INSERT (key, value)
-      VALUES (source.key, source.value);
-
     -- Start the USER_LIMITS_TASK if the task exists
     begin
         show tasks in schema tasks;
@@ -478,20 +461,7 @@ END;
 
 CREATE OR REPLACE PROCEDURE admin.setup_sundeck_tenant_url(url string, token string) RETURNS STRING LANGUAGE SQL AS
 BEGIN
-    execute immediate 'create or replace function internal.get_tenant_url() returns string as \'\\\'' || url || '\\\'\';';
     execute immediate 'create or replace function internal.get_ef_token() returns string as \'\\\'' || token || '\\\'\';';
-
-    MERGE INTO internal.config AS target
-    USING (SELECT 'tenant_url' AS key, :url AS value
-    ) AS source
-    ON target.key = source.key
-    WHEN MATCHED THEN
-      UPDATE SET value = source.value
-    WHEN NOT MATCHED THEN
-      INSERT (key, value)
-      VALUES (source.key, source.value);
-
-    CALL admin.setup_external_functions('opscenter_api_integration');
 END;
 
 create or replace function internal.wrapper_register_service_account(request object)
