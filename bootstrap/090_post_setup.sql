@@ -59,6 +59,13 @@ CREATE OR REPLACE TASK TASKS.QUERY_HISTORY_MAINTENANCE
     AS
     CALL INTERNAL.refresh_queries(true);
 
+CREATE OR REPLACE TASK TASKS.OPERATOR_STATS_MAINTENANCE
+    SCHEDULE = '60 minute'
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
+    AS
+    CALL INTERNAL.fill_plan_stats();
+
 CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
     SCHEDULE = '1440 minute'
     ALLOW_OVERLAPPING_EXECUTION = FALSE
@@ -324,12 +331,14 @@ alter task TASKS.SFUSER_MAINTENANCE resume;
 alter task TASKS.WAREHOUSE_EVENTS_MAINTENANCE resume;
 alter task TASKS.QUERY_HISTORY_MAINTENANCE resume;
 alter task TASKS.UPGRADE_CHECK resume;
+alter task TASKS.OPERATOR_STATS_MAINTENANCE resume;
 -- Do not enable any warehouse_scheduling tasks. They are programmatically resumed when a warehouse schedule is enabled.
 
 -- Kick off the maintenance tasks.
 execute task TASKS.SFUSER_MAINTENANCE;
 execute task TASKS.WAREHOUSE_EVENTS_MAINTENANCE;
 execute task TASKS.QUERY_HISTORY_MAINTENANCE;
+execute task TASKS.OPERATOR_STATS_MAINTENANCE;
 
 -- Only enable and start user limits task if connected to sundeck
 let has_url boolean;

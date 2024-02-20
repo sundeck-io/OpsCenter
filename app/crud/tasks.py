@@ -6,6 +6,7 @@ class Task(BaseModel):
     known_tasks: ClassVar[Tuple[str]] = (
         "QUERY_HISTORY_MAINTENANCE",
         "WAREHOUSE_EVENTS_MAINTENANCE",
+        "OPERATOR_STATS_MAINTENANCE",
         "SFUSER_MAINTENANCE",
         "USER_LIMITS_MAINTENANCE",
     )
