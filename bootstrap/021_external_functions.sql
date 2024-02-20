@@ -497,28 +497,10 @@ create or replace procedure admin.connect_sundeck(token text)
     language sql
     execute as owner
 as
-DECLARE
-    has_api_integration boolean default (select ARRAY_SIZE(PARSE_JSON(SYSTEM$GET_ALL_REFERENCES('OPSCENTER_API_INTEGRATION'))) > 0);
-    error_details text default 'unhandled exception caught.';
 BEGIN
-    -- Verify the OPSCENTER_API_INTEGRATION reference has been created
-    if (not has_api_integration) then
-        return object_construct('details', 'Please open the Native App in Snowflake and approve the permission request to create the API Integration.');
-    end if;
-
-    error_details := 'Failed to store Sundeck token.';
     -- Create the scalar UDF for the Sundeck auth token (EF URL set up by the app in permissions.py)
     execute immediate 'create or replace function internal.get_ef_token() returns string as \'\\\'' || token || '\\\'\';';
 
-    error_details := 'Failed to create external functions.';
-    -- Create all external functions that use the API Gateway and the auth token
-    call admin.setup_external_functions('opscenter_api_integration');
-
     -- Success!
     return object_construct();
-EXCEPTION
-    WHEN OTHER THEN
-        let err_obj object := OBJECT_CONSTRUCT('details', :error_details || ' Please contact Sundeck for support.', 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'SQLCODE', :sqlcode);
-        SYSTEM$LOG_ERROR(err_obj);
-        return err_obj;
 END;
