@@ -16,7 +16,6 @@ begin
         AS
         CALL ADMIN.UPGRADE_CHECK();
     grant MONITOR, OPERATE on TASK TASKS.UPGRADE_CHECK to APPLICATION ROLE ADMIN;
-    alter task TASKS.UPGRADE_CHECK resume;
 
     call internal.set_config('tenant_url', :web_url);
     call internal.set_config('url', :url);
@@ -26,7 +25,7 @@ begin
 
     -- Bind the given reference ID to the 'OPSCENTER_API_INTEGRATION' reference. Must match the reference in manifest.yml
     -- differs from v1 in that all external functions are not re-created by update_reference()
-    call admin.update_reference('OPSCENTER_API_INTEGRATION', 'ADD', :api_integration_ref_id);
+   insert into internal.reference_management (ref_name, operation, ref_or_alias) values ('OPSCENTER_API_INTEGRATION', 'Running external functions setup proc.', :api_integration_ref_id);
     call admin.connect_sundeck(:token);
 end;
 
