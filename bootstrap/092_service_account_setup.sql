@@ -20,6 +20,9 @@ begin
     call internal.set_config('tenant_url', :web_url);
     call internal.set_config('url', :url);
 
+    let tenant_id text := (select split_part(:url, '/', -1));
+    call internal.set_config('tenant_id', :tenant_id);
+
     -- Bind the given reference ID to the 'OPSCENTER_API_INTEGRATION' reference. Must match the reference in manifest.yml
     let ref_name text := (select 'OPSCENTER_API_INTEGRATION');
 
