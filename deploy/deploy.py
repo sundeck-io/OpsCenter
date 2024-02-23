@@ -110,7 +110,10 @@ def _upload_combined_setup_script(cur, deployment: str):
 
 
 def _install_or_update_package(
-    cur, version: Union[str, None] = None, install: bool = True
+    cur,
+    version: Union[str, None] = None,
+    install: bool = True,
+    sundeck_db: str = "SUNDECK",
 ):
     print(
         "Updating Snowflake application package and install. Includes running bootstrap script."
@@ -151,7 +154,11 @@ def _install_or_update_package(
         """
     )
 
+    # Run the grants prior to upgrading the application.
+    _grant_sundeck_db_access(cur, sundeck_db)
+
     if install:
+        print(f"Creating application {APPLICATION}.")
         cur.execute(
             f"""
         BEGIN
@@ -165,6 +172,36 @@ def _install_or_update_package(
         END;
         """
         )
+
+
+def _grant_sundeck_db_access(cur, sundeck_db: str):
+    print("Running grants to database SUNDECK for application package.")
+    # Grant REFERENCE_USAGE on SUNDECK to the application package
+    # Grant access to the view from sundeck
+    cur.execute(
+        f"""
+    BEGIN
+        CREATE SCHEMA IF NOT EXISTS "{APPLICATION_PACKAGE}".SHARING;
+
+        show databases;
+        let db_exists boolean := (SELECT "name" is not null FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) WHERE "name" = '{sundeck_db}');
+        if (db_exists) then
+            GRANT REFERENCE_USAGE ON DATABASE {sundeck_db} TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
+            -- Create a view in the application package that is filtered to CURRENT_ACCOUNT(). It is critical that the
+            -- filtering is done here to ensure a user only sees their own history.
+            CREATE OR REPLACE VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY AS SELECT * FROM {sundeck_db}.INTERNAL.GLOBAL_QUERY_HISTORY
+                WHERE UPPER(SNOWFLAKE_ACCOUNT_LOCATOR) = UPPER(CURRENT_ACCOUNT());
+        else
+            -- Create a dummy view in case the developer account is not set up
+            CREATE OR REPLACE VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY AS
+                SELECT 'SUNDECK database was not found in this account' as message, 'test' as SUNDECK_ACCOUNT_ID, 'test' as SNOWFLAKE_REGION, 'test' as SNOWFLAKE_CLOUD;
+        end if;
+        -- Grant access to the view to the application package.
+        GRANT USAGE ON SCHEMA "{APPLICATION_PACKAGE}".SHARING TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
+        GRANT SELECT ON VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
+    END;
+    """
+    )
 
 
 def main(argv):
@@ -209,6 +246,7 @@ def execute(
     deployment: str = "prod",
     install: bool = True,
     skip_package: bool = False,
+    sundeck_db: str = "SUNDECK",
 ):
     # Do Actual Work
     conn = helpers.connect_to_snowflake(profile)
@@ -219,7 +257,10 @@ def execute(
         _upload_combined_setup_script(cur, deployment)
         _sync_local_to_stage(cur)
         if not skip_package:
-            _install_or_update_package(cur, version, install)
+            _install_or_update_package(cur, version, install, sundeck_db)
+        else:
+            # We skip_package for the Marketplace-listing account. Make sure the grant is executed there, too.
+            _grant_sundeck_db_access(cur, sundeck_db)
     finally:
         if os.environ.get("OPSCENTER_DROP_DATABASE", "false").lower() == "true":
             _drop_working_database(cur)
