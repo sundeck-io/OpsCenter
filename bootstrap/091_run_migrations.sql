@@ -42,3 +42,16 @@ call INTERNAL.INITIALIZE_PROBES();
 -- after last install/upgrade of APP
 -- parameter 7200 (seconds) is the timestamp difference when a predefined probe is regarded as an old one.
 call INTERNAL.MIGRATE_PREDEFINED_PROBES(7200);
+
+-- Ensure tenant_id is set when tenant_url is set
+let has_tenant_id boolean;
+let has_tenant_url text;
+call internal.has_config('tenant_id') into :has_tenant_id;
+call internal.has_config('tenant_url') into :has_tenant_url;
+if (not :has_tenant_id AND :has_tenant_url) then
+    let tenant_url text;
+    call internal.get_config('tenant_url') into :tenant_url;
+
+    let tenant_id text := (select split_part(:tenant_url, '/', -1));
+    call internal.set_config('tenant_id', :tenant_id);
+end if;
