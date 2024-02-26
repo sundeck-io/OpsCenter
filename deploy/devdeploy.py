@@ -55,6 +55,34 @@ def _copy_opscenter_files(cur, schema: str, stage: str, deployment: str):
     cur.execute(body)
 
 
+def _fake_app_package_objects(cur, database: str):
+    # In the "local" mode, we don't have a real application package and the sharing model does not apply.
+    # Create a fake table so the setup script can be run normally.
+    cur.execute(
+        f"""BEGIN
+    CREATE SCHEMA IF NOT EXISTS "{database}".SHARING;
+    CREATE TABLE IF NOT EXISTS "{database}".SHARING.GLOBAL_QUERY_HISTORY(
+        SNOWFLAKE_ACCOUNT_LOCATOR text,
+        SNOWFLAKE_QUERY_ID text,
+        SUNDECK_QUERY_ID text,
+        FLOW_NAME text,
+        QUERY_TEXT_RECEIVED text,
+        QUERY_TEXT_FINAL text,
+        SNOWFLAKE_SUBMISSION_TIME timestamp_ntz,
+        ALT_WAREHOUSE_ROUTE text,
+        SUNDECK_STATUS text,
+        SUNDECK_ERROR_CODE text,
+        SUNDECK_ERROR_MESSAGE text,
+        SNOWFLAKE_REGION text,
+        SNOWFLAKE_CLOUD text,
+        SUNDECK_START_TIME timestamp_ntz,
+        SUNDECK_ACCOUNT_ID text,
+        ACTIONS_EXECUTED text,
+        SCHEMA_ONLY_REQUEST boolean);
+    END;"""
+    )
+
+
 def _finish_local_setup(cur, database: str, schema: str):
     print("Setting up internal state to mimic a set-up app.")
 
@@ -106,6 +134,10 @@ def devdeploy(
 
     # Copy dependencies into the stage
     _copy_dependencies(cur, conn.schema, stage)
+
+    # The setup script relies on objects in the app package, but this mode of deploy does not use an app package.
+    # Create those resources by hand with dummy data.
+    _fake_app_package_objects(cur, conn.database)
 
     # Deploy the OpsCenter code into the stage.
     _copy_opscenter_files(cur, conn.schema, stage, deployment)

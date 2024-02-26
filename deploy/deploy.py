@@ -185,28 +185,25 @@ def _grant_sundeck_db_access(cur, sundeck_db: str):
 
         CREATE DATABASE IF NOT EXISTS "{sundeck_db}";
         CREATE SCHEMA IF NOT EXISTS "{sundeck_db}".INTERNAL;
-        -- TODO update these to match reality
-        CREATE TABLE IF NOT EXISTS "{sundeck_db}".INTERNAL.GLOBAL_QUERY_HISTORY(sundeck_account_id text,
-            snowflake_account_locator text,
-            snowflake_query_id text,
-            sundeck_query_id text,
-            flow_name text,
-            query_text_received text,
-            query_text_final text,
-            start_time timestamp_ntz,
-            end_time timestamp_ntz,
-            snowflake_submission_time timestamp_ntz,
-            snowflake_end_time timestamp_ntz,
-            alt_warehouse_name text,
-            sundeck_status text,
-            sundeck_error_code text,
-            sundeck_error_message text,
-            actions variant,
-            is_async boolean,
-            results_path text,
-            request_id text,
-            snowflake_region text,
-            snowflake_cloud text);
+        -- Must be kept in sync with the SUNDECK database
+        CREATE TABLE IF NOT EXISTS "{sundeck_db}".INTERNAL.GLOBAL_QUERY_HISTORY(
+            SNOWFLAKE_ACCOUNT_LOCATOR text,
+            SNOWFLAKE_QUERY_ID text,
+            SUNDECK_QUERY_ID text,
+            FLOW_NAME text,
+            QUERY_TEXT_RECEIVED text,
+            QUERY_TEXT_FINAL text,
+            SNOWFLAKE_SUBMISSION_TIME timestamp_ntz,
+            ALT_WAREHOUSE_ROUTE text,
+            SUNDECK_STATUS text,
+            SUNDECK_ERROR_CODE text,
+            SUNDECK_ERROR_MESSAGE text,
+            SNOWFLAKE_REGION text,
+            SNOWFLAKE_CLOUD text,
+            SUNDECK_START_TIME timestamp_ntz,
+            SUNDECK_ACCOUNT_ID text,
+            ACTIONS_EXECUTED text,
+            SCHEMA_ONLY_REQUEST boolean);
 
         GRANT REFERENCE_USAGE ON DATABASE {sundeck_db} TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
 
