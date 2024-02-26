@@ -184,6 +184,30 @@ def _grant_sundeck_db_access(cur, sundeck_db: str):
         CREATE SCHEMA IF NOT EXISTS "{APPLICATION_PACKAGE}".SHARING;
 
         CREATE DATABASE IF NOT EXISTS "{sundeck_db}";
+        CREATE SCHEMA IF NOT EXISTS "{sundeck_db}".INTERNAL;
+        -- TODO update these to match reality
+        CREATE TABLE IF NOT EXISTS "{sundeck_db}".INTERNAL.GLOBAL_QUERY_HISTORY(sundeck_account_id text,
+            snowflake_account_locator text,
+            snowflake_query_id text,
+            sundeck_query_id text,
+            flow_name text,
+            query_text_received text,
+            query_text_final text,
+            start_time timestamp_ntz,
+            end_time timestamp_ntz,
+            snowflake_submission_time timestamp_ntz,
+            snowflake_end_time timestamp_ntz,
+            alt_warehouse_name text,
+            sundeck_status text,
+            sundeck_error_code text,
+            sundeck_error_message text,
+            actions variant,
+            is_async boolean,
+            results_path text,
+            request_id text,
+            snowflake_region text,
+            snowflake_cloud text);
+
         GRANT REFERENCE_USAGE ON DATABASE {sundeck_db} TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
 
         SHOW REGIONS;
