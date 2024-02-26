@@ -183,22 +183,24 @@ def _grant_sundeck_db_access(cur, sundeck_db: str):
     BEGIN
         CREATE SCHEMA IF NOT EXISTS "{APPLICATION_PACKAGE}".SHARING;
 
-        show databases;
-        let db_exists boolean := (SELECT "name" is not null FROM TABLE(RESULT_SCAN(LAST_QUERY_ID())) WHERE "name" = '{sundeck_db}');
-        if (db_exists) then
-            GRANT REFERENCE_USAGE ON DATABASE {sundeck_db} TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
-            -- Create a view in the application package that is filtered to CURRENT_ACCOUNT(). It is critical that the
-            -- filtering is done here to ensure a user only sees their own history.
-            CREATE OR REPLACE VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY AS SELECT * FROM {sundeck_db}.INTERNAL.GLOBAL_QUERY_HISTORY
-                WHERE UPPER(SNOWFLAKE_ACCOUNT_LOCATOR) = UPPER(CURRENT_ACCOUNT());
-        else
-            -- Create a dummy view in case the developer account is not set up
-            CREATE OR REPLACE VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY AS
-                SELECT 'SUNDECK database was not found in this account' as message, 'test' as SUNDECK_ACCOUNT_ID, 'test' as SNOWFLAKE_REGION, 'test' as SNOWFLAKE_CLOUD;
-        end if;
-        -- Grant access to the view to the application package.
+        CREATE DATABASE IF NOT EXISTS "{sundeck_db}";
+        GRANT REFERENCE_USAGE ON DATABASE {sundeck_db} TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
+
+        SHOW REGIONS;
+        CREATE OR REPLACE TABLE "{APPLICATION_PACKAGE}".SHARING.REGIONS(snowflake_region text, cloud text, region text) AS
+            SELECT "snowflake_region", "cloud", "region" from table(result_scan(last_query_id()));
+
+        -- Create a view in the application package that is filtered to CURRENT_ACCOUNT(). It is critical that the
+        -- filtering is done here to ensure a user only sees their own history.
+        CREATE OR REPLACE VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY AS SELECT * FROM {sundeck_db}.INTERNAL.GLOBAL_QUERY_HISTORY
+            WHERE UPPER(SNOWFLAKE_ACCOUNT_LOCATOR) = UPPER(CURRENT_ACCOUNT()) and
+            UPPER(SNOWFLAKE_REGION) = (SELECT UPPER(region) from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1)) and
+            UPPER(SNOWFLAKE_CLOUD) = (SELECT UPPER(cloud) from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1));
+
+        -- Grant access on the view to the application package.
         GRANT USAGE ON SCHEMA "{APPLICATION_PACKAGE}".SHARING TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
         GRANT SELECT ON VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
+        GRANT SELECT ON TABLE "{APPLICATION_PACKAGE}".SHARING.REGIONS TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
     END;
     """
     )
