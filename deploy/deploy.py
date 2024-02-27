@@ -175,59 +175,25 @@ def _install_or_update_package(
 
 
 def _grant_sundeck_db_access(cur, sundeck_db: str):
-    print("Running grants to database SUNDECK for application package.")
-    # Grant REFERENCE_USAGE on SUNDECK to the application package
-    # Grant access to the view from sundeck
-    cur.execute(
-        f"""
-    BEGIN
-        CREATE SCHEMA IF NOT EXISTS "{APPLICATION_PACKAGE}".SHARING;
-
-        CREATE DATABASE IF NOT EXISTS "{sundeck_db}";
-        CREATE SCHEMA IF NOT EXISTS "{sundeck_db}".INTERNAL;
-        -- Must be kept in sync with the SUNDECK database
-        CREATE TABLE IF NOT EXISTS "{sundeck_db}".INTERNAL.GLOBAL_QUERY_HISTORY(
-            SNOWFLAKE_ACCOUNT_LOCATOR text,
-            SNOWFLAKE_QUERY_ID text,
-            SUNDECK_QUERY_ID text,
-            FLOW_NAME text,
-            QUERY_TEXT_RECEIVED text,
-            QUERY_TEXT_FINAL text,
-            SNOWFLAKE_SUBMISSION_TIME timestamp_ntz,
-            ALT_WAREHOUSE_ROUTE text,
-            SUNDECK_STATUS text,
-            SUNDECK_ERROR_CODE text,
-            SUNDECK_ERROR_MESSAGE text,
-            SNOWFLAKE_REGION text,
-            SNOWFLAKE_CLOUD text,
-            SUNDECK_START_TIME timestamp_ntz,
-            SUNDECK_ACCOUNT_ID text,
-            ACTIONS_EXECUTED variant,
-            SCHEMA_ONLY_REQUEST boolean);
-
-        GRANT REFERENCE_USAGE ON DATABASE {sundeck_db} TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
-
-        SHOW REGIONS;
-        CREATE OR REPLACE TABLE "{APPLICATION_PACKAGE}".SHARING.REGIONS(snowflake_region text, cloud text, region text) AS
-            SELECT "snowflake_region", "cloud", "region" from table(result_scan(last_query_id()));
-
-        -- Create a view in the application package that is filtered to CURRENT_ACCOUNT(). It is critical that the
-        -- filtering is done here to ensure a user only sees their own history.
-        -- Correct some wrongly-generated azure regions.
-        CREATE OR REPLACE VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY AS
-            SELECT * FROM {sundeck_db}.INTERNAL.GLOBAL_QUERY_HISTORY
-                WHERE UPPER(SNOWFLAKE_ACCOUNT_LOCATOR) = UPPER(CURRENT_ACCOUNT()) and
-                IFF(UPPER(SNOWFLAKE_CLOUD) = 'AZURE', REPLACE(UPPER(SNOWFLAKE_REGION), '-', ''), UPPER(SNOWFLAKE_REGION)) =
-                    (SELECT UPPER(region) from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1)) and
-                UPPER(SNOWFLAKE_CLOUD) = (SELECT UPPER(cloud) from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1));
-
-        -- Grant access on the view to the application package.
-        GRANT USAGE ON SCHEMA "{APPLICATION_PACKAGE}".SHARING TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
-        GRANT SELECT ON VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
-        GRANT SELECT ON TABLE "{APPLICATION_PACKAGE}".SHARING.REGIONS TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
-    END;
     """
-    )
+    Grants REFERENCE_USAGE on SUNDECK to the application package and SELECT on the objects from the SUNDECK database.
+    """
+    if sundeck_db:
+        print("Running grants to database SUNDECK for application package.")
+        filename = "deploy/sundeck_sharing.sql"
+    else:
+        # Fallback case which creates an empty view so the setup script can assume SHARING.GLOBAL_QUERY_HISTORY
+        # always exists. Should only be used in local development settings.
+        print(
+            "Sundeck database was not specified, not adding QUERY_HISTORY to application package"
+        )
+        filename = "deploy/mock_sundeck_sharing.sql"
+
+    f = open(filename, "r")
+    tmpl = f.read()
+    f.close()
+    sql = tmpl.format(APPLICATION_PACKAGE=APPLICATION_PACKAGE, SUNDECK_DB=sundeck_db)
+    cur.execute(sql)
 
 
 def main(argv):
