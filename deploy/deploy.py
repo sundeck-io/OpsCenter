@@ -209,32 +209,17 @@ def _grant_sundeck_db_access(cur, sundeck_db: str):
 
         SHOW REGIONS;
         CREATE OR REPLACE TABLE "{APPLICATION_PACKAGE}".SHARING.REGIONS(snowflake_region text, cloud text, region text) AS
-            SELECT "snowflake_region", "cloud", "region" from table(result_scan(last_query_id())) where "cloud" <>
-            'azure';
-
-        insert into "{APPLICATION_PACKAGE}".SHARING.REGIONS values
-            ('AZURE_EASTUS2', 'azure', 'east-us-2'),
-            ('AZURE_WESTEUROPE', 'azure', 'west-europe'),
-            ('AZURE_AUSTRALIAEAST', 'azure', 'australia-east'),
-            ('AZURE_CANADACENTRAL', 'azure', 'canada-central'),
-            ('AZURE_SOUTHEASTASIA', 'azure', 'southeast-asia'),
-            ('AZURE_WESTUS2', 'azure', 'west-us-2'),
-            ('AZURE_SWITZERLANDN', 'azure', 'switzerland-north'),
-            ('AZURE_CENTRALUS', 'azure', 'central-us'),
-            ('AZURE_JAPANEAST', 'azure', 'japan-east'),
-            ('AZURE_NORTHEUROPE', 'azure', 'north-europe'),
-            ('AZURE_SOUTHCENTRALUS', 'azure', 'south-central-us'),
-            ('AZURE_UAENORTH', 'azure', 'uae-north'),
-            ('AZURE_CENTRALINDIA', 'azure', 'central-india'),
-            ('AZURE_UKSOUTH', 'azure', 'uk-south');
-
+            SELECT "snowflake_region", "cloud", "region" from table(result_scan(last_query_id()));
 
         -- Create a view in the application package that is filtered to CURRENT_ACCOUNT(). It is critical that the
         -- filtering is done here to ensure a user only sees their own history.
-        CREATE OR REPLACE VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY AS SELECT * FROM {sundeck_db}.INTERNAL.GLOBAL_QUERY_HISTORY
-            WHERE UPPER(SNOWFLAKE_ACCOUNT_LOCATOR) = UPPER(CURRENT_ACCOUNT()) and
-            UPPER(SNOWFLAKE_REGION) = (SELECT UPPER(region) from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1)) and
-            UPPER(SNOWFLAKE_CLOUD) = (SELECT UPPER(cloud) from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1));
+        -- Correct some wrongly-generated azure regions.
+        CREATE OR REPLACE VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY AS
+            SELECT * FROM {sundeck_db}.INTERNAL.GLOBAL_QUERY_HISTORY
+                WHERE UPPER(SNOWFLAKE_ACCOUNT_LOCATOR) = UPPER(CURRENT_ACCOUNT()) and
+                IFF(UPPER(SNOWFLAKE_CLOUD) = 'AZURE', REPLACE(UPPER(SNOWFLAKE_REGION), '-', ''), UPPER(SNOWFLAKE_REGION)) =
+                    (SELECT UPPER(region) from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1)) and
+                UPPER(SNOWFLAKE_CLOUD) = (SELECT UPPER(cloud) from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1));
 
         -- Grant access on the view to the application package.
         GRANT USAGE ON SCHEMA "{APPLICATION_PACKAGE}".SHARING TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
