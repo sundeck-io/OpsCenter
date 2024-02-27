@@ -59,3 +59,10 @@ $$
     internal.wrapper_signature_target(object_construct('database', query_db, 'schema', query_schema, 'query_text', query_text,
     'pin_table', object_construct('database', pin_table_dbname, 'schema', pin_table_schemaname, 'table', pin_table_tablename)))
 $$;
+
+create or replace function tools.list_routines()
+    returns variant
+as
+$$
+    internal.wrapper_list_routines(object_construct()))
+$$;
