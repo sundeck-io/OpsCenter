@@ -77,7 +77,7 @@ def _fake_app_package_objects(cur, database: str):
         SNOWFLAKE_CLOUD text,
         SUNDECK_START_TIME timestamp_ntz,
         SUNDECK_ACCOUNT_ID text,
-        ACTIONS_EXECUTED text,
+        ACTIONS_EXECUTED variant,
         SCHEMA_ONLY_REQUEST boolean);
     END;"""
     )

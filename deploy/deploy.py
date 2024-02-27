@@ -202,14 +202,32 @@ def _grant_sundeck_db_access(cur, sundeck_db: str):
             SNOWFLAKE_CLOUD text,
             SUNDECK_START_TIME timestamp_ntz,
             SUNDECK_ACCOUNT_ID text,
-            ACTIONS_EXECUTED text,
+            ACTIONS_EXECUTED variant,
             SCHEMA_ONLY_REQUEST boolean);
 
         GRANT REFERENCE_USAGE ON DATABASE {sundeck_db} TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
 
         SHOW REGIONS;
         CREATE OR REPLACE TABLE "{APPLICATION_PACKAGE}".SHARING.REGIONS(snowflake_region text, cloud text, region text) AS
-            SELECT "snowflake_region", "cloud", "region" from table(result_scan(last_query_id()));
+            SELECT "snowflake_region", "cloud", "region" from table(result_scan(last_query_id())) where "cloud" <>
+            'azure';
+
+        insert into "{APPLICATION_PACKAGE}".SHARING.REGIONS values
+            ('AZURE_EASTUS2', 'azure', 'east-us-2'),
+            ('AZURE_WESTEUROPE', 'azure', 'west-europe'),
+            ('AZURE_AUSTRALIAEAST', 'azure', 'australia-east'),
+            ('AZURE_CANADACENTRAL', 'azure', 'canada-central'),
+            ('AZURE_SOUTHEASTASIA', 'azure', 'southeast-asia'),
+            ('AZURE_WESTUS2', 'azure', 'west-us-2'),
+            ('AZURE_SWITZERLANDN', 'azure', 'switzerland-north'),
+            ('AZURE_CENTRALUS', 'azure', 'central-us'),
+            ('AZURE_JAPANEAST', 'azure', 'japan-east'),
+            ('AZURE_NORTHEUROPE', 'azure', 'north-europe'),
+            ('AZURE_SOUTHCENTRALUS', 'azure', 'south-central-us'),
+            ('AZURE_UAENORTH', 'azure', 'uae-north'),
+            ('AZURE_CENTRALINDIA', 'azure', 'central-india'),
+            ('AZURE_UKSOUTH', 'azure', 'uk-south');
+
 
         -- Create a view in the application package that is filtered to CURRENT_ACCOUNT(). It is critical that the
         -- filtering is done here to ensure a user only sees their own history.
