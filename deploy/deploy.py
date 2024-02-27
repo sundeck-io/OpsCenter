@@ -179,6 +179,7 @@ def _grant_sundeck_db_access(cur, sundeck_db: str):
     Grants REFERENCE_USAGE on SUNDECK to the application package and SELECT on the objects from the SUNDECK database.
     """
     if sundeck_db:
+        # This expects that the SUNDECK database exists and the view INTERNAL.GLOBAL_QUERY_HISTORY is present in that db.
         print("Running grants to database SUNDECK for application package.")
         filename = "deploy/sundeck_sharing.sql"
     else:

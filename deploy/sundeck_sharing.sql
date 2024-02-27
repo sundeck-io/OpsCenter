@@ -1,30 +1,9 @@
 BEGIN
     CREATE SCHEMA IF NOT EXISTS "{APPLICATION_PACKAGE}".SHARING;
 
-    CREATE DATABASE IF NOT EXISTS "{SUNDECK_DB}";
-    CREATE SCHEMA IF NOT EXISTS "{SUNDECK_DB}".INTERNAL;
-    -- Must be kept in sync with the SUNDECK database
-    CREATE TABLE IF NOT EXISTS "{SUNDECK_DB}".INTERNAL.GLOBAL_QUERY_HISTORY(
-        SNOWFLAKE_ACCOUNT_LOCATOR text,
-        SNOWFLAKE_QUERY_ID text,
-        SUNDECK_QUERY_ID text,
-        FLOW_NAME text,
-        QUERY_TEXT_RECEIVED text,
-        QUERY_TEXT_FINAL text,
-        SNOWFLAKE_SUBMISSION_TIME timestamp_ntz,
-        ALT_WAREHOUSE_ROUTE text,
-        SUNDECK_STATUS text,
-        SUNDECK_ERROR_CODE text,
-        SUNDECK_ERROR_MESSAGE text,
-        SNOWFLAKE_REGION text,
-        SNOWFLAKE_CLOUD text,
-        SUNDECK_START_TIME timestamp_ntz,
-        SUNDECK_ACCOUNT_ID text,
-        ACTIONS_EXECUTED variant,
-        SCHEMA_ONLY_REQUEST boolean);
-
     GRANT REFERENCE_USAGE ON DATABASE "{SUNDECK_DB}" TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
 
+    -- Create a table in the application package that contains the mapping of snowflake regions to cloud and region.
     SHOW REGIONS;
     CREATE OR REPLACE TABLE "{APPLICATION_PACKAGE}".SHARING.REGIONS(snowflake_region text, cloud text, region text) AS
         SELECT "snowflake_region", "cloud", "region" from table(result_scan(last_query_id()));
@@ -33,7 +12,7 @@ BEGIN
     -- filtering is done here to ensure a user only sees their own history.
     -- Correct some wrongly-generated azure regions.
     CREATE OR REPLACE VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY AS
-        SELECT * FROM {SUNDECK_DB}.INTERNAL.GLOBAL_QUERY_HISTORY
+        SELECT * FROM "{SUNDECK_DB}".INTERNAL.GLOBAL_QUERY_HISTORY
             WHERE UPPER(SNOWFLAKE_ACCOUNT_LOCATOR) = UPPER(CURRENT_ACCOUNT()) and
             IFF(UPPER(SNOWFLAKE_CLOUD) = 'AZURE', REPLACE(UPPER(SNOWFLAKE_REGION), '-', ''), UPPER(SNOWFLAKE_REGION)) =
                 (SELECT UPPER(region) from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1)) and
