@@ -110,7 +110,10 @@ def _upload_combined_setup_script(cur, deployment: str):
 
 
 def _install_or_update_package(
-    cur, version: Union[str, None] = None, install: bool = True
+    cur,
+    version: Union[str, None] = None,
+    install: bool = True,
+    sundeck_db: str = "SUNDECK",
 ):
     print(
         "Updating Snowflake application package and install. Includes running bootstrap script."
@@ -151,7 +154,11 @@ def _install_or_update_package(
         """
     )
 
+    # Run the grants prior to upgrading the application.
+    _grant_sundeck_db_access(cur, sundeck_db)
+
     if install:
+        print(f"Creating application {APPLICATION}.")
         cur.execute(
             f"""
         BEGIN
@@ -165,6 +172,29 @@ def _install_or_update_package(
         END;
         """
         )
+
+
+def _grant_sundeck_db_access(cur, sundeck_db: str):
+    """
+    Grants REFERENCE_USAGE on SUNDECK to the application package and SELECT on the objects from the SUNDECK database.
+    """
+    if sundeck_db:
+        # This expects that the SUNDECK database exists and the view INTERNAL.GLOBAL_QUERY_HISTORY is present in that db.
+        print("Running grants to database SUNDECK for application package.")
+        filename = "deploy/sundeck_sharing.sql"
+    else:
+        # Fallback case which creates an empty view so the setup script can assume SHARING.GLOBAL_QUERY_HISTORY
+        # always exists. Should only be used in local development settings.
+        print(
+            "Sundeck database was not specified, not adding QUERY_HISTORY to application package"
+        )
+        filename = "deploy/mock_sundeck_sharing.sql"
+
+    f = open(filename, "r")
+    tmpl = f.read()
+    f.close()
+    sql = tmpl.format(APPLICATION_PACKAGE=APPLICATION_PACKAGE, SUNDECK_DB=sundeck_db)
+    cur.execute(sql)
 
 
 def main(argv):
@@ -209,6 +239,7 @@ def execute(
     deployment: str = "prod",
     install: bool = True,
     skip_package: bool = False,
+    sundeck_db: str = "SUNDECK",
 ):
     # Do Actual Work
     conn = helpers.connect_to_snowflake(profile)
@@ -219,7 +250,10 @@ def execute(
         _upload_combined_setup_script(cur, deployment)
         _sync_local_to_stage(cur)
         if not skip_package:
-            _install_or_update_package(cur, version, install)
+            _install_or_update_package(cur, version, install, sundeck_db)
+        else:
+            # We skip_package for the Marketplace-listing account. Make sure the grant is executed there, too.
+            _grant_sundeck_db_access(cur, sundeck_db)
     finally:
         if os.environ.get("OPSCENTER_DROP_DATABASE", "false").lower() == "true":
             _drop_working_database(cur)
