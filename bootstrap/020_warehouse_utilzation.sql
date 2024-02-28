@@ -79,12 +79,12 @@ as $$
     util as (
         select date_trunc('day', period) as period, sum(loaded_cc * (select any_value(value) from ccost)) as cost, iff(sum(loaded_cc) = 0,null, sum(unloaded_cc)/sum(loaded_cc)) as utilization
         from reporting.warehouse_daily_utilization
-        where period between INPUT_START_DATE and INPUT_END_DATE and case when INPUT_WAREHOUSE_NAME is null then true else warehouse_name = INPUT_WAREHOUSE_NAME end
+        where period::DATE between INPUT_START_DATE and INPUT_END_DATE and case when INPUT_WAREHOUSE_NAME is null then true else warehouse_name = INPUT_WAREHOUSE_NAME end
         group by 1
 	)
 
     select cast(d.date as timestamp) as period, utilization from
     internal.dates d
     left outer join util u on d.date = u.period
-    where d.date between INPUT_START_DATE and INPUT_END_DATE
+    where d.date::DATE between INPUT_START_DATE and INPUT_END_DATE
 $$;
