@@ -7,7 +7,6 @@ BEGIN
         SNOWFLAKE_QUERY_ID text,
         SUNDECK_QUERY_ID text,
         FLOW_NAME text,
-        FLOW_VERSION_ID text,
         QUERY_TEXT_RECEIVED text,
         QUERY_TEXT_FINAL text,
         SNOWFLAKE_SUBMISSION_TIME timestamp_ltz,
