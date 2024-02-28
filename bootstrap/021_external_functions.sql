@@ -257,9 +257,8 @@ EXCEPTION
         RAISE;
 END;
 
-
 create or replace function internal.wrapper_list_routines(request object)
-    returns boolean
+    returns object
     immutable
 as
 $$
@@ -267,9 +266,6 @@ $$
         internal.throw_exception(internal.ef_list_routines(request):error),
         internal.ef_list_routines(request))::object
 $$;
-
-
-
 
 create function if not exists internal.get_ef_url()
     returns string
