@@ -121,6 +121,7 @@ CREATE OR REPLACE TASK TASKS.PROBE_MONITORING
     AS
 DECLARE
   sql STRING;
+  identifier STRING := (select current_account());
 BEGIN
     SYSTEM$LOG_DEBUG('probe_monitoring task beginning');
     CALL INTERNAL.GET_PROBE_SELECT() into :sql;
@@ -150,9 +151,10 @@ BEGIN
                 Query User: {user_name}\n
                 Warehouse Name: {warehouse_name}\n
                 Start Time: {start_time}\n
-                Query Text: \n{query_text}
+                Query Text: \n{query_text}\n
+                Account Locator:\n{identifier}\n
             ';
-            let dict variant := OBJECT_CONSTRUCT('query_id', act.query_id, 'query_text', act.query_text, 'user_name', act.user_name, 'warehouse_name', act.warehouse_name, 'start_time', act.start_time, 'probe_name', act.probe_name);
+            let dict variant := OBJECT_CONSTRUCT('query_id', act.query_id, 'query_text', act.query_text, 'user_name', act.user_name, 'warehouse_name', act.warehouse_name, 'start_time', act.start_time, 'probe_name', act.probe_name, 'identifier', :identifier);
             let outcome2 string := '';
             BEGIN
                 outcome2 := (select to_json(INTERNAL.NOTIFICATIONS(tools.templatejs(:body, :dict), tools.templatejs(:subject, :dict), 'email', :emails)));
@@ -169,14 +171,15 @@ BEGIN
         let slackDests string := act.action_taken:SLACK;
         IF (length(slackDests) > 1) THEN
             let slackResult string := '';
-            let dict variant := OBJECT_CONSTRUCT('bt', CHAR(UNICODE('\u0060')), 'query_id', act.query_id, 'query_text', act.query_text, 'user_name', act.user_name, 'warehouse_name', act.warehouse_name, 'start_time', act.start_time, 'probe_name', act.probe_name);
+            let dict variant := OBJECT_CONSTRUCT('bt', CHAR(UNICODE('\u0060')), 'query_id', act.query_id, 'query_text', act.query_text, 'user_name', act.user_name, 'warehouse_name', act.warehouse_name, 'start_time', act.start_time, 'probe_name', act.probe_name, 'identifier', :identifier);
             let message string := '
 Sundeck OpsCenter probe [{probe_name}] matched query.\n
 Query Id: {bt}{query_id}{bt}\n
 Query User: {user_name}\n
 Warehouse Name: {bt}{warehouse_name}{bt}\n
 Start Time: {bt}{start_time}{bt}\n
-Query Text: {bt}{bt}{bt}{query_text}{bt}{bt}{bt}
+Query Text: {bt}{bt}{bt}{query_text}{bt}{bt}{bt}\n
+Account Locator: {bt}{identifier}{bt}\n
             ';
            BEGIN
                slackResult := (select to_json(INTERNAL.NOTIFICATIONS(tools.templatejs(:message, :dict), 'unused', 'slack', :slackDests)));
