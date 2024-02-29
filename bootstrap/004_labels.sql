@@ -116,36 +116,28 @@ END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text, is_dynamic boolean)
     returns text
-    language python
-    runtime_version = "3.10"
-    handler = 'create_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
 AS
 $$
-from crud import create_entity
-from datetime import datetime
-from uuid import uuid4
-def create_label(session, name, grp, rank, condition, is_dynamic):
-    return create_entity(session, 'LABEL', {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now(), 'label_id': str(uuid4())})
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('name', :name, 'grp', :grp, 'rank', :rank, 'condition', :condition, 'is_dynamic', :is_dynamic), 'CREATE_LABEL') into ret;
+    return ret;
+end;
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text)
     returns text
-    language python
-    runtime_version = "3.10"
-    handler = 'create_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
 AS
 $$
-from crud import create_entity
-from datetime import datetime
-from uuid import uuid4
-def create_label(session, name, grp, rank, condition):
-    return create_entity(session, 'LABEL', {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': False, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now(), 'label_id': str(uuid4())})
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('name', :name, 'grp', :grp, 'rank', :rank, 'condition', :condition, 'is_dynamic', FALSE), 'CREATE_LABEL') into ret;
+    return ret;
+end;
 $$;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.INITIALIZE_LABELS()
@@ -175,67 +167,55 @@ END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_LABEL(name text)
     RETURNS text
-    language python
-    runtime_version = "3.10"
-    handler = 'delete_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
 AS
 $$
-from crud import delete_entity
-def delete_label(session, name):
-    return delete_entity(session, 'LABEL', name)
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('name', :name), 'DELETE_LABEL') into ret;
+    return ret;
+end;
 $$;
 
 -- TODO Differentiate from ungrouped labels  by having "AND IS_DYNAMIC" in the delete clause
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_DYNAMIC_LABEL(name text)
     RETURNS text
-    language python
-    runtime_version = "3.10"
-    handler = 'delete_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
 AS
 $$
-from crud import delete_entity
-def delete_label(session, name):
-    return delete_entity(session, 'LABEL', name)
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('name', :name), 'DELETE_LABEL') into ret;
+    return ret;
+end;
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text, is_dynamic boolean)
     RETURNS text
-    language python
-    runtime_version = "3.10"
-    handler = 'update_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
- AS
+AS
 $$
-from crud import update_entity
-from datetime import datetime
-from uuid import uuid4
-def update_label(session, old_name, name, grp, rank, condition, is_dynamic):
-    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now(), 'label_id': str(uuid4())})
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('oldname', :oldname, 'name', :name, 'grp', :grp, 'rank', :rank, 'condition', :condition, 'is_dynamic', :is_dynamic), 'UPDATE_LABEL') into ret;
+    return ret;
+end;
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text)
     RETURNS text
-    language python
-    runtime_version = "3.10"
-    handler = 'update_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
  AS
 $$
-from crud import update_entity
-from datetime import datetime
-from uuid import uuid4
-def update_label(session, old_name, name, grp, rank, condition):
-    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': False, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now(), 'label_id': str(uuid4())})
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('oldname', :oldname, 'name', :name, 'grp', :grp, 'rank', :rank, 'condition', :condition, 'is_dynamic', FALSE), 'UPDATE_LABEL') into ret;
+    return ret;
+end;
 $$;
 
 CREATE OR REPLACE VIEW CATALOG.LABELS AS SELECT * FROM INTERNAL.LABELS;
@@ -300,15 +280,15 @@ END;
 
 CREATE OR REPLACE PROCEDURE INTERNAL_PYTHON.VALIDATE_PREDEFINED_LABELS()
     RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'validate_predefined_labels'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    LANGUAGE sql
     EXECUTE AS OWNER
 AS
 $$
-from crud import validate_predefined_labels
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct(), 'VALIDATE_PREDEFINED_LABELS') into :ret;
+    return :ret;
+end;
 $$;
 
 

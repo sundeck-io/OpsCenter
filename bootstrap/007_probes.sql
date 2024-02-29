@@ -200,51 +200,43 @@ END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_QUERY_MONITOR(name text, condition text, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'create_probe'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-import datetime
-from crud import create_entity
-def create_probe(session, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel):
-    return create_entity(session, 'QUERY_MONITOR', {'name': name, 'condition': condition, 'notify_writer': notify_writer, 'notify_writer_method': notify_writer_method, 'notify_other': notify_other, 'notify_other_method': notify_other_method, 'cancel': cancel, 'probe_created_at': datetime.datetime.now(), 'probe_modified_at': datetime.datetime.now()})
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('name', :name, 'condition', :condition, 'notify_writer': notify_writer, 'notify_writer_method', :notify_writer_method, 'notify_other', :notify_other, 'notify_other_method', :notify_other_method, 'cancel', :cancel), 'CREATE_QUERY_MONITOR') into :ret;
+    return :ret;
+end;
 $$;
 
 
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_QUERY_MONITOR(name text)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'delete_probe'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-from crud import delete_entity
-def delete_probe(session, name):
-    return delete_entity(session, 'QUERY_MONITOR', name)
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('name', :name), 'DELETE_QUERY_MONITOR') into :ret;
+    return :ret;
+end;
 $$;
 
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_QUERY_MONITOR(oldname text, name text, condition text, notify_writer boolean, notify_writer_method string, notify_other string, notify_other_method string, cancel boolean)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'update_probe'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-import datetime
-from crud import update_entity
-def update_probe(session, oldname, name, condition, notify_writer, notify_writer_method, notify_other, notify_other_method, cancel):
-    return update_entity(session, 'QUERY_MONITOR', oldname, {'name': name, 'condition': condition, 'notify_writer': notify_writer, 'notify_writer_method': notify_writer_method, 'notify_other': notify_other, 'notify_other_method': notify_other_method, 'cancel': cancel, 'probe_created_at': datetime.datetime.now(), 'probe_modified_at': datetime.datetime.now()})
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('oldname', :oldname, 'name', :name, 'condition', :condition, 'notify_writer': notify_writer, 'notify_writer_method', :notify_writer_method, 'notify_other', :notify_other, 'notify_other_method', :notify_other_method, 'cancel', :cancel), 'UPDATE_QUERY_MONITOR') into :ret;
+    return :ret;
+end;
 $$;
 
 

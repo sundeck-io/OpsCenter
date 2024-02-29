@@ -203,14 +203,15 @@ def main(argv):
     deployment = "prod"
     skip_install = False
     skip_package = False
+    sundeck_db = "SUNDECK"
     opts, args = getopt.getopt(
-        argv, "xhsd:p:v:", ["deployment=", "profile=", "version="]
+        argv, "xhsde:p:v:", ["deployment=", "profile=", "version="]
     )
     for opt, arg in opts:
         if opt == "-h":
             print(
                 "deploy.py -p <snowsql_profile_name> -s (skip install) -x (skip package creation/upload entirely) "
-                + "-v <version_name>  -d <sundeck_deployment> --profile <snowsql_profile_name>, "
+                + "-v <version_name> -e (skip external share) -d <sundeck_deployment> --profile <snowsql_profile_name>, "
                 + "--version <version_name> --deployment <sundeck_deployment>"
             )
             sys.exit()
@@ -229,8 +230,11 @@ def main(argv):
         elif opt == "-x":
             print("==Skipping Package Creation")
             skip_package = True
+        elif opt == "-e":
+            print("==Skipping External Share")
+            sundeck_db = arg if arg else None
 
-    execute(profile, version, deployment, not skip_install, skip_package)
+    execute(profile, version, deployment, not skip_install, skip_package, sundeck_db)
 
 
 def execute(
@@ -239,7 +243,7 @@ def execute(
     deployment: str = "prod",
     install: bool = True,
     skip_package: bool = False,
-    sundeck_db: str = "SUNDECK",
+    sundeck_db: Union[str, None] = "SUNDECK",
 ):
     # Do Actual Work
     conn = helpers.connect_to_snowflake(profile)

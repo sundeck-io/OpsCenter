@@ -162,201 +162,133 @@ $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_WAREHOUSE_SCHEDULE(warehouse_name text, size text, start_at time, finish_at time, is_weekday boolean, suspend_minutes number, autoscale_mode text, autoscale_min number, autoscale_max number, auto_resume boolean, comment text)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'create_warehouse_schedule'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-import datetime
-import uuid
-from crud.base import transaction
-from crud.wh_sched import WarehouseSchedules, after_schedule_change, fetch_schedules_with_defaults, merge_new_schedule, verify_and_clean
-def create_warehouse_schedule(bare_session, name: str, size: str, start: datetime.time, finish: datetime.time, weekday: bool, suspend_minutes: int, autoscale_mode: str, autoscale_min: int, autoscale_max: int, auto_resume: bool, comment: str):
-    with transaction(bare_session) as session:
-        # Make sure the default schedule are created.
-        _ = fetch_schedules_with_defaults(session, name)
-
-        current_scheds = WarehouseSchedules.find_all_with_weekday(session, name, weekday)
-
-        # Figure out if the schedules are enabled or disabled
-        is_enabled = all(s.enabled for s in current_scheds) if len(current_scheds) > 0 else False
-
-        new_sched = WarehouseSchedules.parse_obj(dict(
-            id_val=uuid.uuid4().hex,
-            name=name,
-            size=size,
-            start_at=start,
-            finish_at=finish,
-            suspend_minutes=suspend_minutes,
-            warehouse_mode=autoscale_mode,
-            scale_min=autoscale_min,
-            scale_max=autoscale_max,
-            resume=auto_resume,
-            weekday=weekday,
-            enabled=is_enabled,
-            comment=comment,
-            user_modified=True,
-        ))
-
-        # Handles pre-existing schedules or no schedules for this warehouse.
-        new_scheds = merge_new_schedule(new_sched, current_scheds)
-
-        err_msg, new_scheds = verify_and_clean(new_scheds)
-        if err_msg is not None:
-            raise Exception(f"Failed to create schedule for {name}, {err_msg}")
-
-        # Write the new schedule
-        new_sched.write(session)
-        # Update any schedules that were affected by adding the new schedule
-        [i.update(session, i) for i in new_scheds if i.id_val != new_sched.id_val]
-        # Twiddle the task state after adding a new schedule
-        after_schedule_change(session)
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(
+        object_construct(
+            'name', :warehouse_name,
+            'size', :size,
+            'start_at', :start_at,
+            'finish_at', :finish_at,
+            'weekday', :is_weekday,
+            'suspend_minutes', :suspend_minutes,
+            'autoscale_mode', :autoscale_mode,
+            'autoscale_min', :autoscale_min,
+            'autoscale_max', :autoscale_max,
+            'auto_resume', :auto_resume,
+            'comment', :comment
+        ),
+        'create_warehouse_schedule'
+    ) into :ret;
+    return :ret;
+end;
 $$;
 
 
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_WAREHOUSE_SCHEDULE(name text, start_at time, finish_at time, weekday boolean)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'run_delete'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-import datetime
-from crud.base import transaction
-from crud.wh_sched import WarehouseSchedules, after_schedule_change, delete_warehouse_schedule
-def run_delete(bare_session, name: str, start: datetime.time, finish: datetime.time, is_weekday: bool):
-    with transaction(bare_session) as session:
-        # Find the matching schedule
-        row = WarehouseSchedules.find_one(session, name, start, finish, is_weekday)
-        if not row:
-            raise Exception(f"Could not find warehouse schedule: {name}, {start}, {finish}, {'weekday' if is_weekday else 'weekend'}")
-
-        to_delete = WarehouseSchedules.construct(id_val = row.id_val)
-        current_scheds = WarehouseSchedules.batch_read(session, sortby="start_at", filter=lambda df: ((df.name == name) & (df.weekday == is_weekday)))
-        new_scheds = delete_warehouse_schedule(to_delete, current_scheds)
-
-        # Delete that schedule, leaving a hole
-        to_delete.delete(session)
-
-        # Run the updates, filling the hole
-        [i.update(session, i) for i in new_scheds]
-
-        # Twiddle the task state after adding a new schedule
-        after_schedule_change(session)
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(
+        object_construct(
+            'name', :name,
+            'start_at', :start_at,
+            'finish_at', :finish_at,
+            'weekday', :weekday
+        ),
+        'delete_warehouse_schedule'
+    ) into :ret;
+    return :ret;
+end;
 $$;
 
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_WAREHOUSE_SCHEDULE(warehouse_name text, start_at time, finish_at time, weekday boolean, new_start_at time, new_finish_at time, size text, suspend_minutes number, autoscale_mode text, autoscale_min number, autoscale_max number, auto_resume boolean, comment text)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'update_warehouse_schedule'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-import datetime
-from crud.base import transaction
-from crud.wh_sched import WarehouseSchedules, after_schedule_change, fetch_schedules_with_defaults, update_existing_schedule
-def update_warehouse_schedule(bare_session, name: str, start: datetime.time, finish: datetime.time, is_weekday: bool, new_start_at: datetime.time, new_finish_at: datetime.time, size: str, suspend_minutes: int, autoscale_mode: str, autoscale_min: int, autoscale_max: int, auto_resume: bool, comment: str):
-    with transaction(bare_session) as session:
-        # Make sure the default schedule are created.
-        _ = fetch_schedules_with_defaults(session, name)
-
-        # Find a matching schedule
-        old_schedule = WarehouseSchedules.find_one(session, name, start, finish, is_weekday)
-        if not old_schedule:
-            raise Exception(f"Could not find warehouse schedule: {name}, {start}, {finish}, {'weekday' if is_weekday else 'weekend'}")
-
-        # Make the new version of that schedule with the same id_val
-        new_schedule = WarehouseSchedules.parse_obj(dict(
-            id_val=old_schedule.id_val,
-            name=name,
-            size=size,
-            start_at=new_start_at,
-            finish_at=new_finish_at,
-            suspend_minutes=suspend_minutes,
-            warehouse_mode=autoscale_mode,
-            scale_min=autoscale_min,
-            scale_max=autoscale_max,
-            resume=auto_resume,
-            comment=comment,
-            enabled=old_schedule.enabled,
-            user_modified=True,
-        ))
-
-        # Read the current schedules
-        schedules = WarehouseSchedules.find_all_with_weekday(session, name, new_schedule.weekday)
-
-        # Update the WarehouseSchedule instance for this warehouse
-        schedules_needing_update = update_existing_schedule(old_schedule.id_val, new_schedule, schedules)
-
-        # Persist all updates to the table
-        [i.update(session, i) for i in schedules_needing_update]
-
-        # Twiddle the task state after a schedule has changed
-        after_schedule_change(session)
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(
+        object_construct(
+            'name', :warehouse_name,
+            'start_at', :start_at,
+            'finish_at', :finish_at,
+            'weekday', :weekday,
+            'new_start_at', :new_start_at,
+            'new_finish_at', :new_finish_at,
+            'size', :size,
+            'suspend_minutes', :suspend_minutes,
+            'autoscale_mode', :autoscale_mode,
+            'autoscale_min', :autoscale_min,
+            'autoscale_max', :autoscale_max,
+            'auto_resume', :auto_resume,
+            'comment', :comment
+        ),
+        'update_warehouse_schedule'
+    ) into :ret;
+    return :ret;
+end;
 $$;
 
 
 CREATE OR REPLACE PROCEDURE ADMIN.ENABLE_WAREHOUSE_SCHEDULING(warehouse_name text)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'run'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-from crud.base import transaction
-from crud.wh_sched import WarehouseSchedules
-def run(session, name: str):
-    with transaction(session) as txn:
-        # Find a matching schedule
-        WarehouseSchedules.enable_scheduling(txn, name, True)
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(
+        object_construct('name', :warehouse_name),
+        'enable_warehouse_scheduling'
+    ) into :ret;
+    return :ret;
+end;
 $$;
 
 
 CREATE OR REPLACE PROCEDURE ADMIN.DISABLE_WAREHOUSE_SCHEDULING(warehouse_name text)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'run'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-from crud.base import transaction
-from crud.wh_sched import WarehouseSchedules
-def run(session, name: str):
-    with transaction(session) as txn:
-        # Find a matching schedule
-        WarehouseSchedules.enable_scheduling(txn, name, False)
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(
+        object_construct('name', :warehouse_name),
+        'disable_warehouse_scheduling'
+    ) into :ret;
+    return :ret;
+end;
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_DEFAULT_SCHEDULES(warehouse_name text)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'run'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-from crud.wh_sched import fetch_schedules_with_defaults
-def run(session, name: str):
-    fetch_schedules_with_defaults(session, name)
-    return ""
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(
+        object_construct('name', :warehouse_name),
+        'create_default_schedules'
+    ) into :ret;
+    return :ret;
+end;
 $$;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_WHSCHED_TABLE()
@@ -380,26 +312,18 @@ END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.RESET_WAREHOUSE_SCHEDULE(warehouse_name text)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'run'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-from crud.base import transaction
-from crud.wh_sched import after_schedule_change, fetch_schedules_with_defaults
-def run(bare_session, warehouse_name: str):
-    with transaction(bare_session) as session:
-        session.sql("DELETE FROM internal.wh_schedules WHERE name = ?", params=(warehouse_name,)).collect()
-
-        # Re-create the default schedules for this warehouse
-        _ = fetch_schedules_with_defaults(session, warehouse_name)
-
-        # Twiddle the task state after adding a new schedule
-        after_schedule_change(session)
-        return ""
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(
+        object_construct('name', :warehouse_name),
+        'reset_warehouse_schedule'
+    ) into :ret;
+    return :ret;
+end;
 $$;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.ACCOUNT_HAS_AUTOSCALING()

@@ -12,67 +12,41 @@ END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_SETTING(name TEXT, value TEXT)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    RUNTIME_VERSION = "3.10"
-    HANDLER = 'run'
-    PACKAGES = ('snowflake-snowpark-python', 'pydantic')
-    IMPORTS = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-from crud.base import transaction
-from crud.errors import summarize_error
-from crud.settings import Setting
-def run(bare_session, name: str, value: str):
-    with transaction(bare_session) as session:
-        try:
-            setting = Setting(key=name, value=value)
-            setting.write(session)
-            return ""
-        except Exception as ve:
-            return summarize_error("Failed to update setting", ve)
+begin
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('name', :name, 'value', :value), 'UPDATE_SETTING') into :ret;
+    return :ret;
+end;
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.ENABLE_TASK(name TEXT)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    RUNTIME_VERSION = "3.10"
-    HANDLER = 'run'
-    PACKAGES = ('snowflake-snowpark-python', 'pydantic')
-    IMPORTS = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-from crud.errors import summarize_error
-from crud.tasks import Task
-def run(session, name: str):
-    try:
-        task = Task(task_name=name)
-        task.enable(session)
-        return ""
-    except Exception as e:
-        return summarize_error("Unable to enable task", e)
+BEGIN
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('name', :name), 'ENABLE_TASK') into :ret;
+    return :ret;
+END;
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.DISABLE_TASK(name TEXT)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    RUNTIME_VERSION = "3.10"
-    HANDLER = 'run'
-    PACKAGES = ('snowflake-snowpark-python', 'pydantic')
-    IMPORTS = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
 $$
-from crud.errors import summarize_error
-from crud.tasks import Task
-def run(session, name: str):
-    try:
-        task = Task(task_name=name)
-        task.disable(session)
-        return ""
-    except Exception as e:
-        return summarize_error("Unable to disable task", e)
+BEGIN
+    let ret text := '';
+    call internal_python.python_central_proc(object_construct('name', :name), 'DISABLE_TASK') into :ret;
+    return :ret;
+END;
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.ENABLE_DIAGNOSTIC_INSTRUCTIONS()

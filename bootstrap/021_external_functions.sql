@@ -303,7 +303,7 @@ create or replace function admin.register_tenant(sfAppName varchar, client_id va
     returns object
 as
 $$
-    internal.wrapper_register_tenant(object_construct('sfAppName', sfAppName, 'clientKey', client_id, 'clientSecret', client_secret, 'nativeAppDatabase', dbname, 'externalId', internal.external_id()))
+    internal.wrapper_register_tenant(object_construct('sfAppName', sfAppName, 'clientKey', client_id, 'clientSecret', client_secret, 'nativeAppDatabase', dbname, 'externalId', ''))
 $$;
 
 
