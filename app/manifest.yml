@@ -6,7 +6,7 @@ artifacts:
   default_streamlit: admin.opscenter
 
 configuration:
-  trace_level: ALWAYS
+  trace_level: ON_EVENT
   log_level: INFO
 
 privileges:
