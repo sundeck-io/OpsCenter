@@ -62,7 +62,6 @@ def _fake_app_package_objects(cur, database: str):
         f"""BEGIN
     CREATE SCHEMA IF NOT EXISTS "{database}".SHARING;
     CREATE TABLE IF NOT EXISTS "{database}".SHARING.GLOBAL_QUERY_HISTORY(
-        SNOWFLAKE_ACCOUNT_LOCATOR text,
         SNOWFLAKE_QUERY_ID text,
         SUNDECK_QUERY_ID text,
         FLOW_NAME text,
@@ -74,8 +73,6 @@ def _fake_app_package_objects(cur, database: str):
         SUNDECK_STATUS text,
         SUNDECK_ERROR_CODE text,
         SUNDECK_ERROR_MESSAGE text,
-        SNOWFLAKE_REGION text,
-        SNOWFLAKE_CLOUD text,
         SUNDECK_START_TIME timestamp_ltz,
         SUNDECK_ACCOUNT_ID text,
         ACTIONS_EXECUTED variant,
