@@ -80,6 +80,9 @@ def _sync_local_to_stage(cur):
         dirs[:] = [d for d in dirs if not d.startswith(".")]
         dirs[:] = [d for d in dirs if not d == "__pycache__"]
 
+        # Ignore any crud.zip seen in the walk. We already copied it above
+        files = [f for f in files if f != "crud.zip"]
+
         for file in files:
             local_file_path = os.path.join(root, file)
             stage_file_path = FULL_STAGE_SLASH + os.path.relpath(root, target_dir)
