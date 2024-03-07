@@ -1,7 +1,7 @@
 
 
 create or replace function admin.list_brokers()
-    returns TABLE (flow_name VARCHAR, flow_is_default VARCHAR, flow_default_warehouse VARCHAR, flow_hostname VARCHAR, flow_last_modified_at VARCHAR, flow_ddl VARCHAR, flow_results_path VARCHAR, flow_comment VARCHAR)
+    returns TABLE (name VARCHAR, is_default VARCHAR, default_warehouse VARCHAR, hostname VARCHAR, last_modified_at VARCHAR, ddl VARCHAR, results_path VARCHAR, comment VARCHAR)
 as
 $$
     SELECT
