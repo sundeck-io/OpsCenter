@@ -56,7 +56,7 @@ import random
 @vectorized(input=pandas.DataFrame)
 def parse_all(df):
   return df.apply(lambda row: parse(row[0], row[1], row[2], row[3]), axis=1)
-  
+
 def transform(node, database, schema):
     if isinstance(node, exp.Literal):
         return hash_literal(node)
@@ -98,6 +98,7 @@ def hash_literal(lit):
         l._comments = lit._comments
     return l
 $$;
+
 
 -- sp to create view reporting.enriched_query_history
 CREATE OR REPLACE PROCEDURE INTERNAL.create_view_enriched_query_history_normalized()
