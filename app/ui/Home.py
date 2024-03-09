@@ -1,21 +1,117 @@
 import streamlit as st
 import sthelp
+from connection import execute_with_cache
+import datetime
 
 
-# sthelp.chrome()
 st.set_page_config(layout="wide", page_title="Sundeck Opscenter", page_icon=":pilot:")
 
 
+def timedelta_to_human_readable(delta: datetime.timedelta) -> str:
+    if delta.total_seconds() < 0:
+        return None
+    # Break down the timedelta into days, hours, minutes, and seconds
+    days, seconds = delta.days, delta.seconds
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    seconds = seconds % 60
+
+    # Build a human-readable string
+    parts = []
+    if days > 0:
+        parts.append(f"{days} day{'s' if days > 1 else ''}")
+    if hours > 0:
+        parts.append(f"{hours} hour{'s' if hours > 1 else ''}")
+    if minutes > 0:
+        parts.append(f"{minutes} minute{'s' if minutes > 1 else ''}")
+    if seconds > 0 or not parts:
+        parts.append(f"{seconds} second{'s' if seconds != 1 else ''}")
+
+    return ", ".join(parts)
+
+
+def get(query, fmt):
+    df = execute_with_cache(query)
+    if df is None:
+        return fmt(None)
+    if df.empty:
+        return fmt(None)
+    util = df.iloc[0, 0]
+    if util is None:
+        return fmt(None)
+    return fmt(util)
+
+
+def to_str(end_time, start_time):
+    if not end_time:
+        return None, None
+    if not start_time:
+        return None, None
+    print(end_time, start_time, end_time.tzinfo, type(end_time.tzinfo))
+    update_str = end_time.strftime("%Y-%m-%d %H:%M")
+    duration = timedelta_to_human_readable(end_time - start_time)
+    next_time_str = "60 minutes"
+
+    if duration is not None:
+        return f"{update_str} ({duration})", next_time_str
+    return update_str, next_time_str
+
+
 def get_refresh_data():
-    return "2021-01-01", "2021-01-31", "2021-01-01", "2021-02-01"
+    wh_end_times = (
+        "select value from catalog.config where key = 'WAREHOUSE_EVENTS_MAINTENANCE'"
+    )
+    query_end_times = (
+        "select value from catalog.config where key  = 'QUERY_HISTORY_MAINTENANCE'"
+    )
+    queryh_start_times = "select max(run) from internal.task_query_history"
+    warehouse_start_times = "select max(run) from internal.task_warehouse_events"
+    range_min = "select min(start_time) from reporting.enriched_query_history"
+    range_max = "select max(start_time) from reporting.enriched_query_history"
+    qet = get(
+        query_end_times,
+        lambda x: datetime.datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f %z")
+        if x is not None
+        else None,
+    )
+    wet = get(
+        wh_end_times,
+        lambda x: datetime.datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f %z")
+        if x is not None
+        else None,
+    )
+    qst = get(
+        queryh_start_times,
+        lambda x: x.replace(tzinfo=qet.tzinfo)
+        if x is not None and qet is not None
+        else None,
+    )
+    wst = get(
+        warehouse_start_times,
+        lambda x: x.replace(tzinfo=wet.tzinfo)
+        if x is not None and wet is not None
+        else None,
+    )
+    q1, q2 = to_str(qet, qst)
+    w1, w2 = to_str(wet, wst)
+    rmin = get(
+        range_min, lambda x: x.strftime("%Y-%m-%d %H:%M") if x is not None else None
+    )
+    rmax = get(
+        range_max, lambda x: x.strftime("%Y-%m-%d %H:%M") if x is not None else None
+    )
+    return q1, q2, w1, w2, rmin, rmax
 
 
 def get_wh_utilization():
-    return "20 %"  # This should be a real value
+    query = """select iff(sum(loaded_cc) = 0,null, sum(unloaded_cc)/sum(loaded_cc)) as utilization
+        from reporting.warehouse_daily_utilization
+        where period::DATE between current_timestamp - interval '30 days' and current_timestamp """
+    return get(query, lambda x: f"{x*100:.2f} %" if x is not None else "Calculating")
 
 
-cols = st.columns([1, 30, 20, 1])
-with cols[1]:
+cols = st.columns([30, 20])
+with cols[0]:
     sthelp.image_svg("opscenter_logo.svg")
     st.markdown(
         """
@@ -84,19 +180,21 @@ can facilitate sub-warehouse activity tracking and analysis. Additional details 
 
                 """
     )
-with cols[2]:
-    start, end, last, next = get_refresh_data()
+with cols[1]:
+    qlu, qnu, wlu, wnu, das, dae = get_refresh_data()
     with st.expander("", expanded=True):
-        if start is None:
+        if qlu is None:
             st.markdown(
                 """Initial data load is processing. This may take up to one hour.
                 You can monitor the task process by viewing 'TASK NAME' in
                 Monitoring > Task History within Snowsight"""
             )
         else:
-            st.write(f"Data Available: {start} - {end}")
-            st.write(f"Last Update: {last}")
-            st.write(f"Next Update: {next}")
+            st.write(f"Data Available: {das} - {dae}")
+            st.write(f"Query History Last Update: {qlu}")
+            st.write(f"Query History Update Frequency: {qnu}")
+            st.write(f"Warehouse Events Last Update: {wlu}")
+            st.write(f"Warehouse Events History Update Frequency: {wnu}")
 
     with st.expander("", expanded=True):
         st.markdown(
@@ -104,5 +202,5 @@ with cols[2]:
             free and lets you manage query monitors, warehouse schedules and labels
             as well as take advantage of further features via a comprehensive UI."""
         )
-        if st.button("Connect to Sundeck UI"):
-            pass
+        st.markdown("[Connect to Sundeck UI](https://sundeck.io/signup)")
+        st.video("https://youtu.be/msenvc42pYo")
