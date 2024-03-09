@@ -1,3 +1,4 @@
+from snowflake.connector import DictCursor
 import uuid
 from typing import List, Dict
 
@@ -22,6 +23,12 @@ def run_proc(conn, sql) -> str:
 def row_count(conn, sql) -> int:
     assert isinstance(result := _get_single_value(conn, sql), int)
     return result
+
+
+def fetch_objects(conn, table: str, where_conds: str) -> List[Dict]:
+    with conn() as cnx:
+        cur = cnx.cursor(DictCursor)
+        return cur.execute(f"select * from {table} where {where_conds}").fetchall()
 
 
 def run_sql(conn, sql) -> str:
