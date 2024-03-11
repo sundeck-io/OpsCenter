@@ -41,29 +41,23 @@ create or replace function tools.normalize(sql varchar, database varchar, schema
 returns text
 language python
 runtime_version=3.8
+packages = ('pandas')
 imports=('{{stage}}/python/sqlglot.zip')
-handler='parse'
+handler='parse_all'
 as
 $$
-from sqlglot import parse_one
+import pandas
+from _snowflake import vectorized
+from sqlglot import parse_one, optimizer
 import sqlglot.expressions as exp
 import hashlib
 import random
+
+@vectorized(input=pandas.DataFrame)
+def parse_all(df):
+  return df.apply(lambda row: parse(row[0], row[1], row[2], row[3]), axis=1)
+
 def transform(node, database, schema):
-    if schema is None:
-        schema = ''
-    if database is None:
-        database = ''
-    if isinstance(node, exp.Table) and node.name != '':
-        tbl = [node.catalog or database, node.db or schema, node.name]
-        tbl_str = '.'.join(i for i in tbl if i)
-        if node.alias:
-            tbl_str += ' ' + node.alias
-        if hasattr(node, '_comments'):
-            tbl_str += ' ' + node._comments
-        if hasattr(node, 'comments') and node.comments is not None:
-            tbl_str += ' ' + node.comments
-        return parse_one(tbl_str, dialect='snowflake')
     if isinstance(node, exp.Literal):
         return hash_literal(node)
     return node
@@ -71,6 +65,15 @@ def transform(node, database, schema):
 def parse(sql, database, schema, include_comments):
     try:
         pt = parse_one(sql.encode().decode('unicode_escape'), dialect='snowflake')
+        pt = optimizer.qualify.qualify(pt,
+                                     catalog=database,
+                                     db=schema,
+                                     dialect="snowflake",
+                                     quote_identifiers=False,
+                                     qualify_columns=False,
+                                     validate_qualify_columns=False,
+                                     expand_alias_refs=False,
+                                     identify=False)
     except:
         return "parse_error"
     try:
