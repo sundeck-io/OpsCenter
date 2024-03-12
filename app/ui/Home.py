@@ -124,9 +124,9 @@ def get_wh_utilization():
     return get(query, lambda x: f"{x*100:.2f} %" if x is not None else "Calculating")
 
 
+sthelp.image_svg("opscenter_logo.svg")
 cols = st.columns([30, 20])
 with cols[0]:
-    sthelp.image_svg("opscenter_logo.svg")
     st.markdown(
         """
     The Sundeck native app is part of the Sundeck query engineering platform.
@@ -136,7 +136,7 @@ with cols[0]:
     )
 
     wh = get_wh_utilization()
-    st.metric("Warehouse Utilization", wh)
+    st.metric("Your current aggregate warehouse utilization.", wh)
     if wh == "Calculating":
         st.markdown(
             """
@@ -147,34 +147,6 @@ Once complete, utilization will reported above.
         )
     st.markdown(
         """
-
-## Enhanced Snowflake Consumption Tables
-The Sundeck native app automatically generates a fully materialized and incrementally
-updated set of warehouse and query activity data tables. This allows you to analyze
-key `SNOWFLAKE.ACCOUNT_USAGE` tables efficiently. These tables also are enriched to
-enhance analysis opportunities. Key tables include:
-
-#### REPORTING.ENRICHED_QUERY_HISTORY
-An enriched variation of `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY`. Includes all
-columns from that tables as well as per query estimated costs using Sundeck's cost
-attribution model and automatically extracted QTag values. Additional details can be
-found here.
-
-#### REPORTING.WAREHOUSE_SESSIONS
-A sessionized version of `WAREHOUSE_EVENT_HISTORY` focused on warehouse start and
-stop events. Each record in this table describes a warehouse from start to suspend.
-Additional details can be found here.
-
-#### REPORTING.CLUSTER_SESSIONS
-A sessionized version of `WAREHOUSE_EVENT_HISTORY` focused on cluster activity.
-Each record in this table describes one cluster start and stop. Clusters are the
-individual auto-scaling units within a warehouse. If you are not using autoscaling,
-this table will be similar to warehouse sessions above. Additional details can be
-found here.
-
-#### REPORTING.WAREHOUSE_DAILY_UTILIZATION and WAREHOUSE_HOURLY_UTILIZATION
-Provides daily and hourly versions of per warehouse utilization analyses. Useful to
-understand where warehouse efficiency can be improved. Additional details can be found here.
 
 ## Snowflake Management Tools
 
@@ -191,18 +163,46 @@ down warehouses on evening and weekends to reduce waste. Additional details can 
 Labels allow you to categorize queries based on query shape and consumption. Labels
 can facilitate sub-warehouse activity tracking and analysis. Additional details can be found [here](https://docs.sundeck.io/concepts/labels/).
 
-                """
+## Enhanced Snowflake Consumption Tables
+The Sundeck native app automatically generates a fully materialized and incrementally
+updated set of warehouse and query activity data tables. This allows you to analyze
+key `SNOWFLAKE.ACCOUNT_USAGE` tables efficiently. These tables also are enriched to
+enhance analysis opportunities. Key tables include:
+
+#### REPORTING.ENRICHED_QUERY_HISTORY
+An enriched variation of `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY`. Includes all
+columns from that tables as well as per query estimated costs using Sundeck's cost
+attribution model and automatically extracted QTag values.
+
+#### REPORTING.WAREHOUSE_SESSIONS
+A sessionized version of `WAREHOUSE_EVENT_HISTORY` focused on warehouse start and
+stop events. Each record in this table describes a warehouse from start to suspend.
+
+#### REPORTING.CLUSTER_SESSIONS
+A sessionized version of `WAREHOUSE_EVENT_HISTORY` focused on cluster activity.
+Each record in this table describes one cluster start and stop. Clusters are the
+individual auto-scaling units within a warehouse. If you are not using autoscaling,
+this table will be similar to warehouse sessions above.
+
+#### REPORTING.WAREHOUSE_DAILY_UTILIZATION and WAREHOUSE_HOURLY_UTILIZATION
+Provides daily and hourly versions of per warehouse utilization analyses. Useful to
+understand where warehouse efficiency can be improved.
+"""
     )
 with cols[1]:
     qlu, qnu, wlu, wnu, das, dae = get_refresh_data()
     with st.expander("", expanded=True):
         if qlu is None:
             st.markdown(
-                """Initial data load is processing. This may take up to one hour.
+                """
+                ### Current Data Status
+
+                Initial data load is processing. This may take up to one hour.
                 You can monitor the task process by viewing 'TASK NAME' in
                 Monitoring > Task History within Snowsight"""
             )
         else:
+            st.markdown("### Current Data Status")
             st.write(f"Data Available: {das} - {dae}")
             st.write(f"Query History Last Update: {qlu}")
             st.write(f"Query History Update Frequency: {qnu}")
@@ -211,7 +211,10 @@ with cols[1]:
 
     with st.expander("", expanded=True):
         st.markdown(
-            """The native app is better when connected to the Sundeck UI. This is
+            """
+            ### Connect to Sundeck
+
+            The native app is better when connected to the Sundeck UI. This is
             free and lets you manage query monitors, warehouse schedules and labels
             as well as take advantage of further features via a comprehensive UI."""
         )
