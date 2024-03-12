@@ -376,6 +376,11 @@ END;
 
 CREATE OR REPLACE PROCEDURE admin.setup_external_functions(api_integration_name string) RETURNS STRING LANGUAGE SQL AS
 BEGIN
+    let hasUrl varchar;
+    call internal.get_config('url') into :hasUrl;
+    if (:hasUrl is null) then
+        return 'You must configure a Sundeck token to use this.';
+    end if;
     let url string := (select internal.get_ef_url());
     let token string := (select internal.get_ef_token());
     execute immediate '
@@ -407,13 +412,6 @@ BEGIN
             api_integration = reference(\'' || api_integration_name || '\')
             headers = (\'sndk-token\' = \'' || token || '\')
             as \'' || url || '/extfunc/update_usage_stats\';
-
-            create or replace external function internal.ef_register_service_account(service_account object)
-            returns object
-            context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
-            api_integration = reference(\'' || api_integration_name || '\')
-            headers = (\'sndk-token\' = \'' || token || '\')
-            as \'' || url || '/extfunc/register_service_account\';
 
             create or replace external function internal.ef_has_signature(sig_params object)
             returns object
@@ -454,16 +452,6 @@ BEGIN
         END;
     ';
 
-    MERGE INTO internal.config AS target
-    USING (SELECT 'url' AS key, :url AS value
-    ) AS source
-    ON target.key = source.key
-    WHEN MATCHED THEN
-      UPDATE SET value = source.value
-    WHEN NOT MATCHED THEN
-      INSERT (key, value)
-      VALUES (source.key, source.value);
-
     -- Start the USER_LIMITS_TASK if the task exists
     begin
         show tasks in schema tasks;
@@ -478,20 +466,7 @@ END;
 
 CREATE OR REPLACE PROCEDURE admin.setup_sundeck_tenant_url(url string, token string) RETURNS STRING LANGUAGE SQL AS
 BEGIN
-    execute immediate 'create or replace function internal.get_tenant_url() returns string as \'\\\'' || url || '\\\'\';';
     execute immediate 'create or replace function internal.get_ef_token() returns string as \'\\\'' || token || '\\\'\';';
-
-    MERGE INTO internal.config AS target
-    USING (SELECT 'tenant_url' AS key, :url AS value
-    ) AS source
-    ON target.key = source.key
-    WHEN MATCHED THEN
-      UPDATE SET value = source.value
-    WHEN NOT MATCHED THEN
-      INSERT (key, value)
-      VALUES (source.key, source.value);
-
-    CALL admin.setup_external_functions('opscenter_api_integration');
 END;
 
 create or replace function internal.wrapper_register_service_account(request object)
@@ -522,28 +497,10 @@ create or replace procedure admin.connect_sundeck(token text)
     language sql
     execute as owner
 as
-DECLARE
-    has_api_integration boolean default (select ARRAY_SIZE(PARSE_JSON(SYSTEM$GET_ALL_REFERENCES('OPSCENTER_API_INTEGRATION'))) > 0);
-    error_details text default 'unhandled exception caught.';
 BEGIN
-    -- Verify the OPSCENTER_API_INTEGRATION reference has been created
-    if (not has_api_integration) then
-        return object_construct('details', 'Please open the Native App in Snowflake and approve the permission request to create the API Integration.');
-    end if;
-
-    error_details := 'Failed to store Sundeck token.';
     -- Create the scalar UDF for the Sundeck auth token (EF URL set up by the app in permissions.py)
     execute immediate 'create or replace function internal.get_ef_token() returns string as \'\\\'' || token || '\\\'\';';
 
-    error_details := 'Failed to create external functions.';
-    -- Create all external functions that use the API Gateway and the auth token
-    call admin.setup_external_functions('opscenter_api_integration');
-
     -- Success!
     return object_construct();
-EXCEPTION
-    WHEN OTHER THEN
-        let err_obj object := OBJECT_CONSTRUCT('details', :error_details || ' Please contact Sundeck for support.', 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'SQLCODE', :sqlcode);
-        SYSTEM$LOG_ERROR(err_obj);
-        return err_obj;
 END;

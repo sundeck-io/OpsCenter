@@ -1,6 +1,7 @@
 
-CREATE OR REPLACE PROCEDURE admin.finalize_setup_from_service_account(api_integration_ref_id varchar, url varchar, web_url varchar)
-RETURNS varchar
+DROP PROCEDURE IF EXISTS admin.finalize_setup_from_service_account(varchar, varchar, varchar);
+CREATE OR REPLACE PROCEDURE admin.finalize_setup_from_service_account(api_integration_ref_id varchar, url varchar, web_url varchar, token varchar default null)
+RETURNS object
 LANGUAGE sql
 as
 begin
@@ -25,7 +26,12 @@ begin
 
     -- Bind the given reference ID to the 'OPSCENTER_API_INTEGRATION' reference. Must match the reference in manifest.yml
     -- differs from v1 in that all external functions are not re-created by update_reference()
-    call admin.update_reference('OPSCENTER_API_INTEGRATION', 'finalize_setup_from_service_account', :api_integration_ref_id);
+   insert into internal.reference_management (ref_name, operation, ref_or_alias) values ('OPSCENTER_API_INTEGRATION', 'Running external functions setup proc.', :api_integration_ref_id);
+    let ret object;
+    if (token is not null) then
+        call admin.connect_sundeck(:token) into :ret;
+    end if;
+    return :ret;
 end;
 
 CREATE OR REPLACE PROCEDURE admin.upgrade_check()
