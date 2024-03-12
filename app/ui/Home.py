@@ -43,11 +43,16 @@ def get(query, fmt):
 
 
 def to_str(end_time, start_time):
+    """
+    Convert end and start times to a human readable string
+    showing the last run time and the time the run took.
+    Also returns the next time the task will run.
+    """
     if not end_time:
         return None, None
     if not start_time:
         return None, None
-    print(end_time, start_time, end_time.tzinfo, type(end_time.tzinfo))
+
     update_str = end_time.strftime("%Y-%m-%d %H:%M")
     duration = timedelta_to_human_readable(end_time - start_time)
     next_time_str = "60 minutes"
@@ -58,6 +63,15 @@ def to_str(end_time, start_time):
 
 
 def get_refresh_data():
+    """
+    We get the following data in this function:
+    * q1 = Query History Last Update. Both duration and time taken.
+    * q2 = Query History Update Frequency.
+    * w1 = Warehouse Events Last Update. Both duration and time taken.
+    * w2 = Warehouse Events Update Frequency.
+    * rmin = Minimum date in the enriched query history table.
+    * rmax = Maximum date in the enriched query history table.
+    """
     wh_end_times = (
         "select value from catalog.config where key = 'WAREHOUSE_EVENTS_MAINTENANCE'"
     )
@@ -128,8 +142,7 @@ with cols[0]:
             """
 Note: Upon installation, the Sundeck native app analyzes your Snowflake usage
 history. Depending on the size of this data, this may takes minutes to hours.
-Once complete, utilization will reported above. (this is only shown until
-first materialization
+Once complete, utilization will reported above.
         """
         )
     st.markdown(
@@ -166,17 +179,17 @@ understand where warehouse efficiency can be improved. Additional details can be
 ## Snowflake Management Tools
 
 Sundeck includes several entirely native tools for better managing Snowflake. These
-can be used entirely from SQL or with the Sundeck UI (send to landing page).
+can be used entirely from SQL or with the [Sundeck UI](https://sundeck.io/try).
 ### Monitors
 Automatically monitor currently running queries on Snowflake and alert when certain
 patterns or behaviors are detected. Alert via Slack or Email. Additionally can be
-configured to automatically cancel undesireable query patterns. Additional details can be found here.
+configured to automatically cancel undesireable query patterns. Additional details can be found [here](https://docs.sundeck.io/concepts/query-monitors/).
 ### Warehouse Schedules
 Set schedules to automatically adapt warehouse settings over time. For example, size
-down warehouses on evening and weekends to reduce waste. Additional details can be found here.
+down warehouses on evening and weekends to reduce waste. Additional details can be found [here](https://docs.sundeck.io/concepts/warehouse-management/).
 ### Labels
 Labels allow you to categorize queries based on query shape and consumption. Labels
-can facilitate sub-warehouse activity tracking and analysis. Additional details can be found here.
+can facilitate sub-warehouse activity tracking and analysis. Additional details can be found [here](https://docs.sundeck.io/concepts/labels/).
 
                 """
     )
@@ -198,7 +211,7 @@ with cols[1]:
 
     with st.expander("", expanded=True):
         st.markdown(
-            """The native app is better when connecting to the Sundeck UI. This is
+            """The native app is better when connected to the Sundeck UI. This is
             free and lets you manage query monitors, warehouse schedules and labels
             as well as take advantage of further features via a comprehensive UI."""
         )
