@@ -55,8 +55,8 @@ def image_svg(file):
             showgrid=False, zeroline=False, showticklabels=False, fixedrange=True
         ),
         showlegend=False,
-        width=452,
-        height=267,
+        width=452 * 0.75,
+        height=267 * 0.75,
         margin=dict(l=20, r=20, t=20, b=100),
         yaxis=dict(
             showgrid=False, zeroline=False, showticklabels=False, fixedrange=True
@@ -84,8 +84,8 @@ def image_svg(file):
         yaxis=dict(
             showgrid=False, zeroline=False, showticklabels=False, fixedrange=True
         ),
-        width=300,  # Width of the chart in pixels
-        height=200,  # Height of the chart in pixels
+        width=300 * 0.75,  # Width of the chart in pixels
+        height=200 * 0.75,  # Height of the chart in pixels
         margin=dict(t=0, b=0, l=0, r=0),  # Set all margins to 0
         images=[
             go.layout.Image(

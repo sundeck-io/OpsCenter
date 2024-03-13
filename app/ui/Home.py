@@ -158,7 +158,7 @@ patterns or behaviors are detected. Alert via Slack or Email. Additionally can b
 configured to automatically cancel undesireable query patterns. Additional details can be found [here](https://docs.sundeck.io/concepts/query-monitors/).
 ### Warehouse Schedules
 Set schedules to automatically adapt warehouse settings over time. For example, size
-down warehouses on evening and weekends to reduce waste. Additional details can be found [here](https://docs.sundeck.io/concepts/warehouse-management/).
+down warehouses on evenings and weekends to reduce waste. Additional details can be found [here](https://docs.sundeck.io/concepts/warehouse-management/).
 ### Labels
 Labels allow you to categorize queries based on query shape and consumption. Labels
 can facilitate sub-warehouse activity tracking and analysis. Additional details can be found [here](https://docs.sundeck.io/concepts/labels/).
