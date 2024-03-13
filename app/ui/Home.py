@@ -151,7 +151,9 @@ Once complete, utilization will reported above.
 ## Snowflake Management Tools
 
 Sundeck includes several entirely native tools for better managing Snowflake. These
-can be used entirely from SQL or with the [Sundeck UI](https://sundeck.io/try).
+can be used entirely from SQL or with the [Sundeck UI](https://sundeck.io/try)
+(please open this link by right clicking and selecting open in new tab).
+
 ### Monitors
 Automatically monitor currently running queries on Snowflake and alert when certain
 patterns or behaviors are detected. Alert via Slack or Email. Additionally can be
