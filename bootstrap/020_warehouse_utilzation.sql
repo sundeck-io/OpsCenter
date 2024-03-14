@@ -79,7 +79,7 @@ as $$
     util as (
         select date_trunc('day', period) as period, sum(loaded_cc * (select any_value(value) from ccost)) as cost, iff(sum(loaded_cc) = 0,null, sum(unloaded_cc)/sum(loaded_cc)) as utilization
         from reporting.warehouse_daily_utilization
-        where period::DATE between INPUT_START_DATE and INPUT_END_DATE and case when INPUT_WAREHOUSE_NAME is null then true else warehouse_name = INPUT_WAREHOUSE_NAME end
+        where period::DATE between INPUT_START_DATE and INPUT_END_DATE and case when INPUT_WAREHOUSE_NAME is null then true else warehouse_name = INPUT_WAREHOUSE_NAME end and not internal.is_serverless_warehouse(warehouse_name)
         group by 1
 	)
 
