@@ -120,7 +120,8 @@ def get_refresh_data():
 def get_wh_utilization():
     query = """select iff(sum(loaded_cc) = 0,null, sum(unloaded_cc)/sum(loaded_cc)) as utilization
         from reporting.warehouse_daily_utilization
-        where period::DATE between current_timestamp - interval '30 days' and current_timestamp """
+        where period::DATE between current_timestamp - interval '30 days' and current_timestamp
+        and not internal.is_serverless_warehouse(warehouse_name)"""
     return get(query, lambda x: f"{x*100:.2f} %" if x is not None else "Calculating")
 
 
