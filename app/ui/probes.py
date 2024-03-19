@@ -4,8 +4,6 @@ import streamlit as st
 from connection import Connection
 import session as general_session
 from session import Mode
-import setup
-import config
 from crud.errors import error_to_markdown
 from crud.probes import Probe as ModelProbe
 from crud.session import snowpark_session
@@ -46,9 +44,6 @@ class Probe:
         This includes both queries that should be cancelled or queries that should be alerted on.
         """
         )
-
-        if not config.has_sundeck():
-            setup.setup_block()
 
         with st.sidebar.container():
             st.markdown(
