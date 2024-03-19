@@ -15,6 +15,8 @@ BEGIN
         SUNDECK_STATUS text,
         SUNDECK_ERROR_CODE text,
         SUNDECK_ERROR_MESSAGE text,
+        USER_NAME text,
+        ROLE_NAME text,
         SNOWFLAKE_REGION text,
         SNOWFLAKE_CLOUD text,
         SUNDECK_START_TIME timestamp_ltz,
