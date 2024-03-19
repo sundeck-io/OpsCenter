@@ -58,27 +58,13 @@ def _copy_opscenter_files(cur, schema: str, stage: str, deployment: str):
 def _fake_app_package_objects(cur, database: str):
     # In the "local" mode, we don't have a real application package and the sharing model does not apply.
     # Create a fake table so the setup script can be run normally.
-    cur.execute(
-        f"""BEGIN
-    CREATE SCHEMA IF NOT EXISTS "{database}".SHARING;
-    CREATE TABLE IF NOT EXISTS "{database}".SHARING.GLOBAL_QUERY_HISTORY(
-        SNOWFLAKE_QUERY_ID text,
-        SUNDECK_QUERY_ID text,
-        FLOW_NAME text,
-        QUERY_TEXT_RECEIVED text,
-        QUERY_TEXT_FINAL text,
-        SNOWFLAKE_SUBMISSION_TIME timestamp_ltz,
-        SNOWFLAKE_END_TIME timestamp_ltz,
-        ALT_WAREHOUSE_ROUTE text,
-        SUNDECK_STATUS text,
-        SUNDECK_ERROR_CODE text,
-        SUNDECK_ERROR_MESSAGE text,
-        SUNDECK_START_TIME timestamp_ltz,
-        SUNDECK_ACCOUNT_ID text,
-        ACTIONS_EXECUTED variant,
-        SCHEMA_ONLY_REQUEST boolean);
-    END;"""
-    )
+    filename = "deploy/devdeploy_sundeck_sharing.sql"
+
+    f = open(filename, "r")
+    tmpl = f.read()
+    f.close()
+    sql = tmpl.format(DATABASE=database)
+    cur.execute(sql)
 
 
 def _finish_local_setup(cur, database: str, schema: str):
