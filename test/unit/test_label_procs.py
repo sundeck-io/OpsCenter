@@ -584,3 +584,45 @@ def test_fixes_duplicate_labels(conn, timestamp_string):
 
     sql = "delete from internal.config where KEY = 'LABELS_INITED'"
     run_sql(conn, sql)
+
+
+def test_merge_predefined_labels(conn, timestamp_string):
+    # step 1: clean up the labels table and predefined_labels table
+    sql = "truncate table internal.labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "truncate table internal.predefined_labels"
+    assert "successfully" in str(
+        run_sql(conn, sql)
+    ), "SQL output does not match expected result!"
+
+    sql = "delete from internal.config where KEY = 'LABELS_INITED'"
+    run_sql(conn, sql)
+
+    # step 3: populate predefined_labels table
+    sql = "CALL INTERNAL.POPULATE_PREDEFINED_LABELS();"
+    assert run_proc(conn, sql) is None, "Stored procedure did not return NULL value!"
+
+    sql = "select count(*) from internal.PREDEFINED_LABELS"
+    num_predefined_labels = row_count(conn, sql)
+    assert (
+        num_predefined_labels > 0
+    ), f"SQL output {num_predefined_labels} does not match expected result!"
+
+    # step 4: call internal.initialize_labels()
+    sql = "call INTERNAL.MERGE_PREDEFINED_LABELS()"
+    assert run_proc(conn, sql) is None, "Expected no return value from procedure"
+
+    # verify the same number of rows in labels table
+    sql = "select count(*) from internal.LABELS"
+    num_labels = row_count(conn, sql)
+    assert (
+        num_labels == num_predefined_labels
+    ), "Number of user labels did not match predefined labels"
+
+    sql = "select count(*) from internal.LABELS where ENABLED is null"
+    assert (
+        row_count(conn, sql) == 0
+    ), "Labels created by merge_predefined_labels should all be enabled"
