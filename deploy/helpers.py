@@ -66,10 +66,11 @@ def connect_to_snowflake(profile: str = "opscenter", schema: str = ""):
     return conn
 
 
-def generate_body(include_streamlit=True, stage_name=""):
-    setup_directory = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "bootstrap")
-    )
+def generate_body(include_streamlit=True, stage_name="", setup_directory: str = ""):
+    if "" == setup_directory:
+        setup_directory = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "bootstrap")
+        )
     files = os.listdir(setup_directory)
     files.sort()
 
