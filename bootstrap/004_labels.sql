@@ -1,8 +1,12 @@
 
--- we should remove this and the other creaste statement in favour of driving the creation of htese tables from the python model
 CREATE TABLE INTERNAL.LABELS if not exists (name string, group_name string null, group_rank number, label_created_at timestamp, condition string, enabled boolean, label_modified_at timestamp, is_dynamic boolean, label_id string);
 
 CREATE TABLE INTERNAL.PREDEFINED_LABELS if not exists (name string, group_name string null, group_rank number, label_created_at timestamp, condition string, enabled boolean, label_modified_at timestamp, is_dynamic boolean);
+
+-- Recreated on update, INTERNAL.SET_LABEL_CONDITIONS() (below) loads the table.
+CREATE OR REPLACE TABLE INTERNAL.VALIDATE_LABELS(sql text, message text, simple boolean, create_only boolean);
+CREATE OR REPLACE TABLE INTERNAL.VALIDATE_GROUPED_LABELS(sql text, message text, simple boolean, create_only boolean);
+CREATE OR REPLACE TABLE INTERNAL.VALIDATE_DYNAMIC_LABELS(sql text, message text, simple boolean, create_only boolean);
 
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_LABELS_TABLE()
 RETURNS OBJECT
@@ -114,38 +118,116 @@ SELECT *,$$;
     return true;
 END;
 
+create or replace procedure internal.set_label_conditions()
+returns text
+language sql
+execute as owner
+as
+$$
+begin
+    -- Ungrouped labels
+    insert into internal.validate_labels (sql, message, simple, create_only) values
+        -- Basic null checks, converting variant null to sql null
+        ('TO_CHAR(f:name) is not null', 'Name must not be null', true, false),
+        ('TO_CHAR(f:condition) is not null', 'Condition must not be null', true, false),
+        -- group_name and group_rank must be null
+        ('TO_CHAR(f:group_name) is null and TO_CHAR(f:group_rank) is null', 'Group rank may only be provided for grouped labels', true, false),
+        -- label name must be unique among all names
+        ('(select count(*) = 0 from internal.labels where group_name is null and name = f:name)', 'A label already exists with this name', true, true),
+        -- label name must be unique across all group_names
+        ('(select count(*) = 0 from internal.labels where group_name = f:name and group_name is not null)', 'A label group already exists with this name', true, true),
+        -- Condition must compile
+        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select case when \' || :c || \' then true else false end from reporting.enriched_query_history limit 1\';return true;end;\$\$ call result(?);', 'Label condition failed to compile', false, false),
+        -- make sure label name doesn't exist as query history column
+        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false);
+
+    -- Grouped labels
+    insert into internal.validate_grouped_labels(sql, message, simple, create_only) values
+        -- Basic null checks, converting variant null to sql null
+        ('TO_CHAR(f:group_name) is not null', 'Group name must not be null', true, false),
+        ('TO_CHAR(f:name) is not null', 'Name must not be null', true, false),
+        ('TO_CHAR(f:condition) is not null', 'Condition must not be null', true, false),
+        ('TO_CHAR(f:group_rank) is not null', 'Grouped labels must have a rank', true, false),
+        -- label name must be unique in this group
+        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and name = f:name)', 'A label already exists with this name', true, true),
+        -- label group name must be unique across all label names
+        ('(select count(*) = 0 from internal.labels where name = f:group_name and group_name is null)', 'A label already exists with this name', true, true),
+        -- label name must be unique across dynamic grouped labels
+        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and name is null)', 'A label already exists with this name', true, true),
+        -- group rank must be unique across labels in a group
+        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and group_rank = f:group_rank)', 'A label already already exists with this rank', true, true),
+        -- Condition must compile
+        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select case when \' || :c || \' then true else false end from reporting.enriched_query_history limit 1\';return true;end;\$\$ call result(?);', 'Label condition failed to compile', false, false),
+        -- make sure label group name doesn't exist as query history column
+        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false);
+
+    -- Dynamic grouped labels
+    insert into internal.validate_dynamic_labels(sql, message, simple, create_only) values
+        -- Basic null checks, converting variant null to sql null
+        ('TO_CHAR(f:group_name) is not null', 'Dynamic labels must have a group name', true, false),
+        ('TO_CHAR(f:name) is null', 'Dynamic labels cannot have a name', true, false),
+        ('TO_CHAR(f:condition) is not null', 'Dynamic labels must have a condition', true, false),
+        ('TO_CHAR(f:group_rank) is null', 'Dynamic labels cannot have a rank', true, false),
+        -- label name must be unique in this group
+        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and name = f:name)', 'A label already exists with this name', true, true),
+        -- label group name must be unique across all label names
+        ('(select count(*) = 0 from internal.labels where name = f:group_name and group_name is null)', 'A label already exists with this name', true, true),
+        -- label name must be unique across dynamic grouped labels
+        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and name is null)', 'A label already exists with this name', true, true),
+        -- group rank must be unique across labels in a group
+        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and group_rank = f:group_rank)', 'A label already already exists with this rank', true, true),
+        -- Condition must compile
+        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select substring(\' || :c || \', 0, 0)  from reporting.enriched_query_history where false\';return true;end;\$\$ call result(?);', 'Label condition failed to compile', false, false),
+        -- make sure label group name doesn't exist as query history column
+        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false);
+end;
+$$;
+
+call internal.set_label_conditions();
+
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text, is_dynamic boolean)
     returns text
-    language python
-    runtime_version = "3.10"
-    handler = 'create_label'
-    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
 AS
 $$
-from crud import create_entity
-from datetime import datetime
-from uuid import uuid4
-def create_label(session, name, grp, rank, condition, is_dynamic):
-    return create_entity(session, 'LABEL', {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now(), 'label_id': str(uuid4())})
+BEGIN
+    let label object := (select object_construct_keep_null('name', :name, 'group_name', :grp, 'group_rank', :rank, 'condition', :condition, 'is_dynamic', :is_dynamic, 'enabled', TRUE, 'label_modified_at', current_timestamp(), 'label_id', uuid_string(), 'label_created_at', current_timestamp()));
+    let validation_err text;
+    let kind text := 'labels';
+    if (is_dynamic) then
+        kind := 'dynamic_labels';
+    elseif (grp is not null) then
+        kind := 'grouped_labels';
+    end if;
+    call admin.validate(:label, :kind, TRUE) into :validation_err;
+    if (:validation_err is not null) then
+        return :validation_err;
+    end if;
+    call admin.write(:label, 'labels', 'label_id');
+END;
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text)
     returns text
-    language python
-    runtime_version = "3.10"
-    handler = 'create_label'
-    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
 AS
 $$
-from crud import create_entity
-from datetime import datetime
-from uuid import uuid4
-def create_label(session, name, grp, rank, condition):
-    return create_entity(session, 'LABEL', {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': False, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now(), 'label_id': str(uuid4())})
+BEGIN
+    let label object := (select object_construct_keep_null('name', :name, 'group_name', :grp, 'group_rank', :rank, 'condition', :condition, 'is_dynamic', FALSE, 'enabled', TRUE, 'label_modified_at', current_timestamp(), 'label_id', uuid_string(), 'label_created_at', current_timestamp()));
+    let validation_err text;
+    let kind text := 'labels';
+    if (grp is not null) then
+        kind := 'grouped_labels';
+    end if;
+    call admin.validate(:label, :kind, TRUE) into :validation_err;
+    if (:validation_err is not null) then
+        return :validation_err;
+    end if;
+    call admin.write(:label, 'labels', 'label_id');
+    call INTERNAL.UPDATE_LABEL_VIEW();
+END;
 $$;
 
 CREATE OR REPLACE PROCEDURE INTERNAL.INITIALIZE_LABELS()
@@ -175,67 +257,112 @@ END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_LABEL(name text)
     RETURNS text
-    language python
-    runtime_version = "3.10"
-    handler = 'delete_label'
-    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
 AS
 $$
-from crud import delete_entity
-def delete_label(session, name):
-    return delete_entity(session, 'LABEL', name)
+BEGIN
+    if (name is null) then
+        return 'Name must not be null';
+    end if;
+    delete from internal.labels where name = :name;
+    call INTERNAL.UPDATE_LABEL_VIEW();
+END;
 $$;
 
 -- TODO Differentiate from ungrouped labels  by having "AND IS_DYNAMIC" in the delete clause
 CREATE OR REPLACE PROCEDURE ADMIN.DELETE_DYNAMIC_LABEL(name text)
     RETURNS text
-    language python
-    runtime_version = "3.10"
-    handler = 'delete_label'
-    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
 AS
 $$
-from crud import delete_entity
-def delete_label(session, name):
-    return delete_entity(session, 'LABEL', name)
+BEGIN
+    if (name is null) then
+        return 'Name must not be null';
+    end if;
+    delete from internal.labels where name = :name;
+    call INTERNAL.UPDATE_LABEL_VIEW();
+END;
 $$;
+
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text, is_dynamic boolean)
     RETURNS text
-    language python
-    runtime_version = "3.10"
-    handler = 'update_label'
-    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
  AS
 $$
-from crud import update_entity
-from datetime import datetime
-from uuid import uuid4
-def update_label(session, old_name, name, grp, rank, condition, is_dynamic):
-    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': is_dynamic, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now(), 'label_id': str(uuid4())})
+BEGIN
+    let uuid string;
+    if (is_dynamic) then
+        -- dynamic labels use group_name
+        uuid := (select label_id from internal.labels where group_name = :oldname and is_dynamic);
+    else
+        uuid := (select label_id from internal.labels where name = :oldname and not is_dynamic);
+    end if;
+    if (uuid is null) then
+        return 'A label with the name ' || oldname || ' does not exist';
+    end if;
+
+    -- If the label name changed on update, we want to run the unique name checks like we do on create.
+    let name_changed boolean;
+    if (is_dynamic) then
+        name_changed := (select :oldname <> :grp);
+    else
+        name_changed := (select :oldname <> :name);
+    end if;
+
+    let created_at timestamp;
+    if (is_dynamic) then
+        created_at := (select label_created_at from internal.labels where group_name = :oldname);
+    else
+        created_at := (select label_created_at from internal.labels where name = :oldname);
+    end if;
+
+    let label object := (select object_construct_keep_null('name', :name, 'group_name', :grp, 'group_rank', :rank, 'condition', :condition, 'is_dynamic', :is_dynamic, 'enabled', TRUE, 'label_modified_at', current_timestamp(), 'label_id', :uuid, 'label_created_at', :created_at));
+    let validation_err text;
+    let kind text := 'labels';
+    if (is_dynamic) then
+        kind := 'dynamic_labels';
+    end if;
+    call admin.validate(:label, :kind, :name_changed) into :validation_err;
+    if (:validation_err is not null) then
+        return :validation_err;
+    end if;
+    call admin.write(:label, 'labels', 'label_id');
+    call INTERNAL.UPDATE_LABEL_VIEW();
+END;
 $$;
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text)
     RETURNS text
-    language python
-    runtime_version = "3.10"
-    handler = 'update_label'
-    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
+    language sql
     EXECUTE AS OWNER
  AS
 $$
-from crud import update_entity
-from datetime import datetime
-from uuid import uuid4
-def update_label(session, old_name, name, grp, rank, condition):
-    return update_entity(session, 'LABEL', old_name, {'name': name, 'group_name': grp, 'group_rank': rank, 'condition': condition, 'is_dynamic': False, 'label_created_at': datetime.now(), 'label_modified_at': datetime.now(), 'label_id': str(uuid4())})
+BEGIN
+    let uuid string := (select label_id from internal.labels where name = :oldname and is_dynamic <> TRUE);
+    if (uuid is null) then
+        return 'A label with the name ' || oldname || ' does not exist';
+    end if;
+
+    -- If the label name changed on update, we want to run the unique name checks like we do on create.
+    let name_changed boolean := (select :oldname <> :name);
+    let created_at timestamp := (select label_created_at from internal.labels where name = :oldname);
+    let label object := (select object_construct_keep_null('name', :name, 'group_name', :grp, 'group_rank', :rank, 'condition', :condition, 'is_dynamic', FALSE, 'enabled', TRUE, 'label_modified_at', current_timestamp(), 'label_id', :uuid, 'label_created_at', :created_at));
+    let kind text := 'labels';
+    if (grp is not null) then
+        kind := 'grouped_labels';
+    end if;
+    let validation_err text;
+    call admin.validate(:label, :kind, :name_changed) into :validation_err;
+    if (:validation_err is not null) then
+        return :validation_err;
+    end if;
+    call admin.write(:label, 'labels', 'label_id');
+    call INTERNAL.UPDATE_LABEL_VIEW();
+END;
 $$;
 
 CREATE OR REPLACE VIEW CATALOG.LABELS AS SELECT * FROM INTERNAL.LABELS;
@@ -297,20 +424,6 @@ EXCEPTION
       ROLLBACK;
       RAISE;
 END;
-
-CREATE OR REPLACE PROCEDURE INTERNAL_PYTHON.VALIDATE_PREDEFINED_LABELS()
-    RETURNS TEXT
-    LANGUAGE PYTHON
-    runtime_version = "3.10"
-    handler = 'validate_predefined_labels'
-    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
-    imports = ('{{stage}}/python/crud.zip')
-    EXECUTE AS OWNER
-AS
-$$
-from crud import validate_predefined_labels
-$$;
-
 
 CREATE OR REPLACE PROCEDURE INTERNAL.MERGE_PREDEFINED_LABELS()
 RETURNS BOOLEAN
