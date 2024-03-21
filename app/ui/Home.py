@@ -1,5 +1,6 @@
 import streamlit as st
 from modules import add_custom_modules
+import setup
 import sthelp
 from connection import execute_with_cache
 import datetime
@@ -8,6 +9,8 @@ add_custom_modules()
 
 
 st.set_page_config(layout="wide", page_title="Sundeck Opscenter", page_icon=":pilot:")
+
+setup.setup_permissions()
 
 
 def timedelta_to_human_readable(delta: datetime.timedelta) -> str:
