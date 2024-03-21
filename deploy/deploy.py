@@ -206,8 +206,11 @@ def main(argv):
     deployment = "prod"
     skip_install = False
     skip_package = False
+    mock_sundeck_sharing = False
     opts, args = getopt.getopt(
-        argv, "xhsd:p:v:", ["deployment=", "profile=", "version="]
+        argv,
+        "xhsd:p:v:",
+        ["deployment=", "profile=", "version=", "mock-sundeck-sharing"],
     )
     for opt, arg in opts:
         if opt == "-h":
@@ -232,8 +235,17 @@ def main(argv):
         elif opt == "-x":
             print("==Skipping Package Creation")
             skip_package = True
+        elif opt == "--mock-sundeck-sharing":
+            print("==Using mock database instead of SUNDECK database")
+            mock_sundeck_sharing = True
 
-    execute(profile, version, deployment, not skip_install, skip_package)
+    sundeck_db = "SUNDECK"
+    if mock_sundeck_sharing:
+        sundeck_db = None
+    else:
+        print(f"==Sharing data through NativeApp from {sundeck_db}")
+
+    execute(profile, version, deployment, not skip_install, skip_package, sundeck_db)
 
 
 def execute(
