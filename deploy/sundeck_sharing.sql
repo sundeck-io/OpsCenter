@@ -15,10 +15,12 @@ BEGIN
         SELECT
             SNOWFLAKE_QUERY_ID,
             SUNDECK_QUERY_ID,
-            FLOW_NAME,
+            FLOW_NAME, -- TODO drop from app-package view once released
+            FLOW_NAME as BROKER_NAME, -- TODO use BROKER_NAME once Sundeck is updated
             QUERY_TEXT_RECEIVED,
             QUERY_TEXT_FINAL,
-            ALT_WAREHOUSE_ROUTE,
+            ALT_WAREHOUSE_ROUTE, -- TODO drop from app-package view once released
+            ALT_WAREHOUSE_ROUTE as UPDATED_WAREHOUSE_TARGET, -- TODO use UPDATED_WAREHOUSE_TARGET once Sundeck is updated
             SUNDECK_STATUS,
             SUNDECK_ERROR_CODE,
             SUNDECK_ERROR_MESSAGE,
