@@ -17,5 +17,9 @@ BEGIN
         USER_NAME text,
         ROLE_NAME text,
         ACTIONS_EXECUTED variant,
-        SCHEMA_ONLY_REQUEST boolean);
+        SCHEMA_ONLY_REQUEST boolean,
+        STARTING_WAREHOUSE text,
+        WORKLOAD_TAG text,
+        SNOWFLAKE_SESSION_ID text
+    );
 END;
