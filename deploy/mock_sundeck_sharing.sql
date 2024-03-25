@@ -22,7 +22,11 @@ BEGIN
         SUNDECK_START_TIME timestamp_ltz,
         SUNDECK_ACCOUNT_ID text,
         ACTIONS_EXECUTED variant,
-        SCHEMA_ONLY_REQUEST boolean);
+        SCHEMA_ONLY_REQUEST boolean,
+        STARTING_WAREHOUSE text,
+        WORKLOAD_TAG text,
+        SNOWFLAKE_SESSION_ID text
+    );
 
     -- Creates an empty view with the schema we expect.
     CREATE OR REPLACE VIEW "{APPLICATION_PACKAGE}".SHARING.GLOBAL_QUERY_HISTORY AS

@@ -232,7 +232,7 @@ jobs:
           OPSCENTER_DATABASE: ${{env.OPSCENTER_DATABASE}}
           OPSCENTER_APP: ${{env.OPSCENTER_APP}}
           OPSCENTER_DROP_DATABASE: "true"
-        run: "poetry run python deploy/deploy.py"
+        run: "poetry run python deploy/deploy.py --mock-sundeck-sharing"
       - name: run teardown
         run: "poetry run python deploy/pr_teardown.py -a ${OPSCENTER_APP}"
       - name: run teardown

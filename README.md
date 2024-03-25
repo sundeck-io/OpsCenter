@@ -50,7 +50,7 @@ dbname = "..."
 
 Once that is configured, you can run the following to setup a new application package and install it. This invocation is in debug/local mode.
 ```
-python deploy/deploy.py -p myprofile
+python deploy/deploy.py -p myprofile --mock-sundeck-sharing
 ```
 
 ### Local Development outside App
@@ -85,12 +85,14 @@ identifier. For example:
 export OPSCENTER_PACKAGE=<your unique package name>
 export OPSCENTER_APP=<your unique app name>
 
-python deploy/deploy.py -p myprofile -v V1
+python deploy/deploy.py -p myprofile -v V1 --mock-sundeck-sharing
 ```
 
 The environment variables are necessary to prevent a conflict with existing deployments.
 
 `[-d <sundeck-deployment>]` option of deploy.py can be ignored in most cases. It is needed only for testing `Enable notifications via Snowflake SSO` with different Sundeck deployments. Supported values are dev, stage and prod, default is prod.
+
+The `--mock-sundeck-sharing` option will create Snowflake objects such that the `REPORTING.SUNDECK_QUERY_HISTORY` view can be executed normally.
 
 ## Deployment Details
 
