@@ -318,7 +318,7 @@ LANGUAGE SQL
 EXECUTE AS OWNER
 AS
 $$
-    insert into internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "LABEL_ID") select name, group_name, group_rank, label_created_at, condition, label_modified_at, IS_DYNAMIC, UUID_STRING() from internal.predefined_labels where name not in (select name from internal.labels);
+    insert into internal.labels ("NAME", "GROUP_NAME", "GROUP_RANK", "LABEL_CREATED_AT", "CONDITION", "LABEL_MODIFIED_AT", "IS_DYNAMIC", "LABEL_ID", "ENABLED") select name, group_name, group_rank, label_created_at, condition, label_modified_at, IS_DYNAMIC, UUID_STRING(), ENABLED from internal.predefined_labels where name not in (select name from internal.labels);
 $$;
 
 
