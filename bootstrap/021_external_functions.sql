@@ -376,7 +376,7 @@ END;
 
 CREATE OR REPLACE PROCEDURE admin.setup_external_functions(api_integration_name string) RETURNS STRING LANGUAGE SQL AS
 DECLARE
-    MISSING_REFERENCE EXCEPTION(-20000, 'API Integration reference not found. Please complete the Native App linking in Sundeck.');
+    MISSING_REFERENCE EXCEPTION(-20500, 'API Integration reference not found. Please complete the Native App linking in Sundeck.');
 BEGIN
     let hasUrl varchar;
     call internal.get_config('url') into :hasUrl;
