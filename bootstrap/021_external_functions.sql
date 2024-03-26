@@ -375,11 +375,18 @@ END;
 
 
 CREATE OR REPLACE PROCEDURE admin.setup_external_functions(api_integration_name string) RETURNS STRING LANGUAGE SQL AS
+DECLARE
+    MISSING_REFERENCE EXCEPTION(-20000, 'API Integration reference not found. Please complete the Native App linking in Sundeck.');
 BEGIN
     let hasUrl varchar;
     call internal.get_config('url') into :hasUrl;
     if (:hasUrl is null) then
         return 'You must configure a Sundeck token to use this.';
+    end if;
+    -- Make sure we have the reference before we try to create the external functions
+    let has_ref boolean := (select ARRAY_SIZE(PARSE_JSON(system$get_all_references('OPSCENTER_API_INTEGRATION'))) > 0);
+    if (not :has_ref) then
+        raise MISSING_REFERENCE;
     end if;
     let url string := (select internal.get_ef_url());
     let token string := (select internal.get_ef_token());
