@@ -25,8 +25,9 @@ begin
     call internal.set_config('tenant_id', :tenant_id);
 
     -- Bind the given reference ID to the 'OPSCENTER_API_INTEGRATION' reference. Must match the reference in manifest.yml
-    -- differs from v1 in that all external functions are not re-created by update_reference()
-   insert into internal.reference_management (ref_name, operation, ref_or_alias) values ('OPSCENTER_API_INTEGRATION', 'Running external functions setup proc.', :api_integration_ref_id);
+    call admin.update_reference('OPSCENTER_API_INTEGRATION', 'ADD', :api_integration_ref_id);
+
+    -- Save the token if provided
     let ret object;
     if (token is not null) then
         call admin.connect_sundeck(:token) into :ret;
