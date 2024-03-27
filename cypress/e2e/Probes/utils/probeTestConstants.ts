@@ -1,5 +1,5 @@
 export const PROBE_FORM_FIELDS = {
-  PROBE_NAME: "Probe Name",
+  PROBE_NAME: "Query Monitor Name",
   CONDITION: "Condition",
   NOTIFY_AUTHOR: "Notify the author",
   EMAIL: "Email",
