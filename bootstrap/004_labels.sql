@@ -119,7 +119,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number,
     language python
     runtime_version = "3.10"
     handler = 'create_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
+    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -136,7 +136,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number,
     language python
     runtime_version = "3.10"
     handler = 'create_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
+    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -178,7 +178,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.DELETE_LABEL(name text)
     language python
     runtime_version = "3.10"
     handler = 'delete_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
+    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -194,7 +194,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.DELETE_DYNAMIC_LABEL(name text)
     language python
     runtime_version = "3.10"
     handler = 'delete_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
+    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -209,7 +209,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text
     language python
     runtime_version = "3.10"
     handler = 'update_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
+    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
  AS
@@ -226,7 +226,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text
     language python
     runtime_version = "3.10"
     handler = 'update_label'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
+    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
  AS
@@ -303,7 +303,7 @@ CREATE OR REPLACE PROCEDURE INTERNAL_PYTHON.VALIDATE_PREDEFINED_LABELS()
     LANGUAGE PYTHON
     runtime_version = "3.10"
     handler = 'validate_predefined_labels'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
+    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
