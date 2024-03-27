@@ -34,7 +34,7 @@ export const ProbesCRUDTests = () => {
           notifyOthers: PROBE_EMAIL_OTHERS,
         });
         buttonClick(BUTTON_TEXT.CREATE);
-        checkOnCorrectPage({ headerText: "Query Probes" });
+        checkOnCorrectPage({ headerText: "Query Monitors" });
         checkProbeAndValuesExistInProbesList({
           doesExist: true,
           probeName: probe_1,
@@ -62,7 +62,7 @@ export const ProbesCRUDTests = () => {
           notifyOthers: PROBE_SLACK_OTHERS,
         });
         buttonClick(BUTTON_TEXT.UPDATE);
-        checkOnCorrectPage({ headerText: "Query Probes" });
+        checkOnCorrectPage({ headerText: "Query Monitors" });
         checkProbeAndValuesExistInProbesList({
           doesExist: true,
           probeName: probe_2,
