@@ -95,8 +95,15 @@ begin
     return 'success';
 end;
 
-create table if not exists internal_reporting_mv.warehouse_load_history as select start_time, end_time, warehouse_name, avg_running, avg_queued_load, avg_queued_provisioning, avg_blocked from table(information_schema.warehouse_load_history()) where 1=0;
+CREATE TABLE internal_reporting_mv.warehouse_load_history (start_time timestamp_ltz, 
+        end_time timestamp_ltz, 
+        warehouse_name text, 
+        avg_running NUMBER(38,2), 
+        avg_queued_load NUMBER(38,2), 
+        avg_queued_provisioning NUMBER(38,2), 
+        avg_blocked NUMBER(38,2));
 create or replace view reporting.warehouse_load_history as select * from internal_reporting_mv.warehouse_load_history;
+
 
 CREATE OR REPLACE PROCEDURE internal.refresh_one_warehouse_load_history(warehouse_name varchar) RETURNS table(varchar) LANGUAGE SQL
     AS
