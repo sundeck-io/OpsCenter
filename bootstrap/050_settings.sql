@@ -15,7 +15,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_SETTING(name TEXT, value TEXT)
     LANGUAGE PYTHON
     RUNTIME_VERSION = "3.10"
     HANDLER = 'run'
-    PACKAGES = ('snowflake-snowpark-python', 'pydantic')
+    PACKAGES = ('snowflake-snowpark-python', 'pydantic==1.*')
     IMPORTS = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -38,7 +38,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.ENABLE_TASK(name TEXT)
     LANGUAGE PYTHON
     RUNTIME_VERSION = "3.10"
     HANDLER = 'run'
-    PACKAGES = ('snowflake-snowpark-python', 'pydantic')
+    PACKAGES = ('snowflake-snowpark-python', 'pydantic==1.*')
     IMPORTS = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS
@@ -59,7 +59,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.DISABLE_TASK(name TEXT)
     LANGUAGE PYTHON
     RUNTIME_VERSION = "3.10"
     HANDLER = 'run'
-    PACKAGES = ('snowflake-snowpark-python', 'pydantic')
+    PACKAGES = ('snowflake-snowpark-python', 'pydantic==1.*')
     IMPORTS = ('{{stage}}/python/crud.zip')
     EXECUTE AS OWNER
 AS

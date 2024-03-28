@@ -14,7 +14,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.REGISTER()
     LANGUAGE python
     runtime_version="3.10"
     handler='run'
-    packages = ('snowflake-snowpark-python', 'pydantic', 'snowflake-telemetry-python')
+    packages = ('snowflake-snowpark-python', 'pydantic==1.*', 'snowflake-telemetry-python')
     imports = ('{{stage}}/python/crud.zip')
     as
 $$

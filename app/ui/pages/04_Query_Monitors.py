@@ -2,7 +2,7 @@ from modules import add_custom_modules
 import streamlit as st
 import sthelp
 
-sthelp.chrome("Probes")
+sthelp.chrome("Query Monitor")
 st.sidebar.title("Sundeck OpsCenter")
 
 # Load custom OpsCenter python modules

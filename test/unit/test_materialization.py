@@ -33,17 +33,17 @@ def test_query_history_migration(conn):
         # Verify that the columns are in the correct order after running MIGRATE_QUERIES
         query = (
             "select column_name, data_type from information_schema.columns where table_schema = "
-            + "'INTERNAL_REPORTING_MV' and table_name = 'QUERY_HISTORY_COMPLETE_AND_DAILY' order by ordinal_position desc limit 4;"
+            + "'INTERNAL_REPORTING_MV' and table_name = 'QUERY_HISTORY_COMPLETE_AND_DAILY' order by ordinal_position desc limit 9;"
         )
         rows = cur.execute(query).fetchall()
-        assert rows[0][0] == "QUERY_PARAMETERIZED_HASH_VERSION"
-        assert rows[0][1] == "NUMBER"
+        assert rows[-4][0] == "QUERY_PARAMETERIZED_HASH_VERSION"
+        assert rows[-4][1] == "NUMBER"
 
-        assert rows[1][0] == "QUERY_PARAMETERIZED_HASH"
-        assert rows[1][1] == "TEXT"
+        assert rows[-3][0] == "QUERY_PARAMETERIZED_HASH"
+        assert rows[-3][1] == "TEXT"
 
-        assert rows[2][0] == "QUERY_HASH_VERSION"
-        assert rows[2][1] == "NUMBER"
+        assert rows[-2][0] == "QUERY_HASH_VERSION"
+        assert rows[-2][1] == "NUMBER"
 
-        assert rows[3][0] == "QUERY_HASH"
-        assert rows[3][1] == "TEXT"
+        assert rows[-1][0] == "QUERY_HASH"
+        assert rows[-1][1] == "TEXT"

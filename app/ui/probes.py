@@ -36,7 +36,7 @@ class Probe:
                 "probes",
                 "list",
             )
-        st.title("Query Probes")
+        st.title("Query Monitors")
         st.markdown(
             """
         #### Alert or cancel suspect query patterns
@@ -48,9 +48,9 @@ class Probe:
         with st.sidebar.container():
             st.markdown(
                 """
-            #### Probe Details
+            #### Query Monitors Details
             ##### Execution Frequency
-            Probes are executed by default every 1 minute.
+            Query Monitors are executed by default every 1 minute.
 
             ##### Alert Behavior
             To enable email alerting behavior, you must first configure the email settings in the Settings page.
@@ -62,7 +62,7 @@ class Probe:
 
         if len(data) == 0:
             st.write(
-                "No probes defined. Probes help you categorize alert and cancel running queries."
+                "No probes defined. Query Monitors help you categorize alert and cancel running queries."
             )
             st.button(
                 "New", key="create", on_click=self.session.do_create, args=[dict()]
@@ -165,9 +165,9 @@ class Probe:
                         return
 
             except pydantic.ValidationError as ve:
-                outcome = error_to_markdown("Error validating Probe.", ve)
+                outcome = error_to_markdown("Error validating Query Monitor.", ve)
             except AssertionError as ae:
-                outcome = f"Error validating Probe. \n\n{str(ae)}"
+                outcome = f"Error validating Query Monitor. \n\n{str(ae)}"
 
         self.status.error(outcome)
 
@@ -209,13 +209,13 @@ class Probe:
                     outcome = old_probe.update(txn, new_probe)
 
                     if outcome is None:
-                        self.session.set_toast("Probe updated.")
+                        self.session.set_toast("Query Monitor updated.")
                         self.session.do_list()
                         return
             except pydantic.ValidationError as ve:
-                outcome = error_to_markdown("Error validating Probe.", ve)
+                outcome = error_to_markdown("Error validating Query Monitor.", ve)
             except AssertionError as ae:
-                outcome = f"Error validating Probe. \n\n{str(ae)}"
+                outcome = f"Error validating Query Monitor. \n\n{str(ae)}"
 
         self.status.error(outcome)
 
@@ -231,15 +231,15 @@ class Probe:
                 del_probe = ModelProbe.construct(name=name)
                 del_probe.delete(txn)
 
-            self.session.set_toast("Probe deleted.")
+            self.session.set_toast("Query Monitor deleted.")
             self.session.do_list()
 
     def create_probe(self):
-        st.title("New Probe")
+        st.title("New Query Monitor")
 
-        name = st.text_input(key="NAME", label="Probe Name")
+        name = st.text_input(key="NAME", label="Query Monitor Name")
         condition = st.text_area(key="CONDITION", label="Condition")
-        with st.expander("When Probe Matches:", expanded=True):
+        with st.expander("When Query Monitor Matches:", expanded=True):
             notify_writer = st.checkbox(key="NOTIFY_WRITER", label="Notify the author")
             notify_writer_method = st.radio(
                 key="NOTIFY_WRITER_METHOD",
@@ -273,12 +273,14 @@ class Probe:
         st.button("Cancel", on_click=self.session.do_list)
 
     def edit_probe(self, update: dict):
-        st.title("Edit Probe")
-        name = st.text_input(key="NAME", label="Probe Name", value=update["name"])
+        st.title("Edit Query Monitor")
+        name = st.text_input(
+            key="NAME", label="Query Monitor Name", value=update["name"]
+        )
         condition = st.text_area(
             key="CONDITION", label="Condition", value=update["condition"]
         )
-        with st.expander("When Probe Matches:", expanded=True):
+        with st.expander("When Query Monitor Matches:", expanded=True):
             notify_writer = st.checkbox(
                 key="NOTIFY_WRITER",
                 label="Notify the author",

@@ -12,7 +12,7 @@ describe("Probes section", () => {
   });
 
   beforeEach(() => {
-    cy.visit("/Probes");
+    cy.visit("/Query_Monitors");
 
     checkInitialLoading();
     checkNoErrorOnThePage();

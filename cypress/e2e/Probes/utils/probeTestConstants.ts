@@ -1,5 +1,5 @@
 export const PROBE_FORM_FIELDS = {
-  PROBE_NAME: "Probe Name",
+  PROBE_NAME: "Query Monitor Name",
   CONDITION: "Condition",
   NOTIFY_AUTHOR: "Notify the author",
   EMAIL: "Email",
@@ -13,4 +13,4 @@ export const PROBE_CONDITION_TEXT_2 = "query_text='%tpch_sf50%'";
 export const PROBE_EMAIL_OTHERS = "vicky@sundeck.io, jinfeng@sundeck.io";
 export const PROBE_SLACK_OTHERS = "susannah";
 
-export const PROBE_DELETED_NOTIFICATION_TEXT = "Probe deleted";
+export const PROBE_DELETED_NOTIFICATION_TEXT = "Query Monitor deleted";

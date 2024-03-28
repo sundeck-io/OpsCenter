@@ -8,5 +8,5 @@ dependencies:
 - snowflake-native-apps-permission
 - snowflake-telemetry-python
 - streamlit=1.22.0
-- pydantic
+- pydantic=1.*
 - pytz

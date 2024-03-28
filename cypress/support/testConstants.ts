@@ -13,7 +13,7 @@ export const MENU_TEXT = {
   SETTINGS: "Settings",
   WAREHOUSES: "Warehouses",
   QUERIES: "Queries",
-  PROBES: "Probes",
+  PROBES: "Query Monitors",
   LABS: "Labs",
 };
 
@@ -22,7 +22,7 @@ export const HEADER_TEXT = {
   HOME: "Welcome To Sundeck OpsCenter",
   CREATE_LABEL: "New Label",
   UPDATE_LABEL: "Edit Label",
-  PROBES: "Query Probes",
-  CREATE_PROBE: "New Probe",
-  UPDATE_PROBE: "Edit Probe",
+  PROBES: "Query Monitors",
+  CREATE_PROBE: "New Query Monitor",
+  UPDATE_PROBE: "Edit Query Monitor",
 };
