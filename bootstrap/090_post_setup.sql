@@ -335,6 +335,7 @@ alter task TASKS.WAREHOUSE_EVENTS_MAINTENANCE resume;
 alter task TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE resume;
 alter task TASKS.QUERY_HISTORY_MAINTENANCE resume;
 alter task TASKS.UPGRADE_CHECK resume;
+alter task TASKS.WAREHOUSE_LOAD_MAINTENANCE resume;
 -- Do not enable any warehouse_scheduling tasks. They are programmatically resumed when a warehouse schedule is enabled.
 
 -- Kick off the maintenance tasks.
@@ -342,6 +343,7 @@ execute task TASKS.SFUSER_MAINTENANCE;
 execute task TASKS.WAREHOUSE_EVENTS_MAINTENANCE;
 execute task TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE;
 execute task TASKS.QUERY_HISTORY_MAINTENANCE;
+execute task TASKS.WAREHOUSE_LOAD_MAINTENANCE;
 
 -- Only enable and start user limits task if connected to sundeck
 let has_url boolean;

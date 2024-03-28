@@ -98,14 +98,13 @@ end;
 create table if not exists internal_reporting_mv.warehouse_load_history as select start_time, end_time, warehouse_name, avg_running, avg_queued_load, avg_queued_provisioning, avg_blocked from table(information_schema.warehouse_load_history()) where 1=0;
 create or replace view reporting.warehouse_load_history as select * from internal_reporting_mv.warehouse_load_history;
 
-CREATE OR REPLACE PROCEDURE internal.refresh_one_warehouse_load_history(warehouse_name varchar) RETURNS number LANGUAGE SQL
+CREATE OR REPLACE PROCEDURE internal.refresh_one_warehouse_load_history(warehouse_name varchar) RETURNS table(varchar) LANGUAGE SQL
     AS
 begin
     let dt timestamp := current_timestamp();
 
     let input variant := null;
     BEGIN
-        BEGIN TRANSACTION;
         input := (select output from INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS where success and warehouse_name = :warehouse_name order by run desc limit 1);
         let oldest_running timestamp := 0::timestamp;
 
@@ -114,23 +113,46 @@ begin
         end if;
 
         let stmt varchar := 'insert into internal_reporting_mv.warehouse_load_history select start_time, end_time, warehouse_name, avg_running, avg_queued_load, avg_queued_provisioning, avg_blocked from table(information_schema.warehouse_load_history(date_range_start => to_timestamp_ltz(\'{start_time}\'), date_range_end => to_timestamp_ltz(\'{end_time}\'), warehouse_name => \'{warehouse_name}\'))';
-        let start_time timestamp := (select max(:oldest_running, dateadd(day, -14, current_timestamp())));
-        let end_time timestamp := (select dateadd(hours, 8, :start_time));
-        let run_stmt varchar := (select tools.templatejs(:stmt, object_construct('start_time', :start_time::text, 'end_time', :end_time::text, 'warehouse_name', :warehouse_name)));
-        execute immediate :run_stmt;
+        let start_time timestamp := (select greatest(:oldest_running, dateadd(day, -14, current_timestamp())));
+        let res resultset := (select tools.templatejs(:stmt,
+            object_construct('start_time', dateadd(hours, value, :start_time)::text, 'end_time', dateadd(hours, value+8, :start_time)::text, 'warehouse_name', :warehouse_name))
+        from table(flatten(input=>array_generate_range(0, datediff(hours, :start_time, current_timestamp()), 8))) f);
 
-        let new_closed number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
-        let new_running timestamp := (select max(end_time) from internal_reporting_mv.warehouse_load_history);
-        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, true, :warehouse_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:new_closed, 0))::VARIANT;
-        COMMIT;
-        return :new_closed;
+        return table(res);
 
-    EXCEPTION
-      WHEN OTHER THEN
-        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :warehouse_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-        ROLLBACK;
-        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, false, :warehouse_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
-        RAISE;
 
     END;
+end;
+
+CREATE OR REPLACE TASK TASKS.WAREHOUSE_LOAD_MAINTENANCE
+    SCHEDULE = '60 minute'
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
+    AS
+BEGIN
+    let dt timestamp := current_timestamp();
+    let wh resultset := (select name from internal.sfwarehouses);
+    let wh_cur cursor for wh;
+    for wh_row in wh_cur do
+        let wh_name varchar := wh_row.name;
+        let input variant := (select output from INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS where success and warehouse_name = :wh_name order by run desc limit 1);
+        begin
+            let stmt resultset := (call internal.refresh_one_warehouse_load_history(:wh_name));
+            let stmt_cur cursor for stmt;
+            let counter number := 0;
+            for stmt_row in stmt_cur do
+                execute immediate stmt_row.sql;
+                let new_count number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+                counter := counter + new_count;
+            end for;
+            let new_running timestamp := (select max(end_time) from internal_reporting_mv.warehouse_load_history where warehouse_name = :wh_name);
+            insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, true, :wh_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:counter, 0))::VARIANT;
+        exception
+            when other then
+                SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :wh_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+                insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, false, :wh_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
+                RAISE;
+        end;
+    end for;
+
 end;
