@@ -82,9 +82,9 @@ end;
 create table if not exists internal_reporting_mv.serverless_task_history as select * from account_usage.serverless_task_history where 1=0;
 create table if not exists internal_reporting_mv.task_history as select * from account_usage.task_history where 1=0;
 create table if not exists internal_reporting_mv.sessions as select * from account_usage.sessions where 1=0;
-create or replace view reporting.serverless_task_history as select * from account_usage.serverless_task_history where 1=0;
-create or replace view reporting.task_history as select * from account_usage.task_history where 1=0;
-create or replace view reporting.sessions as select * from account_usage.sessions where 1=0;
+create or replace view reporting.serverless_task_history as select * from internal_reporting_mv.serverless_task_history;
+create or replace view reporting.task_history as select * from internal_reporting_mv.task_history;
+create or replace view reporting.sessions as select * from internal_reporting_mv.sessions;
 create or replace procedure internal.refresh_all_simple_tables() returns string language sql as
 begin
     call internal.refresh_simple_table('SERVERLESS_TASK_HISTORY', 'end_time', true);
