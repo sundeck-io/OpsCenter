@@ -58,6 +58,8 @@ def _sync_local_to_stage(cur):
 
     # Build the CRUD module as a zip file
     helpers.zip_python_module("crud", "app/crud", "app/python/crud.zip")
+    if os.path.exists("proprietary"):
+        helpers.zip_python_module("ml", "proprietary/ml", "app/python/ml.zip")
 
     # Copy the CRUD module to the stage.
     cmds = [
@@ -102,6 +104,13 @@ def _upload_combined_setup_script(cur, deployment: str):
         scripts = helpers.generate_body()
         scripts += helpers.generate_qtag()
         scripts += helpers.generate_get_sundeck_deployment_function(deployment)
+        if os.path.exists("proprietary/bootstrap"):
+            setup_directory = os.path.abspath(
+                os.path.join(
+                    os.path.dirname(__file__), "..", "proprietary", "bootstrap"
+                )
+            )
+            scripts += helpers.generate_body(setup_directory=setup_directory)
         sql_file_path = os.path.join("/tmp/", "setup.sql")
         with open(sql_file_path, "w") as sql_file:
             sql_file.write(helpers.generate_setup_script(scripts))

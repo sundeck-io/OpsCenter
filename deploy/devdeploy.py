@@ -1,3 +1,4 @@
+import os
 import getopt
 import time
 import helpers
@@ -47,6 +48,13 @@ def _copy_opscenter_files(cur, schema: str, stage: str, deployment: str):
     scripts = helpers.generate_body(False, stage_name=f"@{schema}.{stage}")
     scripts += helpers.generate_qtag()
     scripts += helpers.generate_get_sundeck_deployment_function(deployment)
+    if os.path.exists("proprietary/bootstrap"):
+        setup_directory = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "proprietary", "bootstrap")
+        )
+        scripts += helpers.generate_body(
+            False, stage_name=f"@{schema}.{stage}", setup_directory=setup_directory
+        )
     body = helpers.generate_setup_script(scripts)
     regex = re.compile("APPLICATION\\s+ROLE", re.IGNORECASE)
     body = regex.sub("DATABASE ROLE", body)
@@ -115,6 +123,8 @@ def devdeploy(
 
     # Build a new zip file with the CRUD python project.
     helpers.zip_python_module("crud", "app/crud", "app/python/crud.zip")
+    if os.path.exists("proprietary"):
+        helpers.zip_python_module("ml", "proprietary/ml", "app/python/ml.zip")
 
     # Copy dependencies into the stage
     _copy_dependencies(cur, conn.schema, stage)
