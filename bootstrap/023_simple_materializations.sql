@@ -12,6 +12,7 @@ BEGIN
 END;
 
 CREATE TABLE INTERNAL.TASK_SIMPLE_DATA_EVENTS IF NOT EXISTS (run timestamp, success boolean, table_name varchar, input variant, output variant);
+CREATE TABLE INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS IF NOT EXISTS (run timestamp, success boolean, warehouse_name varchar, input variant, output variant);
 
 CREATE OR REPLACE PROCEDURE internal.migrate_events(table_name varchar)
 returns variant
@@ -92,4 +93,44 @@ begin
     call internal.refresh_simple_table('SESSIONS', 'created_on', true);
     call internal.refresh_warehouses();
     return 'success';
+end;
+
+create table if not exists internal_reporting_mv.warehouse_load_history as select start_time, end_time, warehouse_name, avg_running, avg_queued_load, avg_queued_provisioning, avg_blocked from table(information_schema.warehouse_load_history()) where 1=0;
+create or replace view reporting.warehouse_load_history as select * from internal_reporting_mv.warehouse_load_history;
+
+CREATE OR REPLACE PROCEDURE internal.refresh_one_warehouse_load_history(warehouse_name varchar) RETURNS number LANGUAGE SQL
+    AS
+begin
+    let dt timestamp := current_timestamp();
+
+    let input variant := null;
+    BEGIN
+        BEGIN TRANSACTION;
+        input := (select output from INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS where success and warehouse_name = :warehouse_name order by run desc limit 1);
+        let oldest_running timestamp := 0::timestamp;
+
+        if (input is not null) then
+            oldest_running := coalesce(input:oldest_running::timestamp, 0::timestamp);
+        end if;
+
+        let stmt varchar := 'insert into internal_reporting_mv.warehouse_load_history select start_time, end_time, warehouse_name, avg_running, avg_queued_load, avg_queued_provisioning, avg_blocked from table(information_schema.warehouse_load_history(date_range_start => to_timestamp_ltz(\'{start_time}\'), date_range_end => to_timestamp_ltz(\'{end_time}\'), warehouse_name => \'{warehouse_name}\'))';
+        let start_time timestamp := (select max(:oldest_running, dateadd(day, -14, current_timestamp())));
+        let end_time timestamp := (select dateadd(hours, 8, :start_time));
+        let run_stmt varchar := (select tools.templatejs(:stmt, object_construct('start_time', :start_time::text, 'end_time', :end_time::text, 'warehouse_name', :warehouse_name)));
+        execute immediate :run_stmt;
+
+        let new_closed number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+        let new_running timestamp := (select max(end_time) from internal_reporting_mv.warehouse_load_history);
+        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, true, :warehouse_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:new_closed, 0))::VARIANT;
+        COMMIT;
+        return :new_closed;
+
+    EXCEPTION
+      WHEN OTHER THEN
+        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :warehouse_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+        ROLLBACK;
+        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, false, :warehouse_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
+        RAISE;
+
+    END;
 end;
