@@ -95,12 +95,12 @@ begin
     return 'success';
 end;
 
-CREATE TABLE internal_reporting_mv.warehouse_load_history (start_time timestamp_ltz, 
-        end_time timestamp_ltz, 
-        warehouse_name text, 
-        avg_running NUMBER(38,2), 
-        avg_queued_load NUMBER(38,2), 
-        avg_queued_provisioning NUMBER(38,2), 
+CREATE TABLE internal_reporting_mv.warehouse_load_history (start_time timestamp_ltz,
+        end_time timestamp_ltz,
+        warehouse_name text,
+        avg_running NUMBER(38,2),
+        avg_queued_load NUMBER(38,2),
+        avg_queued_provisioning NUMBER(38,2),
         avg_blocked NUMBER(38,2));
 create or replace view reporting.warehouse_load_history as select * from internal_reporting_mv.warehouse_load_history;
 
