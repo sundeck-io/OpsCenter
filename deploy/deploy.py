@@ -104,7 +104,7 @@ def _upload_combined_setup_script(cur, deployment: str):
         scripts = helpers.generate_body()
         scripts += helpers.generate_qtag()
         scripts += helpers.generate_get_sundeck_deployment_function(deployment)
-        if os.path.exists("proprietary"):
+        if os.path.exists("proprietary/bootstrap"):
             setup_directory = os.path.abspath(
                 os.path.join(
                     os.path.dirname(__file__), "..", "proprietary", "bootstrap"

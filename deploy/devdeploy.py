@@ -48,7 +48,7 @@ def _copy_opscenter_files(cur, schema: str, stage: str, deployment: str):
     scripts = helpers.generate_body(False, stage_name=f"@{schema}.{stage}")
     scripts += helpers.generate_qtag()
     scripts += helpers.generate_get_sundeck_deployment_function(deployment)
-    if os.path.exists("proprietary"):
+    if os.path.exists("proprietary/bootstrap"):
         setup_directory = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "proprietary", "bootstrap")
         )
