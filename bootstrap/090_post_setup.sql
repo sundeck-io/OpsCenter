@@ -21,7 +21,7 @@ BEGIN
                 where table_catalog = 'SNOWFLAKE' and table_schema in ('ACCOUNT_USAGE', 'ORGANIZATION_USAGE')
                 group by table_name, table_schema
               ), delays as (
-            select $1 as table_name, $2 as delay, $3 as ts from (values ('QUERY_HISTORY', 180, 'END_TIME'), ('WAREHOUSE_EVENTS_HISTORY', 180, 'TIMESTAMP'), ('WAREHOUSE_LOAD_HISTORY', 180, 'END_TIME'), ('WAREHOUSE_METERING_HISTORY', 180, 'END_TIME'), ('USERS', 120, 'CREATED_ON'), ('SERVERLESS_TASK_HISTORY', 180, 'END_TIME'))
+            select $1 as table_name, $2 as delay, $3 as ts from (values ('QUERY_HISTORY', 180, 'END_TIME'), ('WAREHOUSE_EVENTS_HISTORY', 180, 'TIMESTAMP'), ('WAREHOUSE_LOAD_HISTORY', 180, 'END_TIME'), ('WAREHOUSE_METERING_HISTORY', 180, 'END_TIME'), ('USERS', 120, 'CREATED_ON'), ('SERVERLESS_TASK_HISTORY', 180, 'END_TIME'), ('TASK_HISTORY', 180, 'COMPLETED_TIME'), ('SESSIONS', 180, 'CREATED_ON'))
             )
               select
                  'create or replace view "' || v.table_schema || '"."' || v.table_name || '" AS select '|| c.cols || ' from "' || v.table_catalog || '"."' || v.table_schema || '"."' || v.table_name ||'" WHERE ' || d.ts || ' < timestampadd(minute, -' || d.delay || ', current_timestamp) '
@@ -29,7 +29,7 @@ BEGIN
               from snowflake.information_schema.views v
               join columns c on v.table_schema = c.table_schema and v.table_name = c.table_name
               left outer join delays d on v.table_name = d.table_name
-              where v.table_catalog = 'SNOWFLAKE' AND v.table_schema in ('ACCOUNT_USAGE') AND v.table_name in ('QUERY_HISTORY', 'WAREHOUSE_EVENTS_HISTORY', 'WAREHOUSE_LOAD_HISTORY', 'WAREHOUSE_METERING_HISTORY', 'USERS', 'SERVERLESS_TASK_HISTORY');
+              where v.table_catalog = 'SNOWFLAKE' AND v.table_schema in ('ACCOUNT_USAGE') AND v.table_name in ('QUERY_HISTORY', 'WAREHOUSE_EVENTS_HISTORY', 'WAREHOUSE_LOAD_HISTORY', 'WAREHOUSE_METERING_HISTORY', 'USERS', 'SERVERLESS_TASK_HISTORY', 'TASK_HISTORY', 'SESSIONS');
           counter int := 0;
         BEGIN
             FOR record IN c1 DO
@@ -51,6 +51,13 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_EVENTS_MAINTENANCE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
     CALL INTERNAL.refresh_warehouse_events(true);
+
+CREATE OR REPLACE TASK TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE
+    SCHEDULE = '60 minute'
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
+    AS
+    CALL INTERNAL.refresh_all_simple_tables(true);
 
 CREATE OR REPLACE TASK TASKS.QUERY_HISTORY_MAINTENANCE
     SCHEDULE = '60 minute'
@@ -325,6 +332,7 @@ grant MONITOR, OPERATE on all tasks in schema TASKS to APPLICATION ROLE ADMIN;
 call ADMIN.UPDATE_PROBE_MONITOR_RUNNING();
 alter task TASKS.SFUSER_MAINTENANCE resume;
 alter task TASKS.WAREHOUSE_EVENTS_MAINTENANCE resume;
+alter task TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE resume;
 alter task TASKS.QUERY_HISTORY_MAINTENANCE resume;
 alter task TASKS.UPGRADE_CHECK resume;
 -- Do not enable any warehouse_scheduling tasks. They are programmatically resumed when a warehouse schedule is enabled.
@@ -332,6 +340,7 @@ alter task TASKS.UPGRADE_CHECK resume;
 -- Kick off the maintenance tasks.
 execute task TASKS.SFUSER_MAINTENANCE;
 execute task TASKS.WAREHOUSE_EVENTS_MAINTENANCE;
+execute task TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE;
 execute task TASKS.QUERY_HISTORY_MAINTENANCE;
 
 -- Only enable and start user limits task if connected to sundeck

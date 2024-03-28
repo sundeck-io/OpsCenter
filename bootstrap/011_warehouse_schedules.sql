@@ -427,7 +427,6 @@ CREATE OR REPLACE PROCEDURE ADMIN.SHOW_WAREHOUSES()
     execute as owner
 AS
 BEGIN
-    show warehouses;
-    let rs resultset := (select "name", "size" from table(result_scan(last_query_id())));
+    let rs resultset := (select * from internal.sfwarehouses);
     return table(rs);
 END;
