@@ -133,36 +133,3 @@ begin
 
     END;
 end;
-
-CREATE OR REPLACE TASK TASKS.WAREHOUSE_LOAD_MAINTENANCE
-    SCHEDULE = '60 minute'
-    ALLOW_OVERLAPPING_EXECUTION = FALSE
-    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
-    AS
-BEGIN
-    let dt timestamp := current_timestamp();
-    let wh resultset := (select name from internal.sfwarehouses);
-    let wh_cur cursor for wh;
-    for wh_row in wh_cur do
-        let wh_name varchar := wh_row.name;
-        let input variant := (select output from INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS where success and warehouse_name = :wh_name order by run desc limit 1);
-        begin
-            let stmt resultset := (call internal.refresh_one_warehouse_load_history(:wh_name));
-            let stmt_cur cursor for stmt;
-            let counter number := 0;
-            for stmt_row in stmt_cur do
-                execute immediate stmt_row.sql;
-                let new_count number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
-                counter := counter + new_count;
-            end for;
-            let new_running timestamp := (select max(end_time) from internal_reporting_mv.warehouse_load_history where warehouse_name = :wh_name);
-            insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, true, :wh_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:counter, 0))::VARIANT;
-        exception
-            when other then
-                SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :wh_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-                insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, false, :wh_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
-                RAISE;
-        end;
-    end for;
-
-end;
