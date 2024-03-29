@@ -95,7 +95,7 @@ begin
     return 'success';
 end;
 
-CREATE TABLE internal_reporting_mv.warehouse_load_history (start_time timestamp_ltz,
+CREATE TABLE IF NOT EXISTS internal_reporting_mv.warehouse_load_history (start_time timestamp_ltz,
         end_time timestamp_ltz,
         warehouse_name text,
         avg_running NUMBER(38,2),
