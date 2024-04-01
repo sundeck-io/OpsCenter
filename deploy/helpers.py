@@ -50,7 +50,9 @@ def connect_to_snowflake(profile: str = "opscenter", schema: str = ""):
     username = remove_quotes(config.get(f"connections.{profile}", "username"))
     password = remove_quotes(config.get(f"connections.{profile}", "password"))
     warehousename = remove_quotes(config.get(f"connections.{profile}", "warehousename"))
-    rolename = remove_quotes(config.get(f"connections.{profile}", "rolename"))
+    rolename = remove_quotes(
+        config.get(f"connections.{profile}", "rolename", fallback="")
+    )
     dbname = remove_quotes(config.get(f"connections.{profile}", "dbname"))
     region = remove_quotes(config.get(f"connections.{profile}", "region", fallback=""))
 
