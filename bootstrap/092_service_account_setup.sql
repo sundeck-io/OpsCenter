@@ -40,6 +40,10 @@ returns varchar
 language sql
 as
 begin
+    -- Always call setup_external_functions to ensure the external_functions are re-created with the latest opscenter
+    -- token as Sundeck likely invalidated the previous token.
+    CALL admin.setup_external_functions('opscenter_api_integration');
+
     let version varchar;
     call internal.get_config('post_setup') into :version;
     let setup_version varchar := (select internal.get_version());
