@@ -156,23 +156,23 @@ test_cases = [
         "Label name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY",
     ),
     (
-        "call ADMIN.UPDATE_LABEL('{label}', NULL, NULL, NULL, 'compile_time > 5000');",
+        "call ADMIN.UPDATE_LABEL('{old_label}', NULL, NULL, NULL, 'compile_time > 5000');",
         "Name must not be null",
     ),
     (
-        "call ADMIN.UPDATE_LABEL('{label}', '{label}_1', NULL, 100, 'compilation_time > 5000');",
+        "call ADMIN.UPDATE_LABEL('{old_label}', '{label}_1', NULL, 100, 'compilation_time > 5000');",
         "Group rank may only be provided for grouped labels",
     ),
     (
-        "call ADMIN.UPDATE_LABEL('{label}', '{label}_1', 'group_1', NULL, 'compilation_time > 5000');",
+        "call ADMIN.UPDATE_LABEL('{old_label}', '{label}_1', 'group_1', NULL, 'compilation_time > 5000');",
         "Grouped labels must have a rank",
     ),
     (
-        "call ADMIN.UPDATE_LABEL('{label}', '{label}', 'group_1', 100, 'compilation_time > 5000');",
+        "call ADMIN.UPDATE_LABEL('does not exist', '{label}', 'group_1', 100, 'compilation_time > 5000');",
         "does not exist",
     ),
     (
-        "call ADMIN.UPDATE_LABEL('{label}', '{label}', 'group_1', 100, 'compile_time > 5000');",
+        "call ADMIN.UPDATE_LABEL('{old_label}', '{label}', 'group_1', 105, 'compile_time > 5000');",
         "Invalid label condition",
     ),
     (
@@ -192,11 +192,11 @@ test_cases = [
         "Dynamic labels must have a group name",
     ),
     (
-        "call ADMIN.UPDATE_LABEL('{label}', '{label}', 'DYNAMIC_GROUP_LABEL', NULL, 'QUERY_TYPE', TRUE);",
+        "call ADMIN.UPDATE_LABEL('{old_dyn_label}', '{label}', 'DYNAMIC_GROUP_LABEL', NULL, 'QUERY_TYPE', TRUE);",
         "Dynamic labels cannot have a name",
     ),
     (
-        "call ADMIN.UPDATE_LABEL('DYNAMIC_GROUP_LABEL', NULL, 'DYNAMIC_GROUP_LABEL', 10, 'QUERY_TYPE', TRUE);",
+        "call ADMIN.UPDATE_LABEL('{old_dyn_label}', NULL, 'DYNAMIC_GROUP_LABEL', 10, 'QUERY_TYPE', TRUE);",
         "Dynamic labels cannot have a rank",
     ),
     (
@@ -208,9 +208,20 @@ test_cases = [
 # Test that validates that correct error message was returned
 @pytest.mark.parametrize("statement, expected_error", test_cases)
 def test_error_message(conn, timestamp_string, statement, expected_error):
+    # Create a label with this name
+    old_label = generate_unique_name("old_label", timestamp_string)
+    sql = f"call ADMIN.CREATE_LABEL('{old_label}', NULL, NULL, 'rows_produced > 100');"
+    assert run_proc(conn, sql) is None, "ADMIN.CREATE_LABEL did not return NULL value!"
+
+    # Create a dynamic label
+    old_dyn_label = generate_unique_name("old_dyn_label", timestamp_string)
+    sql = f"call ADMIN.CREATE_LABEL(NULL, '{old_dyn_label}', NULL, 'QUERY_TYPE', TRUE);"
+    assert run_proc(conn, sql) is None, "ADMIN.CREATE_LABEL did not return NULL value!"
 
     label = generate_unique_name("label", timestamp_string)
-    sql = statement.format(label=label)
+    sql = statement.format(
+        label=label, old_label=old_label, old_dyn_label=old_dyn_label
+    )
     assert expected_error in str(run_proc(conn, sql))
 
 
