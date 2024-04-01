@@ -14,11 +14,14 @@ FULL_STAGE_SLASH = FULL_STAGE + "/"
 
 
 def get_git_revision_short_hash() -> str:
-    return (
-        subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
-        .decode("ascii")
-        .strip()
-    )
+    try:
+        return (
+            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+            .decode("ascii")
+            .strip()
+        )
+    except Exception:
+        return "unknown"
 
 
 def connect_to_snowflake(profile: str = "opscenter", schema: str = ""):
@@ -47,6 +50,7 @@ def connect_to_snowflake(profile: str = "opscenter", schema: str = ""):
     username = remove_quotes(config.get(f"connections.{profile}", "username"))
     password = remove_quotes(config.get(f"connections.{profile}", "password"))
     warehousename = remove_quotes(config.get(f"connections.{profile}", "warehousename"))
+    rolename = remove_quotes(config.get(f"connections.{profile}", "rolename"))
     dbname = remove_quotes(config.get(f"connections.{profile}", "dbname"))
     region = remove_quotes(config.get(f"connections.{profile}", "region", fallback=""))
 
@@ -58,7 +62,8 @@ def connect_to_snowflake(profile: str = "opscenter", schema: str = ""):
         user=username,
         password=password,
         account=accountname,
-        warehousename=warehousename,
+        warehouse=warehousename,
+        role=rolename,
         database=dbname,
         schema=schema,
         region=region,
