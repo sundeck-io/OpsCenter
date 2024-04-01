@@ -49,7 +49,9 @@ def connect_to_snowflake(profile: str = "opscenter", schema: str = ""):
     accountname = remove_quotes(config.get(f"connections.{profile}", "accountname"))
     username = remove_quotes(config.get(f"connections.{profile}", "username"))
     password = remove_quotes(config.get(f"connections.{profile}", "password"))
-    warehousename = remove_quotes(config.get(f"connections.{profile}", "warehousename"))
+    warehousename = remove_quotes(
+        config.get(f"connections.{profile}", "warehousename", fallback="")
+    )
     rolename = remove_quotes(
         config.get(f"connections.{profile}", "rolename", fallback="")
     )
