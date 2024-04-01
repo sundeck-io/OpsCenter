@@ -3,11 +3,6 @@ CREATE TABLE INTERNAL.LABELS if not exists (name string, group_name string null,
 
 CREATE TABLE INTERNAL.PREDEFINED_LABELS if not exists (name string, group_name string null, group_rank number, label_created_at timestamp, condition string, enabled boolean, label_modified_at timestamp, is_dynamic boolean);
 
--- Recreated on update, INTERNAL.SET_LABEL_CONDITIONS() (below) loads the table.
-CREATE OR REPLACE TABLE INTERNAL.VALIDATE_LABELS(sql text, message text, simple boolean, create_only boolean);
-CREATE OR REPLACE TABLE INTERNAL.VALIDATE_GROUPED_LABELS(sql text, message text, simple boolean, create_only boolean);
-CREATE OR REPLACE TABLE INTERNAL.VALIDATE_DYNAMIC_LABELS(sql text, message text, simple boolean, create_only boolean);
-
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_LABELS_TABLE()
 RETURNS OBJECT
 AS
@@ -118,15 +113,9 @@ SELECT *,$$;
     return true;
 END;
 
-create or replace procedure internal.set_label_conditions()
-returns text
-language sql
-execute as owner
-as
-$$
-begin
-    -- Ungrouped labels
-    insert into internal.validate_labels (sql, message, simple, create_only) values
+-- Ungrouped labels
+CREATE OR REPLACE VIEW INTERNAL.VALIDATE_LABELS AS
+    SELECT sql, message, simple, create_only from (values
         -- Basic null checks, converting variant null to sql null
         ('TO_CHAR(f:name) is not null', 'Name must not be null', true, false),
         ('TO_CHAR(f:condition) is not null', 'Condition must not be null', true, false),
@@ -139,10 +128,12 @@ begin
         -- Condition must compile
         ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select case when \' || :c || \' then true else false end from reporting.enriched_query_history limit 1\';return true;end;\$\$ call result(?);', 'Label condition failed to compile', false, false),
         -- make sure label name doesn't exist as query history column
-        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false);
+        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false))
+    as t(sql, message, simple, create_only);
 
-    -- Grouped labels
-    insert into internal.validate_grouped_labels(sql, message, simple, create_only) values
+-- Grouped labels
+CREATE OR REPLACE VIEW INTERNAL.VALIDATE_GROUPED_LABELS AS
+    select sql, message, simple, create_only from (values
         -- Basic null checks, converting variant null to sql null
         ('TO_CHAR(f:group_name) is not null', 'Group name must not be null', true, false),
         ('TO_CHAR(f:name) is not null', 'Name must not be null', true, false),
@@ -159,10 +150,12 @@ begin
         -- Condition must compile
         ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select case when \' || :c || \' then true else false end from reporting.enriched_query_history limit 1\';return true;end;\$\$ call result(?);', 'Label condition failed to compile', false, false),
         -- make sure label group name doesn't exist as query history column
-        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false);
+        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false))
+    as t(sql, message, simple, create_only);
 
-    -- Dynamic grouped labels
-    insert into internal.validate_dynamic_labels(sql, message, simple, create_only) values
+-- Dynamic grouped labels
+CREATE OR REPLACE VIEW INTERNAL.VALIDATE_DYNAMIC_LABELS AS
+    select sql, message, simple, create_only from (values
         -- Basic null checks, converting variant null to sql null
         ('TO_CHAR(f:group_name) is not null', 'Dynamic labels must have a group name', true, false),
         ('TO_CHAR(f:name) is null', 'Dynamic labels cannot have a name', true, false),
@@ -179,11 +172,9 @@ begin
         -- Condition must compile
         ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select substring(\' || :c || \', 0, 0)  from reporting.enriched_query_history where false\';return true;end;\$\$ call result(?);', 'Label condition failed to compile', false, false),
         -- make sure label group name doesn't exist as query history column
-        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false);
-end;
-$$;
+        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false))
+    as t(sql, message, simple, create_only);
 
-call internal.set_label_conditions();
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text, is_dynamic boolean)
     returns text
