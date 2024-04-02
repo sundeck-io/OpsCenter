@@ -136,26 +136,17 @@ def save_tasks(container, wem, qhm, pm, user_limits):
         with st.spinner("Saving changes to task settings."):
             with connection.Connection.get() as conn:
                 with snowpark_session(conn) as session:
-                    t = Task(task_name="WAREHOUSE_EVENTS_MAINTENANCE")
-                    if wem:
-                        t.enable(session)
-                    else:
-                        t.disable(session)
-                    t = Task(task_name="QUERY_HISTORY_MAINTENANCE")
-                    if qhm:
-                        t.enable(session)
-                    else:
-                        t.disable(session)
-                    t = Task(task_name="SFUSER_MAINTENANCE")
-                    if pm:
-                        t.enable(session)
-                    else:
-                        t.disable(session)
-                    t = Task(task_name="USER_LIMITS_MAINTENANCE")
-                    if user_limits:
-                        t.enable(session)
-                    else:
-                        t.disable(session)
+                    for task_name, status in [
+                        ("WAREHOUSE_EVENTS_MAINTENANCE", wem),
+                        ("QUERY_HISTORY_MAINTENANCE", qhm),
+                        ("SFUSER_MAINTENANCE", pm),
+                        ("USER_LIMITS_MAINTENANCE", user_limits),
+                    ]:
+                        t = Task(task_name=task_name)
+                        if status:
+                            t.enable(session)
+                        else:
+                            t.disable(session)
 
 
 with tasks:
