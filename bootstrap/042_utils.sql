@@ -59,3 +59,10 @@ $$
     internal.wrapper_signature_target(object_construct('database', query_db, 'schema', query_schema, 'query_text', query_text,
     'pin_table', object_construct('database', pin_table_dbname, 'schema', pin_table_schemaname, 'table', pin_table_tablename)))
 $$;
+
+create or replace function admin.test_sundeck_connectivity()
+    returns text
+as
+$$
+    internal.wrapper_verify_token({'tenant_id': (SELECT any_value(value) FROM internal.config WHERE key = 'tenant_id')})
+$$;
