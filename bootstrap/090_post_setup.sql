@@ -301,14 +301,15 @@ BEGIN
         begin
             let stmt resultset := (call internal.refresh_one_warehouse_load_history(:wh_name));
             let stmt_cur cursor for stmt;
-            let counter number := 0;
+            let total_inserted_rows number := 0;
             for stmt_row in stmt_cur do
                 execute immediate stmt_row.sql;
-                let new_count number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
-                counter := counter + new_count;
+                -- the only column/row in returned from an insert statement is the number of rows inserted
+                let new_inserted_rows number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
+                total_inserted_rows := total_inserted_rows + new_inserted_rows;
             end for;
             let new_running timestamp := (select max(end_time) from internal_reporting_mv.warehouse_load_history where warehouse_name = :wh_name);
-            insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, true, :wh_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:counter, 0))::VARIANT;
+            insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, true, :wh_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:total_inserted_rows, 0))::VARIANT;
         exception
             when other then
                 SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :wh_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));

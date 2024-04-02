@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS internal_reporting_mv.warehouse_load_history (start_t
 create or replace view reporting.warehouse_load_history as select * from internal_reporting_mv.warehouse_load_history;
 
 
-CREATE OR REPLACE PROCEDURE internal.refresh_one_warehouse_load_history(warehouse_name varchar) RETURNS table(varchar) LANGUAGE SQL
+CREATE OR REPLACE PROCEDURE internal.refresh_one_warehouse_load_history(warehouse_name varchar) RETURNS table(sql varchar) LANGUAGE SQL
     AS
 begin
     let dt timestamp := current_timestamp();
@@ -123,6 +123,7 @@ begin
         let start_time timestamp := (select greatest(:oldest_running, dateadd(day, -14, current_timestamp())));
         let res resultset := (select tools.templatejs(:stmt,
             {
+              'warehouse_name': :warehouse_name,
               'start_time': dateadd(hours, value, :start_time)::text,
               'end_time': dateadd(hours, value+8, :start_time)::text
             })
