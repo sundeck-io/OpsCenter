@@ -4,6 +4,8 @@ import config
 import sthelp
 import pytz
 from typing import Optional
+from crud.tasks import Task
+from crud.session import snowpark_session
 
 
 sthelp.chrome("Settings")
@@ -20,7 +22,7 @@ def invalid_number(string: str) -> Optional[str]:
 
 
 def get_task_status(dbname):
-    sql = f"""call admin.run_as_app('describe task TASKS."{dbname}";');"""
+    sql = f"""describe task TASKS."{dbname}";"""
     df = connection.execute(sql)
     if df is None or len(df) == 0:
         return None
@@ -132,17 +134,19 @@ with config_tab:
 def save_tasks(container, wem, qhm, pm, user_limits):
     with container:
         with st.spinner("Saving changes to task settings."):
-            sql = f"""
-            call admin.run_as_app($$
-            begin
-                alter task TASKS.WAREHOUSE_EVENTS_MAINTENANCE {get_task_state(wem)};
-                alter task TASKS.QUERY_HISTORY_MAINTENANCE {get_task_state(qhm)};
-                alter task TASKS.SFUSER_MAINTENANCE {get_task_state(pm)};
-                alter task TASKS.USER_LIMITS_MAINTENANCE {get_task_state(user_limits)};
-            end;
-            $$);
-            """
-            connection.execute(sql)
+            with connection.Connection.get() as conn:
+                with snowpark_session(conn) as session:
+                    for task_name, status in [
+                        ("WAREHOUSE_EVENTS_MAINTENANCE", wem),
+                        ("QUERY_HISTORY_MAINTENANCE", qhm),
+                        ("SFUSER_MAINTENANCE", pm),
+                        ("USER_LIMITS_MAINTENANCE", user_limits),
+                    ]:
+                        t = Task(task_name=task_name)
+                        if status:
+                            t.enable(session)
+                        else:
+                            t.disable(session)
 
 
 with tasks:
