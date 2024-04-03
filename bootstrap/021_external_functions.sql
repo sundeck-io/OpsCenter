@@ -459,16 +459,6 @@ BEGIN
         END;
     ';
 
-    -- Start the USER_LIMITS_TASK if the task exists
-    begin
-        show tasks in schema tasks;
-        let has_task text := (select any_value("name") from table(result_scan(last_query_id())) where "name" = 'USER_LIMITS_CHECK');
-        if (:has_task is not null) then
-            -- If the user is setting up the native app via the Streamlit UI, the task exists but has not been started. Need to start it here.
-            -- If the user is setting up the native app via Sundeck, the task does not yet exist. UPGRADE_CHECK() will create it and start it.
-            CALL internal.start_user_limits_task();
-        end if;
-    end;
 END;
 
 CREATE OR REPLACE PROCEDURE admin.setup_sundeck_tenant_url(url string, token string) RETURNS STRING LANGUAGE SQL AS
