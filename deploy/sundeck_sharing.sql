@@ -26,10 +26,15 @@ BEGIN
             SUNDECK_ERROR_MESSAGE,
             USER_NAME,
             ROLE_NAME,
+            SUNDECK_START_TIME, -- TODO drop after "Do data transforms after secure view (#605)" is released
             RAW_START_TIME,
+            SNOWFLAKE_SUBMISSION_TIME, -- TODO drop after "Do data transforms after secure view (#605)" is released
             RAW_SNOWFLAKE_SUBMISSION_TIME,
+            SNOWFLAKE_END_TIME, -- TODO drop after "Do data transforms after secure view (#605)" is released
             RAW_SNOWFLAKE_END_TIME,
             SUNDECK_ACCOUNT_ID,
+            ACTIONS_EXECUTED, -- TODO drop after "Do data transforms after secure view (#605)" is released
+            SCHEMA_ONLY_REQUEST, -- TODO drop after "Do data transforms after secure view (#605)" is released
             STARTING_WAREHOUSE,
             WORKLOAD_TAG,
             SNOWFLAKE_SESSION_ID,
