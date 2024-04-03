@@ -1,3 +1,9 @@
+
+-- IMPORTANT!!!!!!
+-- this creates a share in the application package, however it is not like other things in the app package
+-- all consumers on all versions of the application will see the same thing so if we change schema
+-- it becomes visible to all users immediately
+-- change this only when absolutely neccessary and only ever add columns to it
 BEGIN
     CREATE SCHEMA IF NOT EXISTS "{APPLICATION_PACKAGE}".SHARING;
 
