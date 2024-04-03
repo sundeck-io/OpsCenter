@@ -260,8 +260,8 @@ BEGIN
         from (values
                 ('Long Queries', 'start_time < dateadd(minute, -10, current_timestamp()) AND NOT QUERY_TYPE = \'EXECUTE_STREAMLIT\'', False),
                 ('Big Readers', 'bytes_scanned > 10000000000', False),
-                ('Costs 10 Credits', 'tools.approx_credits_used(warehouse_name, start_time) > 10', True),
-                ('Costs 50 Credits', 'tools.approx_credits_used(warehouse_name, start_time) > 50', True)
+                ('Costs 10 Credits', 'tools.approx_credits_used(warehouse_name, start_time) > 10', False),
+                ('Costs 50 Credits', 'tools.approx_credits_used(warehouse_name, start_time) > 50', False)
              )) s (name, condition, notify_writer)
     ON t.name = s.name
     WHEN MATCHED THEN
