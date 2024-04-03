@@ -6,20 +6,19 @@ BEGIN
         BROKER_NAME text,
         QUERY_TEXT_RECEIVED text,
         QUERY_TEXT_FINAL text,
-        SNOWFLAKE_SUBMISSION_TIME timestamp_ltz,
-        SNOWFLAKE_END_TIME timestamp_ltz,
+        RAW_SNOWFLAKE_SUBMISSION_TIME timestamp_ntz,
+        RAW_SNOWFLAKE_END_TIME timestamp_ntz,
         UPDATED_WAREHOUSE_TARGET text,
         SUNDECK_STATUS text,
         SUNDECK_ERROR_CODE text,
         SUNDECK_ERROR_MESSAGE text,
-        SUNDECK_START_TIME timestamp_ltz,
+        RAW_START_TIME timestamp_ntz,
         SUNDECK_ACCOUNT_ID text,
         USER_NAME text,
         ROLE_NAME text,
-        ACTIONS_EXECUTED variant,
-        SCHEMA_ONLY_REQUEST boolean,
         STARTING_WAREHOUSE text,
         WORKLOAD_TAG text,
-        SNOWFLAKE_SESSION_ID text
+        SNOWFLAKE_SESSION_ID text,
+        RAW_ACTIONS variant
     );
 END;
