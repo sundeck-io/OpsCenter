@@ -39,7 +39,7 @@ BEGIN
     end if;
 
 	call internal.set_config(:name, :value) into :res;
-	return res;
+	return "";
 END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.ENABLE_TASK(name TEXT)
