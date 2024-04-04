@@ -422,11 +422,11 @@ exception
 end;
 
 CREATE OR REPLACE PROCEDURE ADMIN.SHOW_WAREHOUSES()
-    RETURNS TABLE(name text, size text)
+    RETURNS TABLE(name text, size text, "name" text, "size" text)
     LANGUAGE SQL
     execute as owner
 AS
 BEGIN
-    let rs resultset := (select * from internal.sfwarehouses);
+    let rs resultset := (select NAME, SIZE, NAME as "name", SIZE as "size" from internal.sfwarehouses);
     return table(rs);
 END;
