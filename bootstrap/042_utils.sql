@@ -65,5 +65,5 @@ create or replace function admin.test_sundeck_connectivity(tenant_id varchar)
     returns text
 as
 $$
-    internal.wrapper_verify_token({'tenant_id': :tenant_id})
+    internal.wrapper_verify_token({'tenant_id': tenant_id})
 $$;
