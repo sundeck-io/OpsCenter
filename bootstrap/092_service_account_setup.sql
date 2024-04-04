@@ -31,6 +31,7 @@ begin
     let ret object;
     if (token is not null) then
         call admin.connect_sundeck(:token) into :ret;
+        CALL admin.setup_external_functions('opscenter_api_integration');
     end if;
     return :ret;
 end;
