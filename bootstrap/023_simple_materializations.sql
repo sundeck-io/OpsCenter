@@ -88,7 +88,7 @@ create or replace view reporting.serverless_task_history as select * from intern
 create or replace view reporting.task_history as select * from internal_reporting_mv.task_history;
 create or replace view reporting.sessions as select * from internal_reporting_mv.sessions;
 create or replace view reporting.warehouse_metering_history as select * from internal_reporting_mv.warehouse_metering_history;
-drop procedure if exists procedure internal.refresh_all_simple_tables();
+drop procedure if exists internal.refresh_all_simple_tables();
 create or replace procedure internal.refresh_all_simple_tables(migrate boolean) returns string language sql as
 begin
     call internal.refresh_simple_table('SERVERLESS_TASK_HISTORY', 'end_time', :migrate);
