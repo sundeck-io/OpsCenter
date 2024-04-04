@@ -81,7 +81,6 @@ def test_update_timezone(conn):
             reset_default_settings(cur)
 
 
-@pytest.mark.skip(reason="python procedure with validation is too slow")
 def test_update_unknown_setting(conn):
     with conn() as cnx, cnx.cursor() as cur:
         result = update_setting(cur, "something fake", "foo")
@@ -91,7 +90,6 @@ def test_update_unknown_setting(conn):
         assert actual_val is None
 
 
-@pytest.mark.skip(reason="python procedure with validation is too slow")
 @pytest.mark.parametrize(
     "key,badvalue",
     [
