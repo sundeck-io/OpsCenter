@@ -88,12 +88,13 @@ create or replace view reporting.serverless_task_history as select * from intern
 create or replace view reporting.task_history as select * from internal_reporting_mv.task_history;
 create or replace view reporting.sessions as select * from internal_reporting_mv.sessions;
 create or replace view reporting.warehouse_metering_history as select * from internal_reporting_mv.warehouse_metering_history;
-create or replace procedure internal.refresh_all_simple_tables() returns string language sql as
+drop procedure if exists internal.refresh_all_simple_tables();
+create or replace procedure internal.refresh_all_simple_tables(migrate boolean) returns string language sql as
 begin
-    call internal.refresh_simple_table('SERVERLESS_TASK_HISTORY', 'end_time', true);
-    call internal.refresh_simple_table('TASK_HISTORY', 'completed_time', true);
-    call internal.refresh_simple_table('SESSIONS', 'created_on', true);
-    call internal.refresh_simple_table('WAREHOUSE_METERING_HISTORY', 'end_time', true);
+    call internal.refresh_simple_table('SERVERLESS_TASK_HISTORY', 'end_time', :migrate);
+    call internal.refresh_simple_table('TASK_HISTORY', 'completed_time', :migrate);
+    call internal.refresh_simple_table('SESSIONS', 'created_on', :migrate);
+    call internal.refresh_simple_table('WAREHOUSE_METERING_HISTORY', 'end_time', :migrate);
     call internal.refresh_warehouses();
     return 'success';
 end;
