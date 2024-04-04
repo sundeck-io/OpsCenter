@@ -12,26 +12,35 @@ END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_SETTING(name TEXT, value TEXT)
     RETURNS TEXT
-    LANGUAGE PYTHON
-    RUNTIME_VERSION = "3.10"
-    HANDLER = 'run'
-    PACKAGES = ('snowflake-snowpark-python', 'pydantic==1.*')
-    IMPORTS = ('{{stage}}/python/crud.zip')
+    LANGUAGE SQL
     EXECUTE AS OWNER
 AS
-$$
-from crud.base import transaction
-from crud.errors import summarize_error
-from crud.settings import Setting
-def run(bare_session, name: str, value: str):
-    with transaction(bare_session) as session:
-        try:
-            setting = Setting(key=name, value=value)
-            setting.write(session)
-            return ""
-        except Exception as ve:
-            return summarize_error("Failed to update setting", ve)
-$$;
+DECLARE
+	res text;
+BEGIN
+    let pass boolean := (select :name is not null and :value is not null and :name in ('default_timezone', 'storage_cost', 'serverless_credit_cost', 'compute_credit_cost'));
+    if (not pass) then
+        return 'Invalid setting name or value, setting name cannot be null and value cannot be null. Setting name cannot be one of: default_timezone, storage_cost, serverless_credit_cost, compute_credit_cost';
+    end if;
+    let is_tz boolean := (select :name = 'default_timezone');
+    if (is_tz) then
+        begin
+            SELECT CONVERT_TIMEZONE('America/Los_Angeles', :value::varchar, '2019-01-01 14:00:00'::timestamp_ntz) AS conv;
+        exception
+            when other then
+                return 'Invalid setting value, setting value valid timezone string.';
+        end;
+    else
+    select 1;
+        let correct_type boolean := (select try_cast(:value as number) is not null);
+        if (not correct_type) then
+            return 'Invalid setting value, setting value must be a number.';
+        end if;
+    end if;
+
+	call internal.set_config(:name, :value) into :res;
+	return '';
+END;
 
 CREATE OR REPLACE PROCEDURE ADMIN.ENABLE_TASK(name TEXT)
     RETURNS TEXT
