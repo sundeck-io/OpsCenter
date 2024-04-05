@@ -105,8 +105,8 @@ def _finish_local_setup(cur, database: str, schema: str):
             break
 
         elapsed_time = time.time() - start_time
-        # bail after 3 minutes
-        if elapsed_time >= 300:
+        # bail after 10 minutes
+        if elapsed_time >= 600:
             print("Aborting OpsCenter setup as it did not complete in 3 minutes!")
             sys.exit(1)
 
