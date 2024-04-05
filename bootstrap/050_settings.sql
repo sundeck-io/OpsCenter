@@ -15,8 +15,6 @@ CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_SETTING(name TEXT, value TEXT)
     LANGUAGE SQL
     EXECUTE AS OWNER
 AS
-DECLARE
-	res text;
 BEGIN
     let pass boolean := (select :name is not null and :value is not null and :name in ('default_timezone', 'storage_cost', 'serverless_credit_cost', 'compute_credit_cost'));
     if (not pass) then
@@ -31,14 +29,13 @@ BEGIN
                 return 'Invalid setting value, setting value valid timezone string.';
         end;
     else
-    select 1;
         let correct_type boolean := (select try_cast(:value as number) is not null);
         if (not correct_type) then
             return 'Invalid setting value, setting value must be a number.';
         end if;
     end if;
 
-	call internal.set_config(:name, :value) into :res;
+	call internal.set_config(:name, :value);
 	return '';
 END;
 
