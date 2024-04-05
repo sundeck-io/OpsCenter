@@ -23,10 +23,10 @@ def _setup_database(cur, database: str, schema: str, stage: str):
     )
 
 
-def _copy_dependencies(cur, schema: str, stage: str):
+def _copy_dependencies(cur, schema: str, stage: str, extra_packages: list):
     print(f"Copying dependencies to @{schema}.{stage}.")
     # Writes all dependencies into `@stage/python`
-    for file in ["sqlglot.zip", "crud.zip"]:
+    for file in ["sqlglot.zip", "crud.zip"] + extra_packages:
         local_file_path = f"app/python/{file}"
         stage_file_path = f"@{schema}.{stage}/python"
         put_cmd = f"PUT 'file://{local_file_path}' '{stage_file_path}' overwrite=true auto_compress=false"
@@ -130,11 +130,13 @@ def devdeploy(
 
     # Build a new zip file with the CRUD python project.
     helpers.zip_python_module("crud", "app/crud", "app/python/crud.zip")
-    if os.path.exists("proprietary"):
+    extra_packages = []
+    if os.path.exists("proprietary/ml"):
         helpers.zip_python_module("ml", "proprietary/ml", "app/python/ml.zip")
+        extra_packages.append("ml.zip")
 
     # Copy dependencies into the stage
-    _copy_dependencies(cur, conn.schema, stage)
+    _copy_dependencies(cur, conn.schema, stage, extra_packages)
 
     # The setup script relies on objects in the app package, but this mode of deploy does not use an app package.
     # Create those resources by hand with dummy data.
