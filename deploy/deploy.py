@@ -216,10 +216,17 @@ def main(argv):
     skip_install = False
     skip_package = False
     mock_sundeck_sharing = False
+    truncate_backfill = False
     opts, args = getopt.getopt(
         argv,
         "xhsd:p:v:",
-        ["deployment=", "profile=", "version=", "mock-sundeck-sharing"],
+        [
+            "deployment=",
+            "profile=",
+            "version=",
+            "mock-sundeck-sharing",
+            "truncate-backfill",
+        ],
     )
     for opt, arg in opts:
         if opt == "-h":
@@ -247,6 +254,9 @@ def main(argv):
         elif opt == "--mock-sundeck-sharing":
             print("==Using mock database instead of SUNDECK database")
             mock_sundeck_sharing = True
+        elif opt == "--truncate-backfill":
+            print("==Truncating backfill tables")
+            truncate_backfill = True
 
     sundeck_db = "SUNDECK"
     if mock_sundeck_sharing:
@@ -254,7 +264,23 @@ def main(argv):
     else:
         print(f"==Sharing data through NativeApp from {sundeck_db}")
 
-    execute(profile, version, deployment, not skip_install, skip_package, sundeck_db)
+    execute(
+        profile,
+        version,
+        deployment,
+        not skip_install,
+        skip_package,
+        sundeck_db,
+        truncate_backfill,
+    )
+
+
+def _limit_backfill(cur, database: str):
+    filename = "deploy/devdeploy_backfill.sql"
+    with open(filename, "r") as f:
+        tmpl = f.read()
+    sql = tmpl.format(DATABASE=database)
+    cur.execute(sql)
 
 
 def execute(
@@ -264,6 +290,7 @@ def execute(
     install: bool = True,
     skip_package: bool = False,
     sundeck_db: str = "SUNDECK",
+    truncate_backfill: bool = False,
 ):
     # Do Actual Work
     conn = helpers.connect_to_snowflake(profile)
@@ -278,6 +305,8 @@ def execute(
         else:
             # We skip_package for the Marketplace-listing account. Make sure the grant is executed there, too.
             _grant_sundeck_db_access(cur, sundeck_db)
+        if truncate_backfill:
+            _limit_backfill(cur, APPLICATION)
     finally:
         if os.environ.get("OPSCENTER_DROP_DATABASE", "false").lower() == "true":
             _drop_working_database(cur)
