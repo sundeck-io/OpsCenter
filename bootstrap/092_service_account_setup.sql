@@ -18,6 +18,14 @@ begin
         CALL ADMIN.UPGRADE_CHECK();
     grant MONITOR, OPERATE on TASK TASKS.UPGRADE_CHECK to APPLICATION ROLE ADMIN;
 
+    -- Create a task to asynchronously create the external functions
+    CREATE OR REPLACE TASK TASKS.EXTERNAL_FUNCTIONS_SETUP
+        ALLOW_OVERLAPPING_EXECUTION = FALSE
+        USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
+        AS
+        CALL ADMIN.SETUP_EXTERNAL_FUNCTIONS('OPSCENTER_API_INTEGRATION');
+    grant MONITOR, OPERATE on TASK TASKS.EXTERNAL_FUNCTIONS_SETUP to APPLICATION ROLE ADMIN;
+
     call internal.set_config('tenant_url', :web_url);
     call internal.set_config('url', :url);
 
@@ -31,10 +39,12 @@ begin
     let ret object;
     if (token is not null) then
         call admin.connect_sundeck(:token) into :ret;
-        CALL admin.setup_external_functions('opscenter_api_integration');
+        -- Create the external functions asynchronously
+        execute task TASKS.EXTERNAL_FUNCTIONS_SETUP;
     end if;
     return :ret;
 end;
+
 
 CREATE OR REPLACE PROCEDURE admin.upgrade_check()
 returns varchar
