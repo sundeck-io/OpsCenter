@@ -77,7 +77,7 @@ create or replace procedure internal.migrate_simple_data_view(table_name varchar
 begin
     let tbl varchar := 'INTERNAL_REPORTING_MV.' || :table_name;
     let vw varchar := 'REPORTING.' || :table_name;
-    create or replace view identifier(:vw) as select * from identifier(:tbl);
+    create or replace view identifier(:vw) copy grants as select * from identifier(:tbl);
 end;
 
 create table if not exists internal_reporting_mv.serverless_task_history as select * from account_usage.serverless_task_history where 1=0;
