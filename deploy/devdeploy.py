@@ -67,11 +67,18 @@ def _fake_app_package_objects(cur, database: str):
     # In the "local" mode, we don't have a real application package and the sharing model does not apply.
     # Create a fake table so the setup script can be run normally.
     filename = "deploy/devdeploy_sundeck_sharing.sql"
+    _run_script(cur, filename, {"DATABASE": database})
 
-    f = open(filename, "r")
-    tmpl = f.read()
-    f.close()
-    sql = tmpl.format(DATABASE=database)
+
+def _limit_backfill(cur, database: str):
+    filename = "deploy/devdeploy_backfill.sql"
+    _run_script(cur, filename, {"DATABASE": database})
+
+
+def _run_script(cur, filename, tmpl_args):
+    with open(filename, "r") as f:
+        tmpl = f.read()
+    sql = tmpl.format(**tmpl_args)
     cur.execute(sql)
 
 
@@ -135,6 +142,9 @@ def devdeploy(
 
     # Deploy the OpsCenter code into the stage.
     _copy_opscenter_files(cur, conn.schema, stage, deployment)
+
+    # Limit the backfill to 1 day
+    _limit_backfill(cur, conn.database)
 
     # Finish local setup by setting internal state to mimic a set-up app
     # (e.g. materializes data, starts tasks)
