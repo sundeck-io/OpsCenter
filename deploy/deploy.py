@@ -58,7 +58,7 @@ def _sync_local_to_stage(cur):
 
     # Build the CRUD module as a zip file
     helpers.zip_python_module("crud", "app/crud", "app/python/crud.zip")
-    if os.path.exists("proprietary"):
+    if os.path.exists("proprietary/ml"):
         helpers.zip_python_module("ml", "proprietary/ml", "app/python/ml.zip")
 
     # Copy the CRUD module to the stage.

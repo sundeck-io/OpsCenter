@@ -131,7 +131,7 @@ def devdeploy(
     # Build a new zip file with the CRUD python project.
     helpers.zip_python_module("crud", "app/crud", "app/python/crud.zip")
     extra_packages = []
-    if os.path.exists("proprietary"):
+    if os.path.exists("proprietary/ml"):
         helpers.zip_python_module("ml", "proprietary/ml", "app/python/ml.zip")
         extra_packages.append("ml.zip")
 
