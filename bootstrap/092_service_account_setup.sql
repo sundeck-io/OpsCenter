@@ -41,10 +41,15 @@ begin
     return :ret;
 end;
 
+CREATE TABLE IF NOT EXISTS INTERNAL.TASK_UPGRADE_CHECK(run timestamp, success boolean, output variant);
+CREATE OR REPLACE VIEW REPORTING.UPGRADE_CHECK_TASK_HISTORY AS SELECT * FROM INTERNAL.TASK_UPGRADE_CHECK;
+
 CREATE OR REPLACE PROCEDURE admin.upgrade_check()
 returns varchar
 language sql
 as
+declare
+    dt timestamp default current_timestamp();
 begin
     let version varchar;
     call internal.get_config('post_setup') into :version;
@@ -53,4 +58,12 @@ begin
         call admin.finalize_setup();
     end if;
 
+    insert into INTERNAL.TASK_UPGRADE_CHECK SELECT :dt, true,
+        OBJECT_CONSTRUCT('last_version', :version, 'current_version', :setup_version)::VARIANT;
+EXCEPTION
+    WHEN OTHER THEN
+        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred during upgrade.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+        insert into INTERNAL.TASK_UPGRADE_CHECK SELECT :dt, false,
+            OBJECT_CONSTRUCT('SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::VARIANT;
+        RAISE;
 end;
