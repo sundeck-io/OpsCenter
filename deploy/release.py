@@ -37,9 +37,6 @@ def main():
     )
 
     args = parser.parse_args()
-    if args.update and args.release:
-        print("Cannot update and release at the same time")
-        sys.exit(1)
     conn = helpers.connect_to_snowflake(args.profile)
     cur = conn.cursor()
     if args.update:
