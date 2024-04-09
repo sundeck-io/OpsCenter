@@ -14,6 +14,9 @@ END;
 CREATE TABLE INTERNAL.TASK_SIMPLE_DATA_EVENTS IF NOT EXISTS (run timestamp, success boolean, table_name varchar, input variant, output variant);
 CREATE TABLE INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS IF NOT EXISTS (run timestamp, success boolean, warehouse_name varchar, input variant, output variant);
 
+CREATE OR REPLACE VIEW REPORTING.SIMPLE_DATA_EVENTS_TASK_HISTORY AS SELECT * FROM INTERNAL.TASK_SIMPLE_DATA_EVENTS;
+CREATE OR REPLACE VIEW REPORTING.WAREHOUSE_LOAD_EVENTS_TASK_HISTORY AS SELECT * FROM INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS;
+
 CREATE OR REPLACE PROCEDURE internal.migrate_events(table_name varchar)
 returns variant
 language sql
