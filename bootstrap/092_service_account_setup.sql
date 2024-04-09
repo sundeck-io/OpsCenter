@@ -15,11 +15,18 @@ begin
         CALL ADMIN.UPGRADE_CHECK();
     grant MONITOR, OPERATE on TASK TASKS.UPGRADE_CHECK to APPLICATION ROLE ADMIN;
 
-    call internal.set_config('tenant_url', :web_url);
-    call internal.set_config('url', :url);
-
-    let tenant_id text := (select split_part(:web_url, '/', -1));
-    call internal.set_config('tenant_id', :tenant_id);
+    -- Merge all three properties into the config table in one merge statement.
+    MERGE INTO internal.config AS target
+    USING (
+        SELECT $1 as key, $2 as value from VALUES(
+            ('tenant_url', :web_url), ('url', :url), ('tenant_id', split_part(:web_url, '/', -1))
+        )
+    ) AS source
+    ON target.key = source.key
+    WHEN MATCHED THEN
+        UPDATE SET value = source.value
+    WHEN NOT MATCHED THEN
+        INSERT (key, value) VALUES (source.key, source.value);
 
     -- Bind the given reference ID to the 'OPSCENTER_API_INTEGRATION' reference. Must match the reference in manifest.yml
     call admin.update_reference('OPSCENTER_API_INTEGRATION', 'ADD', :api_integration_ref_id);
