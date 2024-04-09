@@ -5,7 +5,6 @@ RETURNS object
 LANGUAGE sql
 as
 begin
-    execute immediate 'create or replace function internal.get_ef_url() returns string as \'\\\'' || url || '\\\'\';';
     execute immediate 'create or replace function internal.get_tenant_url() returns string as \'\\\'' || web_url || '\\\'\';';
 
     -- Create the task so we can run finalize_setup asynchronously (duplicated in finalize_setup)
@@ -30,7 +29,8 @@ begin
     -- Save the token if provided
     let ret object;
     if (token is not null) then
-        call admin.connect_sundeck(:token) into :ret;
+        -- Create the scalar UDF for the Sundeck auth token (EF URL set up by the app in permissions.py)
+        execute immediate 'create or replace function internal.get_ef_token() returns string as \'\\\'' || token || '\\\'\';';
         CALL admin.setup_external_functions('opscenter_api_integration');
     end if;
     return :ret;
