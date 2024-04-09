@@ -41,29 +41,26 @@ begin
     return :ret;
 end;
 
-CREATE TABLE IF NOT EXISTS INTERNAL.TASK_UPGRADE_CHECK(run timestamp, success boolean, output variant);
-CREATE OR REPLACE VIEW REPORTING.UPGRADE_CHECK_TASK_HISTORY AS SELECT * FROM INTERNAL.TASK_UPGRADE_CHECK;
-
 CREATE OR REPLACE PROCEDURE admin.upgrade_check()
 returns varchar
 language sql
 as
 declare
-    dt timestamp default current_timestamp();
+    start_time timestamp default current_timestamp();
+    old_version varchar default NULL;
+    setup_version varchar default internal.get_version();
 begin
-    let version varchar;
-    call internal.get_config('post_setup') into :version;
-    let setup_version varchar := (select internal.get_version());
-    if (version is null or version <> setup_version) then
-        call admin.finalize_setup();
+    call internal.get_config('post_setup') into :old_version;
+    if (old_version is null or old_version <> setup_version) then
+        call admin.finalize_setup(false);
     end if;
 
-    insert into INTERNAL.TASK_UPGRADE_CHECK SELECT :dt, true,
-        OBJECT_CONSTRUCT('last_version', :version, 'current_version', :setup_version)::VARIANT;
+    INSERT INTO INTERNAL.UPGRADE_HISTORY SELECT :start_time, CURRENT_TIMESTAMP(), :old_version, :setup_version, 'Success';
 EXCEPTION
     WHEN OTHER THEN
-        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred during upgrade.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-        insert into INTERNAL.TASK_UPGRADE_CHECK SELECT :dt, false,
-            OBJECT_CONSTRUCT('SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::VARIANT;
+        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during UPGRADE_CHECK.', 'SQLCODE', :sqlcode,
+            'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+        INSERT INTO INTERNAL.UPGRADE_HISTORY SELECT :start_time, CURRENT_TIMESTAMP(), :old_version, setup_version,
+            '(' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
         RAISE;
 end;
