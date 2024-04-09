@@ -320,12 +320,6 @@ $$
 $$;
 
 
-create function if not exists internal.get_tenant_url()
-    returns string
-    language javascript
-    as
-    'throw "You must configure a Sundeck token to use this.";';
-
 create function if not exists internal.get_ef_token()
     returns string
     language javascript
