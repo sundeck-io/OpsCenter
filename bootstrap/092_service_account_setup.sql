@@ -18,9 +18,8 @@ begin
     -- Merge all three properties into the config table in one merge statement.
     MERGE INTO internal.config AS target
     USING (
-        SELECT $1 as key, $2 as value from VALUES(
+        SELECT $1 as key, $2 as value from VALUES
             ('tenant_url', :web_url), ('url', :url), ('tenant_id', split_part(:web_url, '/', -1))
-        )
     ) AS source
     ON target.key = source.key
     WHEN MATCHED THEN
