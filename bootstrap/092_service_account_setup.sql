@@ -40,6 +40,51 @@ begin
     return :ret;
 end;
 
+CREATE OR REPLACE PROCEDURE admin.create_upgrade_check_task()
+RETURNS TEXT
+LANGUAGE SQL
+AS
+BEGIN
+    -- Create the task so we can run finalize_setup asynchronously (duplicated in finalize_setup)
+    -- Does not start the task -- the first time the task runs, finalize_setup() will start the task.
+    CREATE OR REPLACE TASK TASKS.UPGRADE_CHECK
+        SCHEDULE = '1440 minute'
+        ALLOW_OVERLAPPING_EXECUTION = FALSE
+        USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
+        AS
+        CALL ADMIN.UPGRADE_CHECK();
+    grant MONITOR, OPERATE on TASK TASKS.UPGRADE_CHECK to APPLICATION ROLE ADMIN;
+    return '';
+END;
+
+-- Merges tenant_url, url, and tenant_id into the config table. Conditionally updates the internal.get_ef_token UDF.
+CREATE OR REPLACE PROCEDURE admin.update_sundeck_configuration(url varchar, web_url varchar, token varchar default null)
+RETURNS TEXT
+LANGUAGE SQL
+AS
+BEGIN
+    -- Merge all three properties into the config table in one merge statement.
+    MERGE INTO internal.config AS target
+    USING (
+        SELECT $1 as key, $2 as value from VALUES
+            ('tenant_url', :web_url), ('url', :url), ('tenant_id', split_part(:web_url, '/', -1))
+    ) AS source
+    ON target.key = source.key
+    WHEN MATCHED THEN
+        UPDATE SET value = source.value
+    WHEN NOT MATCHED THEN
+        INSERT (key, value) VALUES (source.key, source.value);
+
+    if (token is not null) then
+        -- Create the scalar UDF for the Sundeck auth token, if provided.
+        execute immediate 'create or replace function internal.get_ef_token() returns string as \'\\\'' || token || '\\\'\';';
+    end if;
+
+    return '';
+END;
+
+
+
 CREATE OR REPLACE PROCEDURE admin.upgrade_check()
 returns varchar
 language sql
@@ -49,6 +94,11 @@ declare
     old_version varchar default NULL;
     setup_version varchar default internal.get_version();
 begin
+    -- It is important that we always call this procedure. If the Sundeck token is regenerated, we need to also recreate
+    -- the external functions. ADMIN.FINALIZE_SETUP does also call setup_external_functions, but this task only runs
+    -- finalize_setup once per native app version.
+    CALL admin.setup_external_functions('opscenter_api_integration');
+
     call internal.get_config('post_setup') into :old_version;
     if (old_version is null or old_version <> setup_version) then
         call admin.finalize_setup();
