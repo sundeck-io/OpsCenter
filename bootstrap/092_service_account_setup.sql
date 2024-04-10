@@ -67,7 +67,7 @@ BEGIN
     MERGE INTO internal.config AS target
     USING (
         SELECT $1 as key, $2 as value from VALUES
-            ('tenant_url', :web_url), ('url', :url), ('tenant_id', tenant_id)
+            ('tenant_url', :web_url), ('url', :url), ('tenant_id', :tenant_id)
     ) AS source
     ON target.key = source.key
     WHEN MATCHED THEN
