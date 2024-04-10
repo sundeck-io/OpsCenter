@@ -113,67 +113,116 @@ SELECT *,$$;
     return true;
 END;
 
+CREATE OR REPLACE FUNCTION VALIDATION.IS_NULL(name text)
+    RETURNS text
+    COMMENT='Validates that a field in an object is null'
+AS
+$$
+    tools.templatejs('TO_CHAR(f:{name}) is null', {'name': name})
+$$;
+
+CREATE OR REPLACE FUNCTION VALIDATION.NOT_NULL(name text)
+    RETURNS text
+    COMMENT='Validates that a field in an object is not null'
+AS
+$$
+    tools.templatejs('TO_CHAR(f:{name}) is not null', {'name': name})
+$$;
+
+CREATE OR REPLACE FUNCTION VALIDATION.NO_MATCHING_ROWS(table_name text, uniq_column_name text, null_column_name text)
+    RETURNS text
+    COMMENT='Validates that there are no rows in the table with the given columns'
+AS
+$$
+    tools.templatejs('(select count(\*) = 0 from {table_name} where {null_column_name} is null and {uniq_column_name} = f:{uniq_column_name})',
+        {'table_name': table_name, 'uniq_column_name': uniq_column_name, 'null_column_name': null_column_name})
+$$;
+
 -- Ungrouped labels
 CREATE OR REPLACE VIEW INTERNAL.VALIDATE_LABELS AS
-    SELECT sql, message, simple, create_only from (values
+    select $1 as sql, $2 as message, $3 as simple, $4 as create_only from (
         -- Basic null checks, converting variant null to sql null
-        ('TO_CHAR(f:name) is not null', 'Name must not be null', true, false),
-        ('TO_CHAR(f:condition) is not null', 'Condition must not be null', true, false),
+        select VALIDATION.NOT_NULL('name'), 'Name must not be null', true, false
+        UNION ALL
+        select VALIDATION.NOT_NULL('condition'), 'Condition must not be null', true, false
+        UNION ALL
         -- group_name and group_rank must be null
-        ('TO_CHAR(f:group_name) is null and TO_CHAR(f:group_rank) is null', 'Group rank may only be provided for grouped labels', true, false),
+        select VALIDATION.IS_NULL('group_name') || ' and ' || VALIDATION.IS_NULL('group_rank'), 'Group rank may only be provided for grouped labels', true, false
+        UNION ALL
         -- label name must be unique among all names
-        ('(select count(*) = 0 from internal.labels where group_name is null and name = f:name)', 'A label with this name already exists', true, true),
+        SELECT VALIDATION.NO_MATCHING_ROWS('internal.labels', 'name', 'group_name'), 'A label with this name already exists', true, true
+        UNION ALL
         -- label name must be unique across all group_names
-        ('(select count(*) = 0 from internal.labels where group_name = f:name and group_name is not null)', 'A label group already exists with this name', true, true),
+        SELECT '(select count(*) = 0 from internal.labels where group_name = f:name and group_name is not null)', 'A label group already exists with this name', true, true
+        UNION ALL
         -- Condition must compile
-        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select case when \' || :c || \' then true else false end from reporting.enriched_query_history limit 1\';return true;end;\$\$ call result(?);', 'Invalid label condition', false, false),
+        SELECT 'with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select case when \' || :c || \' then true else false end from reporting.enriched_query_history limit 1\';return true;end;\$\$ call result(?);', 'Invalid label condition', false, false
+        UNION ALL
         -- make sure label name doesn't exist as query history column
-        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false))
-    as t(sql, message, simple, create_only);
+        SELECT 'with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false
+    );
 
 -- Grouped labels
 CREATE OR REPLACE VIEW INTERNAL.VALIDATE_GROUPED_LABELS AS
-    select sql, message, simple, create_only from (values
+    select $1 as sql, $2 as message, $3 as simple, $4 as create_only from (
         -- Basic null checks, converting variant null to sql null
-        ('TO_CHAR(f:group_name) is not null', 'Group name must not be null', true, false),
-        ('TO_CHAR(f:name) is not null', 'Name must not be null', true, false),
-        ('TO_CHAR(f:condition) is not null', 'Condition must not be null', true, false),
-        ('TO_CHAR(f:group_rank) is not null', 'Grouped labels must have a rank', true, false),
+        SELECT VALIDATION.NOT_NULL('group_name'), 'Group name must not be null', true, false
+        UNION ALL
+        SELECT VALIDATION.NOT_NULL('name'), 'Name must not be null', true, false
+        UNION ALL
+        SELECT VALIDATION.NOT_NULL('condition'), 'Condition must not be null', true, false
+        UNION ALL
+        SELECT VALIDATION.NOT_NULL('group_rank'), 'Grouped labels must have a rank', true, false
+        UNION ALL
         -- label name must be unique in this group
-        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and name = f:name)', 'A label with this name already exists', true, true),
+        SELECT '(select count(*) = 0 from internal.labels where group_name = f:group_name and name = f:name)', 'A label with this name already exists', true, true
+        UNION ALL
         -- label group name must be unique across all label names
-        ('(select count(*) = 0 from internal.labels where name = f:group_name and group_name is null)', 'A label with this name already exists', true, true),
+        SELECT '(select count(*) = 0 from internal.labels where name = f:group_name and group_name is null)', 'A label with this name already exists', true, true
+        UNION ALL
         -- label name must be unique across dynamic grouped labels
-        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and name is null)', 'A label with this name already exists', true, true),
+        SELECT VALIDATION.NO_MATCHING_ROWS('internal.labels', 'group_name', 'name'), 'A label with this name already exists', true, true
+        UNION ALL
         -- group rank must be unique across labels in a group
-        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and group_rank = f:group_rank)', 'A label already already exists with this rank', true, true),
+        SELECT '(select count(*) = 0 from internal.labels where group_name = f:group_name and group_rank = f:group_rank)', 'A label already already exists with this rank', true, true
+        UNION ALL
         -- Condition must compile
-        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select case when \' || :c || \' then true else false end from reporting.enriched_query_history limit 1\';return true;end;\$\$ call result(?);', 'Invalid label condition', false, false),
+        SELECT 'with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select case when \' || :c || \' then true else false end from reporting.enriched_query_history limit 1\';return true;end;\$\$ call result(?);', 'Invalid label condition', false, false
+        UNION ALL
         -- make sure label group name doesn't exist as query history column
-        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false))
-    as t(sql, message, simple, create_only);
+        SELECT 'with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false
+    );
 
 -- Dynamic grouped labels
 CREATE OR REPLACE VIEW INTERNAL.VALIDATE_DYNAMIC_LABELS AS
-    select sql, message, simple, create_only from (values
+    select $1 as sql, $2 as message, $3 as simple, $4 as create_only from (
         -- Basic null checks, converting variant null to sql null
-        ('TO_CHAR(f:group_name) is not null', 'Dynamic labels must have a group name', true, false),
-        ('TO_CHAR(f:name) is null', 'Dynamic labels cannot have a name', true, false),
-        ('TO_CHAR(f:condition) is not null', 'Dynamic labels must have a condition', true, false),
-        ('TO_CHAR(f:group_rank) is null', 'Dynamic labels cannot have a rank', true, false),
+        SELECT VALIDATION.NOT_NULL('group_name'), 'Dynamic labels must have a group name', true, false
+        UNION ALL
+        SELECT VALIDATION.NOT_NULL('condition'), 'Dynamic labels must have a condition', true, false
+        UNION ALL
+        SELECT VALIDATION.IS_NULL('name'), 'Dynamic labels cannot have a name', true, false
+        UNION ALL
+        SELECT VALIDATION.IS_NULL('group_rank'), 'Dynamic labels cannot have a rank', true, false
+        UNION ALL
         -- label name must be unique in this group
-        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and name = f:name)', 'A label already exists with this name', true, true),
+        SELECT '(select count(*) = 0 from internal.labels where group_name = f:group_name and name = f:name)', 'A label already exists with this name', true, true
+        UNION ALL
         -- label group name must be unique across all label names
-        ('(select count(*) = 0 from internal.labels where name = f:group_name and group_name is null)', 'A label already exists with this name', true, true),
+        SELECT '(select count(*) = 0 from internal.labels where name = f:group_name and group_name is null)', 'A label already exists with this name', true, true
+        UNION ALL
         -- label name must be unique across dynamic grouped labels
-        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and name is null)', 'A label already exists with this name', true, true),
+        SELECT '(select count(*) = 0 from internal.labels where group_name = f:group_name and name is null)', 'A label already exists with this name', true, true
+        UNION ALL
         -- group rank must be unique across labels in a group
-        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and group_rank = f:group_rank)', 'A label already already exists with this rank', true, true),
+        SELECT '(select count(*) = 0 from internal.labels where group_name = f:group_name and group_rank = f:group_rank)', 'A label already already exists with this rank', true, true
+        UNION ALL
         -- Condition must compile
-        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select substring(\' || :c || \', 0, 0)  from reporting.enriched_query_history where false\';return true;end;\$\$ call result(?);', 'Invalid label condition', false, false),
+        SELECT 'with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select substring(\' || :c || \', 0, 0)  from reporting.enriched_query_history where false\';return true;end;\$\$ call result(?);', 'Invalid label condition', false, false
+        UNION ALL
         -- make sure label group name doesn't exist as query history column
-        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false))
-    as t(sql, message, simple, create_only);
+        SELECT 'with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false
+    );
 
 
 CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text, is_dynamic boolean)
