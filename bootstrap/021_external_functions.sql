@@ -513,3 +513,9 @@ BEGIN
     -- Success!
     return object_construct();
 END;
+
+-- remove deprecated functions if they still exist.
+drop function if exists internal.get_ef_url();
+drop function if exists internal.get_tenant_url();
+drop function if exists internal.setup_ef_url(string);
+drop function if exists internal.setup_sundeck_token(string, string);
