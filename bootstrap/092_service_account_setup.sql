@@ -51,15 +51,15 @@ declare
 begin
     call internal.get_config('post_setup') into :old_version;
     if (old_version is null or old_version <> setup_version) then
-        call admin.finalize_setup(false);
+        call admin.finalize_setup();
     end if;
 
-    INSERT INTO INTERNAL.UPGRADE_HISTORY SELECT :start_time, CURRENT_TIMESTAMP(), :old_version, :setup_version, 'Success';
+    INSERT INTO INTERNAL.UPGRADE_HISTORY SELECT :start_time, CURRENT_TIMESTAMP(), :old_version, :setup_version, 'UPGRADE_CHECK: Success';
 EXCEPTION
     WHEN OTHER THEN
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during UPGRADE_CHECK.', 'SQLCODE', :sqlcode,
             'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         INSERT INTO INTERNAL.UPGRADE_HISTORY SELECT :start_time, CURRENT_TIMESTAMP(), :old_version, setup_version,
-            '(' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
+            'UPGRADE_CHECK: (' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
         RAISE;
 end;

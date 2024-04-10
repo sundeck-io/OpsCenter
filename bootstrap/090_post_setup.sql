@@ -1,5 +1,5 @@
 
-create or replace procedure admin.finalize_setup(log_output boolean default true)
+create or replace procedure admin.finalize_setup()
 returns string
 language sql
 execute as owner
@@ -398,18 +398,12 @@ call internal.account_has_autoscaling() into :has_autoscaling;
 call internal.set_config('autoscaling_available', :has_autoscaling);
 CALL admin.setup_external_functions('opscenter_api_integration');
 
--- If a caller invokes this procedure directly, log the output. Else, the UPGRADE_CHECK task
--- is calling this procedure and handling logging.
-if (:log_output) then
-    INSERT INTO internal.upgrade_history SELECT :finalize_start_time, CURRENT_TIMESTAMP(), :old_version, internal.get_version(), 'Success';
-end if;
+INSERT INTO internal.upgrade_history SELECT :finalize_start_time, CURRENT_TIMESTAMP(), :old_version, internal.get_version(), 'FINALIZE_SETUP: Success';
 
 EXCEPTION
    WHEN OTHER THEN
-       if (:log_output) then
-           SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during finalize_setup.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-           INSERT INTO internal.upgrade_history SELECT :finalize_start_time, CURRENT_TIMESTAMP(), :old_version, internal.get_version(), '(' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
-       end if;
+       SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during finalize_setup.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+       INSERT INTO internal.upgrade_history SELECT :finalize_start_time, CURRENT_TIMESTAMP(), :old_version, internal.get_version(), 'FINALIZE_SETUP: (' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
        RAISE;
 END;
 
