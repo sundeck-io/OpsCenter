@@ -43,21 +43,31 @@ returns text
 language sql
 execute as owner
 as
-$$
 begin
     let keys array := object_keys(:obj);
-    let cols varchar := keys[0];
-    let vals varchar := 'obj[\'' || keys[0] || '\'] as ' || keys[0];
-    let ins_cols varchar := 'src.' || keys[0];
-    let set_cmds varchar := 'set dest.' || keys[0] || ' = src.' || keys[0];
-    for i in 1 to (array_size(:keys) - 1) do
-        cols := cols || ',' || keys[i];
-        vals := vals || ',' || 'obj[\'' || keys[i] || '\'] as ' || keys[i];
-        ins_cols := ins_cols || ', src.' || keys[i];
-        set_cmds := set_cmds || ', dest.' || keys[i] || ' = src.' || keys[i];
-    end for;
-    let stmt varchar := 'merge into internal.' || :tbl || ' dest using (select ' || :vals || ' from (select parse_json(?) as obj)) src on dest.' || :key || ' = src.' || :key|| ' when matched then update ' || :set_cmds || ' when not matched then insert (' || :cols || ') values (' || :ins_cols || ')' ;
-    execute immediate :stmt using (obj);
-    return :stmt;
-end;
+
+    -- Make the columns for the USING portion of the merge statement.
+    let using_select_cols array := (select array_agg(tools.templatejs('obj[\'{col}\'] as {col}', {'col': value})) from table(flatten(input=>:keys)));
+    let using_expr text := (select array_to_string(:using_select_cols, ', '));
+
+    let update_cols array := (select array_agg(tools.templatejs('dest.{col} = src.{col}', {'col': value})) from table(flatten(input=>:keys)));
+    let update_expr text := (select array_to_string(:update_cols, ', '));
+
+    let insert_target_expr text := (select array_to_string(:keys, ', '));
+    let insert_query_cols array := (select array_agg(tools.templatejs('src.{col}', {'col': value})) from table(flatten(input=>:keys)));
+    let insert_query_expr text := (select array_to_string(:insert_query_cols, ', '));
+
+    let merge_tmpl varchar := $$MERGE INTO internal.{table} dest USING (
+SELECT {using_expr} FROM (SELECT PARSE_JSON(?) AS obj)) src
+ON dest.{key} = src.{key}
+WHEN MATCHED THEN
+    UPDATE SET {update_expr}
+WHEN NOT MATCHED THEN
+    INSERT ({insert_target_expr}) values ({insert_query_expr})
 $$;
+    let merge_stmt varchar := (select tools.templatejs(:merge_tmpl,
+        {'table': :tbl, 'using_expr': :using_expr, 'key': :key, 'update_expr': :update_expr,
+            'insert_target_expr': :insert_target_expr, 'insert_query_expr': :insert_query_expr}));
+    execute immediate :merge_stmt using (obj);
+    return merge_stmt;
+end;
