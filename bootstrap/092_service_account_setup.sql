@@ -58,7 +58,7 @@ BEGIN
 END;
 
 -- Merges tenant_url, url, and tenant_id into the config table. Conditionally updates the internal.get_ef_token UDF.
-CREATE OR REPLACE PROCEDURE admin.update_sundeck_configuration(url varchar, web_url varchar, token varchar default null)
+CREATE OR REPLACE PROCEDURE admin.update_sundeck_configuration(url varchar, web_url varchar, tenant_id varchar, token varchar default null)
 RETURNS TEXT
 LANGUAGE SQL
 AS
@@ -67,7 +67,7 @@ BEGIN
     MERGE INTO internal.config AS target
     USING (
         SELECT $1 as key, $2 as value from VALUES
-            ('tenant_url', :web_url), ('url', :url), ('tenant_id', split_part(:web_url, '/', -1))
+            ('tenant_url', :web_url), ('url', :url), ('tenant_id', tenant_id)
     ) AS source
     ON target.key = source.key
     WHEN MATCHED THEN
