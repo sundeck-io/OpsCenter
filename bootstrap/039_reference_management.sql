@@ -3,8 +3,8 @@ drop view if exists catalog.references;
 drop table if exists internal.reference_management;
 
 create or replace procedure admin.update_reference(ref_name string, operation string, ref_or_alias string)
- language sql
  returns string
+ language sql
  as
 begin
   SYSTEM$LOG_INFO('Updating reference: ' || ref_name || ' operation: ' || operation || ' ref_or_alias: ' || ref_or_alias);
