@@ -320,35 +320,12 @@ $$
 $$;
 
 
-create function if not exists internal.get_ef_url()
-    returns string
-    language javascript
-    as
-    'throw "You must configure a Sundeck token to use this.";';
-
-create function if not exists internal.get_tenant_url()
-    returns string
-    language javascript
-    as
-    'throw "You must configure a Sundeck token to use this.";';
-
 create function if not exists internal.get_ef_token()
     returns string
     language javascript
     as
     'throw "You must configure a Sundeck token to use this.";';
 
-create or replace procedure internal.setup_ef_url(url string) RETURNS STRING LANGUAGE SQL AS
-BEGIN
-    execute immediate 'create or replace function internal.get_ef_url() returns string as \'\\\'' || url || '\\\'\';';
-END;
-
-
-create or replace procedure internal.setup_sundeck_token(url string, token string) RETURNS STRING LANGUAGE SQL AS
-BEGIN
-    execute immediate 'create or replace function internal.get_ef_url() returns string as \'\\\'' || url || '\\\'\';';
-    execute immediate 'create or replace function internal.get_ef_token() returns string as \'\\\'' || token || '\\\'\';';
-END;
 
 BEGIN
     create function if not exists internal.ef_register_tenant(request object)
@@ -387,7 +364,7 @@ $$;
 
 CREATE OR REPLACE PROCEDURE admin.setup_register_tenant_func() RETURNS STRING LANGUAGE SQL AS
 BEGIN
-    let url string := (select internal.get_ef_url());
+    let url string := (select any_value(value) from internal.config where key = 'url');
     execute immediate '
         BEGIN
 	        create or replace external function internal.ef_register_tenant(request object)
@@ -415,7 +392,7 @@ BEGIN
     if (not :has_ref) then
         raise MISSING_REFERENCE;
     end if;
-    let url string := (select internal.get_ef_url());
+    let url string := (select any_value(value) from internal.config where key = 'url');
     let token string := (select internal.get_ef_token());
     execute immediate '
         BEGIN
@@ -523,6 +500,7 @@ begin
   return res;
 end;
 
+-- deprecated: to be deleted.
 create or replace procedure admin.connect_sundeck(token text)
     returns object
     language sql
@@ -535,3 +513,9 @@ BEGIN
     -- Success!
     return object_construct();
 END;
+
+-- remove deprecated functions if they still exist.
+drop function if exists internal.get_ef_url();
+drop function if exists internal.get_tenant_url();
+drop function if exists internal.setup_ef_url(string);
+drop function if exists internal.setup_sundeck_token(string, string);

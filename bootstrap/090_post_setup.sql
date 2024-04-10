@@ -398,12 +398,12 @@ call internal.account_has_autoscaling() into :has_autoscaling;
 call internal.set_config('autoscaling_available', :has_autoscaling);
 CALL admin.setup_external_functions('opscenter_api_integration');
 
-INSERT INTO internal.upgrade_history SELECT :finalize_start_time, CURRENT_TIMESTAMP(), :old_version, internal.get_version(), 'Success';
+INSERT INTO internal.upgrade_history SELECT :finalize_start_time, CURRENT_TIMESTAMP(), :old_version, internal.get_version(), 'FINALIZE_SETUP: Success';
 
 EXCEPTION
    WHEN OTHER THEN
        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during finalize_setup.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-       INSERT INTO internal.upgrade_history SELECT :finalize_start_time, CURRENT_TIMESTAMP(), :old_version, internal.get_version(), '(' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
+       INSERT INTO internal.upgrade_history SELECT :finalize_start_time, CURRENT_TIMESTAMP(), :old_version, internal.get_version(), 'FINALIZE_SETUP: (' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
        RAISE;
 END;
 

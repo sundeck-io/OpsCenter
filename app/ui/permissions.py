@@ -32,7 +32,7 @@ def setup_permissions():
 
     external_func_url = get_api_gateway_url(sf_region_without_public, sd_deployment)
     with connection.Connection.get() as conn:
-        conn.call("INTERNAL.SETUP_EF_URL", external_func_url)
+        conn.call("INTERNAL.SET_CONFIG", "url", external_func_url)
     privileges = [
         "EXECUTE MANAGED TASK",
         "EXECUTE TASK",
