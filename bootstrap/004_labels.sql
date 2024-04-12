@@ -129,12 +129,18 @@ $$
     'TO_CHAR(f:' || name || ') is not null'
 $$;
 
-CREATE OR REPLACE FUNCTION VALIDATION.NO_MATCHING_ROWS(table_name text, uniq_column_name text, null_column_name text)
+CREATE OR REPLACE FUNCTION VALIDATION.LABEL_EXISTS()
     RETURNS text
-    COMMENT='Validates that there are no rows in the table with the value of uniq_column_name and the null_column_name is null'
 AS
 $$
-    '(select count(*) = 0 from ' || table_name || ' where ' || null_column_name || ' is null and ' || uniq_column_name || ' = f:' || uniq_column_name || ')'
+    '(select count(*) > 0 from INTERNAL.LABELS where group_name is null and name = f:name)'
+$$;
+
+CREATE OR REPLACE FUNCTION VALIDATION.LABEL_ABSENT()
+    RETURNS text
+AS
+$$
+    'NOT(' || VALIDATION.LABEL_EXISTS() || ')'
 $$;
 
 
@@ -166,6 +172,13 @@ EXCEPTION
         return false;
 END;
 
+create or replace function VALIDATION.wrap_simple_condition(condition text)
+returns text
+as
+$$
+    'select case when ' || condition || ' then 1 else 0 end as result from (select parse_json(?) as f)'
+$$;
+
 
 -- Ungrouped labels
 -- simple=true and create_only=false as the defaults
@@ -177,7 +190,7 @@ CREATE OR REPLACE VIEW INTERNAL.VALIDATE_LABELS AS
         -- group_name and group_rank must be null
         (VALIDATION.IS_NULL('group_name') || ' and ' || VALIDATION.IS_NULL('group_rank'), '{"message": "Group rank may only be provided for grouped labels"}'),
         -- label name must be unique among all names
-        (VALIDATION.NO_MATCHING_ROWS('internal.labels', 'name', 'group_name'), '{"message": "A label with this name already exists"}'),
+        (VALIDATION.LABEL_ABSENT(), '{"message": "A label with this name already exists"}'),
         -- label name must be unique across all group_names
         ('(select count(*) = 0 from internal.labels where group_name = f:name and group_name is not null)', '{"message": "A label group already exists with this name", "create_only": true}'),
         -- Condition must compile
@@ -186,105 +199,29 @@ CREATE OR REPLACE VIEW INTERNAL.VALIDATE_LABELS AS
         ('CALL VALIDATION.IS_VALID_LABEL_NAME(?)', '{"message": "Label name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY", "complex": true}')
     ) as t(sql, options);
 
--- -- Grouped labels
--- CREATE OR REPLACE VIEW INTERNAL.VALIDATE_GROUPED_LABELS AS
---     select $1 as sql, $2 as message, $3 as simple, $4 as create_only from (
---         -- Basic null checks, converting variant null to sql null
---         SELECT VALIDATION.NOT_NULL('group_name'), 'Group name must not be null', true, false
---         UNION ALL
---         SELECT VALIDATION.NOT_NULL('name'), 'Name must not be null', true, false
---         UNION ALL
---         SELECT VALIDATION.NOT_NULL('condition'), 'Condition must not be null', true, false
---         UNION ALL
---         SELECT VALIDATION.NOT_NULL('group_rank'), 'Grouped labels must have a rank', true, false
---         UNION ALL
---         -- label name must be unique in this group
---         SELECT '(select count(*) = 0 from internal.labels where group_name = f:group_name and name = f:name)', 'A label with this name already exists', true, true
---         UNION ALL
---         -- label group name must be unique across all label names
---         SELECT '(select count(*) = 0 from internal.labels where name = f:group_name and group_name is null)', 'A label with this name already exists', true, true
---         UNION ALL
---         -- label name must be unique across dynamic grouped labels
---         SELECT VALIDATION.NO_MATCHING_ROWS('internal.labels', 'group_name', 'name'), 'A label with this name already exists', true, true
---         UNION ALL
---         -- group rank must be unique across labels in a group
---         SELECT '(select count(*) = 0 from internal.labels where group_name = f:group_name and group_rank = f:group_rank)', 'A label already already exists with this rank', true, true
---         UNION ALL
---         -- Condition must compile
---         SELECT 'with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select case when \' || :c || \' then true else false end from reporting.enriched_query_history limit 1\';return true;end;\$\$ call result(?);', 'Invalid label condition', false, false
---         UNION ALL
---         -- make sure label group name doesn't exist as query history column
---         SELECT 'with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false
---     );
---
--- -- Dynamic grouped labels
--- CREATE OR REPLACE VIEW INTERNAL.VALIDATE_DYNAMIC_LABELS AS
---     select $1 as sql, $2 as message, $3 as simple, $4 as create_only from (
---         -- Basic null checks, converting variant null to sql null
---         SELECT VALIDATION.NOT_NULL('group_name'), 'Dynamic labels must have a group name', true, false
---         UNION ALL
---         SELECT VALIDATION.NOT_NULL('condition'), 'Dynamic labels must have a condition', true, false
---         UNION ALL
---         SELECT VALIDATION.IS_NULL('name'), 'Dynamic labels cannot have a name', true, false
---         UNION ALL
---         SELECT VALIDATION.IS_NULL('group_rank'), 'Dynamic labels cannot have a rank', true, false
---         UNION ALL
---         -- label name must be unique in this group
---         SELECT '(select count(*) = 0 from internal.labels where group_name = f:group_name and name = f:name)', 'A label already exists with this name', true, true
---         UNION ALL
---         -- label group name must be unique across all label names
---         SELECT '(select count(*) = 0 from internal.labels where name = f:group_name and group_name is null)', 'A label already exists with this name', true, true
---         UNION ALL
---         -- label name must be unique across dynamic grouped labels
---         SELECT '(select count(*) = 0 from internal.labels where group_name = f:group_name and name is null)', 'A label already exists with this name', true, true
---         UNION ALL
---         -- group rank must be unique across labels in a group
---         SELECT '(select count(*) = 0 from internal.labels where group_name = f:group_name and group_rank = f:group_rank)', 'A label already already exists with this rank', true, true
---         UNION ALL
---         -- Condition must compile
---         SELECT 'with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select substring(\' || :c || \', 0, 0)  from reporting.enriched_query_history where false\';return true;end;\$\$ call result(?);', 'Invalid label condition', false, false
---         UNION ALL
---         -- make sure label group name doesn't exist as query history column
---         SELECT 'with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', 'Label group name cannot duplicate a column in REPORTING.ENRICHED_QUERY_HISTORY', false, false
---     );
 
+drop PROCEDURE if exists ADMIN.CREATE_LABEL(text, text, number, text);
 
-CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text, is_dynamic boolean)
+CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text, is_dynamic boolean default false)
     returns text
     language sql
     EXECUTE AS OWNER
 AS
 $$
+DECLARE
+    TODO EXCEPTION(-20505, 'TODO: implement grouped and dynamic labels');
 BEGIN
     let label object := (select object_construct_keep_null('name', :name, 'group_name', :grp, 'group_rank', :rank, 'condition', :condition, 'is_dynamic', :is_dynamic, 'enabled', TRUE, 'label_modified_at', current_timestamp(), 'label_id', uuid_string(), 'label_created_at', current_timestamp()));
     let validation_err text;
     let kind text := 'labels';
     if (is_dynamic) then
-        kind := 'dynamic_labels';
+        -- kind := 'dynamic_labels';
+        raise TODO;
     elseif (grp is not null) then
-        kind := 'grouped_labels';
+        -- kind := 'grouped_labels';
+        raise TODO;
     end if;
-    call admin.validate(:label, :kind, TRUE) into :validation_err;
-    if (:validation_err is not null) then
-        return :validation_err;
-    end if;
-    call admin.write(:label, 'labels', 'label_id');
-END;
-$$;
 
-CREATE OR REPLACE PROCEDURE ADMIN.CREATE_LABEL(name text, grp text, rank number, condition text)
-    returns text
-    language sql
-    EXECUTE AS OWNER
-AS
-$$
-BEGIN
-    let label object := (select object_construct_keep_null('name', :name, 'group_name', :grp, 'group_rank', :rank, 'condition', :condition, 'is_dynamic', FALSE, 'enabled', TRUE, 'label_modified_at', current_timestamp(), 'label_id', uuid_string(), 'label_created_at', current_timestamp()));
-    let validation_err text;
-    let kind text := 'labels';
-    if (grp is not null) then
-        kind := 'grouped_labels';
-    end if;
     call admin.validate(:label, :kind, TRUE) into :validation_err;
     if (:validation_err is not null) then
         return :validation_err;
@@ -351,17 +288,22 @@ END;
 $$;
 
 
-CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text, is_dynamic boolean)
+DROP PROCEDURE IF EXISTS ADMIN.UPDATE_LABEL(text, text, text, number, text);
+
+CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text, is_dynamic boolean default false)
     RETURNS text
     language sql
     EXECUTE AS OWNER
  AS
 $$
+DECLARE
+    TODO EXCEPTION(-20505, 'TODO: implement grouped and dynamic labels');
 BEGIN
     let uuid string;
     if (is_dynamic) then
+        RAISE TODO;
         -- dynamic labels use group_name
-        uuid := (select label_id from internal.labels where group_name = :oldname and is_dynamic);
+        -- uuid := (select label_id from internal.labels where group_name = :oldname and is_dynamic);
     else
         uuid := (select label_id from internal.labels where name = :oldname and not is_dynamic);
     end if;
@@ -390,36 +332,6 @@ BEGIN
     if (is_dynamic) then
         kind := 'dynamic_labels';
     end if;
-    call admin.validate(:label, :kind, :name_changed) into :validation_err;
-    if (:validation_err is not null) then
-        return :validation_err;
-    end if;
-    call admin.write(:label, 'labels', 'label_id');
-    call INTERNAL.UPDATE_LABEL_VIEW();
-END;
-$$;
-
-CREATE OR REPLACE PROCEDURE ADMIN.UPDATE_LABEL(oldname text, name text, grp text, rank number, condition text)
-    RETURNS text
-    language sql
-    EXECUTE AS OWNER
- AS
-$$
-BEGIN
-    let uuid string := (select label_id from internal.labels where name = :oldname and is_dynamic <> TRUE);
-    if (uuid is null) then
-        return 'A label with the name ' || oldname || ' does not exist';
-    end if;
-
-    -- If the label name changed on update, we want to run the unique name checks like we do on create.
-    let name_changed boolean := (select :oldname <> :name);
-    let created_at timestamp := (select label_created_at from internal.labels where name = :oldname);
-    let label object := (select object_construct_keep_null('name', :name, 'group_name', :grp, 'group_rank', :rank, 'condition', :condition, 'is_dynamic', FALSE, 'enabled', TRUE, 'label_modified_at', current_timestamp(), 'label_id', :uuid, 'label_created_at', :created_at));
-    let kind text := 'labels';
-    if (grp is not null) then
-        kind := 'grouped_labels';
-    end if;
-    let validation_err text;
     call admin.validate(:label, :kind, :name_changed) into :validation_err;
     if (:validation_err is not null) then
         return :validation_err;

@@ -215,8 +215,8 @@ def test_error_message(conn, timestamp_string, statement, expected_error):
 
     # Create a dynamic label
     old_dyn_label = generate_unique_name("old_dyn_label", timestamp_string)
-    sql = f"call ADMIN.CREATE_LABEL(NULL, '{old_dyn_label}', NULL, 'QUERY_TYPE', TRUE);"
-    assert run_proc(conn, sql) is None, "ADMIN.CREATE_LABEL did not return NULL value!"
+    # sql = f"call ADMIN.CREATE_LABEL(NULL, '{old_dyn_label}', NULL, 'QUERY_TYPE', TRUE);"
+    # assert run_proc(conn, sql) is None, "ADMIN.CREATE_LABEL did not return NULL value!"
 
     label = generate_unique_name("label", timestamp_string)
     sql = statement.format(
