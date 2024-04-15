@@ -30,7 +30,7 @@ BEGIN
                 ('SERVERLESS_TASK_HISTORY', 180, 'END_TIME'),
                 ('TASK_HISTORY', 180, 'COMPLETED_TIME'),
                 ('SESSIONS', 180, 'CREATED_ON'),
-                ("TAGS', 0, ''),
+                ('TAGS', 0, ''),
                 ('TAG_REFRENCES', 0, ''),
                 ('OBJECT_DEPENDENCIES', 0, ''),
                 ('MATERIALIZED_VIEW_REFRESH_HISTORY', 180, 'END_TIME'),
