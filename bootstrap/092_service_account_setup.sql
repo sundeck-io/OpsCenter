@@ -109,7 +109,7 @@ EXCEPTION
     WHEN OTHER THEN
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during UPGRADE_CHECK.', 'SQLCODE', :sqlcode,
             'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-        INSERT INTO INTERNAL.UPGRADE_HISTORY SELECT :start_time, CURRENT_TIMESTAMP(), :old_version, setup_version,
+        INSERT INTO INTERNAL.UPGRADE_HISTORY SELECT :start_time, CURRENT_TIMESTAMP(), :old_version, :setup_version,
             'UPGRADE_CHECK: (' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
         RAISE;
 end;
