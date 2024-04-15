@@ -21,15 +21,35 @@ BEGIN
                 where table_catalog = 'SNOWFLAKE' and table_schema in ('ACCOUNT_USAGE', 'ORGANIZATION_USAGE')
                 group by table_name, table_schema
               ), delays as (
-            select $1 as table_name, $2 as delay, $3 as ts from (values ('QUERY_HISTORY', 180, 'END_TIME'), ('WAREHOUSE_EVENTS_HISTORY', 180, 'TIMESTAMP'), ('WAREHOUSE_LOAD_HISTORY', 180, 'END_TIME'), ('WAREHOUSE_METERING_HISTORY', 360, 'END_TIME'), ('USERS', 120, 'CREATED_ON'), ('SERVERLESS_TASK_HISTORY', 180, 'END_TIME'), ('TASK_HISTORY', 180, 'COMPLETED_TIME'), ('SESSIONS', 180, 'CREATED_ON'))
+            select $1 as table_name, $2 as delay, $3 as ts from (values
+                ('QUERY_HISTORY', 180, 'END_TIME'),
+                ('WAREHOUSE_EVENTS_HISTORY', 180, 'TIMESTAMP'),
+                ('WAREHOUSE_LOAD_HISTORY', 180, 'END_TIME'),
+                ('WAREHOUSE_METERING_HISTORY', 360, 'END_TIME'),
+                ('USERS', 120, 'CREATED_ON'),
+                ('SERVERLESS_TASK_HISTORY', 180, 'END_TIME'),
+                ('TASK_HISTORY', 180, 'COMPLETED_TIME'),
+                ('SESSIONS', 180, 'CREATED_ON'),
+                ('TAGS', 0, ''),
+                ('TAG_REFERENCES', 0, ''),
+                ('OBJECT_DEPENDENCIES', 0, ''),
+                ('MATERIALIZED_VIEW_REFRESH_HISTORY', 180, 'END_TIME'),
+                ('HYBRID_TABLE_USAGE_HISTORY', 180, 'END_TIME'),
+                ('HYBRID_TABLES', 0, ''),
+                ('TABLE_STORAGE_METRICS', 0, ''),
+                ('LOGIN_HISTORY', 120, 'EVENT_TIMESTAMP')
             )
-              select
+            )
+              select case when d.delay > 0 then
                  'create or replace view "' || v.table_schema || '"."' || v.table_name || '" AS select '|| c.cols || ' from "' || v.table_catalog || '"."' || v.table_schema || '"."' || v.table_name ||'" WHERE ' || d.ts || ' < timestampadd(minute, -' || d.delay || ', current_timestamp) '
+            else
+                'create or replace view "' || v.table_schema || '"."' || v.table_name || '" AS select '|| c.cols || ' from "' || v.table_catalog || '"."' || v.table_schema || '"."' || v.table_name ||'"'
+            end
                   as v
               from snowflake.information_schema.views v
               join columns c on v.table_schema = c.table_schema and v.table_name = c.table_name
               left outer join delays d on v.table_name = d.table_name
-              where v.table_catalog = 'SNOWFLAKE' AND v.table_schema in ('ACCOUNT_USAGE') AND v.table_name in ('QUERY_HISTORY', 'WAREHOUSE_EVENTS_HISTORY', 'WAREHOUSE_LOAD_HISTORY', 'WAREHOUSE_METERING_HISTORY', 'USERS', 'SERVERLESS_TASK_HISTORY', 'TASK_HISTORY', 'SESSIONS');
+              where v.table_catalog = 'SNOWFLAKE' AND v.table_schema in ('ACCOUNT_USAGE') AND v.table_name in ('QUERY_HISTORY', 'WAREHOUSE_EVENTS_HISTORY', 'WAREHOUSE_LOAD_HISTORY', 'WAREHOUSE_METERING_HISTORY', 'USERS', 'SERVERLESS_TASK_HISTORY', 'TASK_HISTORY', 'SESSIONS', 'LOGIN_HISTORY', 'TABLE_STORAGE_METRICS', 'HYBRID_TABLES', 'HYBRID_TABLE_USAGE_HISTORY', 'MATERIALIZED_VIEW_REFRESH_HISTORY', 'OBJECT_DEPENDENCIOES', 'TAG_REFERENCES', 'TAGS');
           counter int := 0;
         BEGIN
             FOR record IN c1 DO
