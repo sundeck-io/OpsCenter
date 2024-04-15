@@ -132,10 +132,10 @@ END;
 CREATE OR REPLACE PROCEDURE VALIDATION.IS_VALID_LABEL_NAME(input varchar)
     RETURNS BOOLEAN
     LANGUAGE SQL
-    comment='Validates that the label name does not exist as a column in the reporting.enriched_query_history table'
+    comment='Validates that the label [group] name does not exist as a column in the reporting.enriched_query_history table'
 AS
 BEGIN
-    let n varchar := (select parse_json(:input):name);
+    let n varchar := (select parse_json(:input) as label, IFF(label['group_name'] is not null, label['group_name'], label['name']) as name);
     let stmt varchar := (select 'select ' || :n || ' from reporting.enriched_query_history where false');
     execute immediate stmt;
     return false;

@@ -150,9 +150,9 @@ CREATE OR REPLACE VIEW INTERNAL.VALIDATE_GROUPED_LABELS AS
         -- group rank must be unique across labels in a group
         ('(select count(*) = 0 from internal.labels where group_name = f:group_name and group_rank = f:group_rank)', '{"message": "A label already already exists with this rank", "complex": true, "create_only": true}'),
         -- Condition must compile
-        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let c varchar := (select parse_json(:input):condition);execute immediate \'select case when \' || :c || \' then true else false end from reporting.enriched_query_history limit 1\';return true;end;\$\$ call result(?);', '{"message": "Invalid label condition", "complex": true}'),
+        ('CALL VALIDATION.VALID_LABEL_CONDITION(?)', '{"message": "Invalid label condition", "complex": true}'),
         -- make sure label group name doesn't exist as query history column
-        ('with result as procedure (input varchar) returns boolean language sql as \$\$ begin let n varchar := (select parse_json(:input):group_name); execute immediate \'select \' || :n || \' from reporting.enriched_query_history where false\'; return false; exception when statement_error then return true; when other then return false; end;\$\$ call result(?);', '{"message": "Label group name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY", "complex": true}')
+        ('CALL VALIDATION.IS_VALID_LABEL_NAME(?)', '{"message": "Label group name cannot be the same as a column in REPORTING.ENRICHED_QUERY_HISTORY", "complex": true}')
     ) as t(sql, options);
 
 -- -- Dynamic grouped labels
