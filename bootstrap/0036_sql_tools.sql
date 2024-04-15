@@ -103,6 +103,19 @@ $$
     'NOT(' || VALIDATION.LABEL_EXISTS() || ')'
 $$;
 
+CREATE OR REPLACE FUNCTION VALIDATION.GROUPED_LABEL_ABSENT()
+    RETURNS TEXT
+AS
+$$
+    'select count(*) = 0 from INTERNAL.LABELS where group_name = f:group_name and name = f:name'
+$$;
+
+CREATE OR REPLACE FUNCTION VALIDATION.GROUP_NAME_UNIQUE()
+    RETURNS TEXT
+AS
+$$
+    'select count(*) = 0 from internal.labels where name = f:group_name and group_name is null'
+$$;
 
 CREATE OR REPLACE PROCEDURE VALIDATION.VALID_LABEL_CONDITION(input varchar)
     RETURNS BOOLEAN
