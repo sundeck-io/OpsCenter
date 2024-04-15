@@ -7,10 +7,8 @@ as
 $$
 begin
     -- Select the validation rows. In a create, choose all. In an update, omit rows which are for create_only.
-    let validation_query text := (select tools.templatejs(
-        'select * from internal.validate_{table} where iff({is_create}, true, NOT COALESCE(obj[\'create_only\'], FALSE))',
-        {'table': :validation_table, 'is_create': :is_create}));
-    let rs resultset := (execute immediate :validation_query);
+    let validation_query text := select 'select * from identifier(\'internal.validate_\' || ?) where iff(?, true, NOT COALESCE(obj[\'create_only\'], FALSE))';
+    let rs resultset := (execute immediate :validation_query using (:validation_table, :is_create));
     let c cursor for rs;
     for rec in c do
         begin
@@ -46,17 +44,18 @@ as
 begin
     let keys array := object_keys(:obj);
 
-    -- The USING portion of the merge statement.
-    let using_select_cols array := (select array_agg(tools.templatejs('obj[\'{col}\'] as {col}', {'col': value})) from table(flatten(input=>:keys)));
+    -- The USING portion of the merge statement, e.g. 'obj['col1'] as col1, ...'
+    let using_select_cols array := (select array_agg('obj[\'' || value || '\'] as ' || value) from table(flatten(input=>:keys)));
     let using_expr text := (select array_to_string(:using_select_cols, ', '));
 
-    -- The UPDATE portion of the merge statement.
-    let update_cols array := (select array_agg(tools.templatejs('dest.{col} = src.{col}', {'col': value})) from table(flatten(input=>:keys)));
+    -- The UPDATE portion of the merge statement, e.g. 'dest.col1 = src.col1, ...'
+    let update_cols array := (select array_agg('dest.' || value || ' = src.' || value) from table(flatten(input=>:keys)));
     let update_expr text := (select array_to_string(:update_cols, ', '));
 
-    -- The INSERT portion of the merge statement.
+    -- The INSERT portion of the merge statement
     let insert_target_expr text := (select array_to_string(:keys, ', '));
-    let insert_query_cols array := (select array_agg(tools.templatejs('src.{col}', {'col': value})) from table(flatten(input=>:keys)));
+    -- e.g. src.col1, src.col2, ...
+    let insert_query_cols array := (select array_agg('src.' || value) from table(flatten(input=>:keys)));
     let insert_query_expr text := (select array_to_string(:insert_query_cols, ', '));
 
     let merge_tmpl varchar := $$MERGE INTO internal.{table} dest USING (

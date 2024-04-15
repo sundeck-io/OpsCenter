@@ -150,8 +150,9 @@ CREATE OR REPLACE PROCEDURE VALIDATION.VALID_LABEL_CONDITION(input varchar)
 AS
 BEGIN
     let c varchar := (select parse_json(:input):condition);
-    let stmt varchar := (select 'select case when ' || :c || ' then true else false end from reporting.enriched_query_history limit 1');
-    execute immediate stmt;
+    let stmt varchar := (select 'select ' || :c || ' from reporting.enriched_query_history limit 1');
+    execute immediate :stmt;
+    -- if the condition is invalid, we let the exception propagate.
     return true;
 END;
 
