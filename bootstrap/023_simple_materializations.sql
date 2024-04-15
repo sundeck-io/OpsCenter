@@ -58,7 +58,6 @@ BEGIN
           truncate table identifier(:table_ident);
         end if;
 
-        -- if there are incomplete queries, find the min timestamp of the incomplete queries. If there are no incomplete, find the newest timestamp for a filter condition next time.
         let where_clause_complete varchar := (select :index_col || ' >= to_timestamp_ltz(\'' || :oldest_running || '\')');
         let new_closed number;
         call internal.generate_insert_statement('INTERNAL_REPORTING_MV', :table_name, 'ACCOUNT_USAGE', :table_name, :where_clause_complete) into :new_closed;
@@ -98,6 +97,9 @@ begin
     call internal.refresh_simple_table('TASK_HISTORY', 'completed_time', :migrate);
     call internal.refresh_simple_table('SESSIONS', 'created_on', :migrate);
     call internal.refresh_simple_table('WAREHOUSE_METERING_HISTORY', 'end_time', :migrate);
+    call internal.refresh_simple_table('LOGIN_HISTORY', 'event_timestamp', :migrate);
+    call internal.refresh_simple_table('HYBRID_TABLE_USAGE_HISTORY', 'end_time', :migrate);
+    call internal.refresh_simple_table('MATERIALIZED_VIEW_REFRESH_HISTORY', 'end_time', :migrate);
     call internal.refresh_warehouses();
     return 'success';
 end;
