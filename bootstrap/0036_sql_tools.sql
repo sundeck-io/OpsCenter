@@ -7,8 +7,9 @@ as
 $$
 begin
     -- Select the validation rows. In a create, choose all. In an update, omit rows which are for create_only.
-    let validation_query text := select 'select * from identifier(\'internal.validate_\' || ?) where iff(?, true, NOT COALESCE(obj[\'create_only\'], FALSE))';
-    let rs resultset := (execute immediate :validation_query using (:validation_table, :is_create));
+    let qualified_table text := (select 'internal.validate_' || :validation_table);
+    let validation_query text := (select 'select * from identifier(?) where iff(?::BOOLEAN, true, NOT COALESCE(obj[\'create_only\'], FALSE))');
+    let rs resultset := (execute immediate :validation_query using (qualified_table, is_create));
     let c cursor for rs;
     for rec in c do
         begin
