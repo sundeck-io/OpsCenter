@@ -14,7 +14,7 @@ BEGIN
     CREATE OR REPLACE TABLE "{APPLICATION_PACKAGE}".SHARING.REGIONS(snowflake_region text, cloud text, region text, azure_region text) AS
         SELECT "snowflake_region", UPPER("cloud"), UPPER("region") from table(result_scan(last_query_id()));
     -- Backend code emits the wrong azure region for some snowflake regions. Correct them here.
-    update regions set azure_region=hyphen_region from
+    update "{APPLICATION_PACKAGE}".SHARING.REGIONS set azure_region=hyphen_region from
         (select $1 as name, $2 as hyphen_region from values
                 ('AZURE_EASTUS2', 'EAST-US-2'),
                 ('AZURE_WESTEUROPE', 'WEST-EUROPE'),
