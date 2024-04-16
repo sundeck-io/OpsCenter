@@ -11,8 +11,26 @@ BEGIN
 
     -- Create a table in the application package that contains the mapping of snowflake regions to cloud and region.
     SHOW REGIONS;
-    CREATE OR REPLACE TABLE "{APPLICATION_PACKAGE}".SHARING.REGIONS(snowflake_region text, cloud text, region text) AS
+    CREATE OR REPLACE TABLE "{APPLICATION_PACKAGE}".SHARING.REGIONS(snowflake_region text, cloud text, region text, azure_region text) AS
         SELECT "snowflake_region", UPPER("cloud"), UPPER("region") from table(result_scan(last_query_id()));
+    -- Backend code emits the wrong azure region for some snowflake regions. Correct them here.
+    update regions set azure_region=hyphen_region from
+        (select $1 as name, $2 as hyphen_region from values
+                ('AZURE_EASTUS2', 'EAST-US-2'),
+                ('AZURE_WESTEUROPE', 'WEST-EUROPE'),
+                ('AZURE_AUSTRALIAEAST','AUSTRALIA-EAST'),
+                ('AZURE_CANADACENTRAL','CANADA-CENTRAL'),
+                ('AZURE_SOUTHEASTASIA','SOUTHEAST-ASIA'),
+                ('AZURE_WESTUS2','WEST-US-2'),
+                ('AZURE_SWITZERLANDN','SWITZERLAND-NORTH'),
+                ('AZURE_CENTRALUS','CENTRAL-US'),
+                ('AZURE_JAPANEAST','JAPAN-EAST'),
+                ('AZURE_NORTHEUROPE','NORTH-EUROPE'),
+                ('AZURE_SOUTHCENTRALUS','SOUTH-CENTRAL-US'),
+                ('AZURE_UAENORTH','UAE-NORTH'),
+                ('AZURE_CENTRALINDIA','CENTRAL-INDIA'),
+                ('AZURE_UKSOUTH','UK-SOUTH')
+            ) where name=snowflake_region;
 
     -- Create a view in the application package that is filtered to CURRENT_ACCOUNT(). It is critical that the
     -- filtering is done here to ensure a user only sees their own history.
@@ -46,7 +64,7 @@ BEGIN
             SNOWFLAKE_SESSION_ID,
             RAW_ACTIONS
         FROM "{SUNDECK_DB}".INTERNAL.GLOBAL_QUERY_HISTORY
-            WHERE  (SELECT CURRENT_ACCOUNT() || region || cloud from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1)) = PARTITION_KEY;
+            WHERE  (SELECT CURRENT_ACCOUNT() || iff(like(CURRENT_REGION(),'AZURE%'),azure_region,region) || cloud from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1)) = PARTITION_KEY;
 
     -- Grant access on the view to the application package.
     GRANT USAGE ON SCHEMA "{APPLICATION_PACKAGE}".SHARING TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
