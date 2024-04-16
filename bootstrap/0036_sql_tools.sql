@@ -130,21 +130,25 @@ CREATE OR REPLACE PROCEDURE VALIDATION.IS_VALID_LABEL_NAME(input varchar)
     LANGUAGE SQL
     comment='Validates that the label [group] name does not exist as a column in the reporting.enriched_query_history table'
 AS
+DECLARE
+    retval boolean default false;
 BEGIN
-    let o object := (select parse_json(:input));
-    let n varchar := (select COALESCE(TO_CHAR(:o['group_name']), :o['name']) as name);
-    let stmt varchar := (select 'select ' || :n || ' from reporting.enriched_query_history where false');
-    execute immediate stmt;
-    let rs resultset := (select false);
+    BEGIN
+        let o object := (select parse_json(:input));
+        let n varchar := (select COALESCE(TO_CHAR(:o['group_name']), :o['name']) as name);
+        let stmt varchar := (select 'select ' || :n || ' from reporting.enriched_query_history where false');
+        execute immediate stmt;
+        retval := false;
+    EXCEPTION
+        WHEN STATEMENT_ERROR THEN
+            retval := true;
+        WHEN OTHER then
+            retval := false;
+    END;
+    let rs resultset := (select :retval);
     return table(rs);
-EXCEPTION
-    WHEN STATEMENT_ERROR THEN
-        let rs resultset := (select true);
-        return table(rs);
-    WHEN OTHER then
-        let rs resultset := (select false);
-        return table(rs);
 END;
+
 
 create or replace function VALIDATION.wrap_simple_condition(condition text)
 returns text
