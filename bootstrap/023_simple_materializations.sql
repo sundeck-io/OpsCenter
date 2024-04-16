@@ -87,7 +87,7 @@ create table if not exists internal_reporting_mv.task_history as select * from a
 create table if not exists internal_reporting_mv.sessions as select * from account_usage.sessions where 1=0;
 create table if not exists internal_reporting_mv.warehouse_metering_history as select * from account_usage.warehouse_metering_history where 1=0;
 create table if not exists internal_reporting_mv.login_history as select * from account_usage.login_history where 1=0;
-create table if not exists internal_reporting_mv.hybrid_table_usage_history as select * from account_usage.hybid_table_usage_history where 1=0;
+create table if not exists internal_reporting_mv.hybrid_table_usage_history as select * from account_usage.hybrid_table_usage_history where 1=0;
 create table if not exists internal_reporting_mv.materialized_view_refresh_history as select * from account_usage.materialized_view_refresh_history where 1=0;
 create or replace view reporting.serverless_task_history as select * from internal_reporting_mv.serverless_task_history;
 create or replace view reporting.task_history as select * from internal_reporting_mv.task_history;
