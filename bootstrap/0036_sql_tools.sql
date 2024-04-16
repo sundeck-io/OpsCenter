@@ -8,30 +8,32 @@ $$
 begin
     -- Select the validation rows. In a create, choose all. In an update, omit rows which are for create_only.
     let qualified_table text := (select 'internal.validate_' || :validation_table);
-    let validation_query text := (select 'select * from identifier(?) where iff(?::BOOLEAN, true, NOT COALESCE(obj[\'create_only\'], FALSE))');
+    let validation_query text := (select 'select * from identifier(?) where iff(?::BOOLEAN, true, NOT COALESCE(validation_obj[\'create_only\'], FALSE))');
     let rs resultset := (execute immediate :validation_query using (qualified_table, is_create));
     let c cursor for rs;
     for rec in c do
+        let validation_obj object := rec.validation_obj;
         begin
             let q varchar;
-            if (rec['complex']) then
+            if (validation_obj['complex']) then
                 -- "complex" validations provide a single row with a "result" column but do so with their own SQL statement.
-                q := rec['sql'];
+                q := validation_obj['sql'];
             else
                 -- "simple" validations have a condition which is injected in this sql statement
-                q := (select validation.wrap_simple_condition(:rec['sql']));
+                q := (select validation.wrap_simple_condition(:validation_obj['sql']));
             end if;
 
             let validation_result resultset := (execute immediate :q using (obj));
             let cc cursor for validation_result;
             for rr in cc do
+                -- all validators should return a result column which is a boolean indicating success/failure.
                 if (not rr.result) then
-                    return 'Error in validation: ' || rec['message'];
+                    return 'Error in validation: ' || validation_obj['message'];
                 end if;
             end for;
         exception
             when other then
-                return 'Error in validation: ' || rec['message'] || ': ' || sqlerrm;
+                return 'Error in validation: ' || validation_obj['message'] || ': ' || sqlerrm;
         end;
     end for;
 end;
@@ -89,36 +91,29 @@ $$
     'TO_CHAR(f:' || name || ') is not null'
 $$;
 
-CREATE OR REPLACE FUNCTION VALIDATION.LABEL_EXISTS()
-    RETURNS text
-AS
-$$
-    '(select count(*) > 0 from INTERNAL.LABELS where group_name is null and name = f:name)'
-$$;
-
 CREATE OR REPLACE FUNCTION VALIDATION.LABEL_ABSENT()
     RETURNS text
 AS
 $$
-    'NOT(' || VALIDATION.LABEL_EXISTS() || ')'
+    '(select count(*) = 0 from INTERNAL.LABELS where group_name is null and name = f:name)'
 $$;
 
 CREATE OR REPLACE FUNCTION VALIDATION.GROUPED_LABEL_ABSENT()
     RETURNS TEXT
 AS
 $$
-    'select count(*) = 0 from INTERNAL.LABELS where group_name = f:group_name and name = f:name'
+    '(select count(*) = 0 from INTERNAL.LABELS where group_name = f:group_name and name = f:name)'
 $$;
 
 CREATE OR REPLACE FUNCTION VALIDATION.GROUP_NAME_UNIQUE()
     RETURNS TEXT
 AS
 $$
-    'select count(*) = 0 from internal.labels where name = f:group_name and group_name is null'
+    '(select count(*) = 0 from internal.labels where name = f:group_name and group_name is null)'
 $$;
 
 CREATE OR REPLACE PROCEDURE VALIDATION.VALID_LABEL_CONDITION(input varchar)
-    RETURNS BOOLEAN
+    RETURNS TABLE(result BOOLEAN)
     LANGUAGE SQL
 AS
 BEGIN
@@ -126,24 +121,29 @@ BEGIN
     let stmt varchar := (select 'select ' || :c || ' from reporting.enriched_query_history limit 1');
     execute immediate :stmt;
     -- if the condition is invalid, we let the exception propagate.
-    return true;
+    let rs resultset := (select true);
+    return table(rs);
 END;
 
 CREATE OR REPLACE PROCEDURE VALIDATION.IS_VALID_LABEL_NAME(input varchar)
-    RETURNS BOOLEAN
+    RETURNS TABLE(result BOOLEAN)
     LANGUAGE SQL
     comment='Validates that the label [group] name does not exist as a column in the reporting.enriched_query_history table'
 AS
 BEGIN
-    let n varchar := (select parse_json(:input) as label, IFF(label['group_name'] is not null, label['group_name'], label['name']) as name);
+    let o object := (select parse_json(:input));
+    let n varchar := (select COALESCE(TO_CHAR(:o['group_name']), :o['name']) as name);
     let stmt varchar := (select 'select ' || :n || ' from reporting.enriched_query_history where false');
     execute immediate stmt;
-    return false;
+    let rs resultset := (select false);
+    return table(rs);
 EXCEPTION
     WHEN STATEMENT_ERROR THEN
-        return true;
+        let rs resultset := (select true);
+        return table(rs);
     WHEN OTHER then
-        return false;
+        let rs resultset := (select false);
+        return table(rs);
 END;
 
 create or replace function VALIDATION.wrap_simple_condition(condition text)

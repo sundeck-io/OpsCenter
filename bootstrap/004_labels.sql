@@ -117,14 +117,14 @@ END;
 -- Ungrouped labels
 -- simple=true and create_only=false as the defaults
 CREATE OR REPLACE VIEW INTERNAL.VALIDATE_LABELS AS
-    select OBJECT_INSERT(PARSE_JSON(options), 'sql', sql) as obj from (VALUES
+    select OBJECT_INSERT(PARSE_JSON(options), 'sql', sql) as validation_obj from (VALUES
         -- Basic null checks, converting variant null to sql null
         (VALIDATION.NOT_NULL('name'), '{"message": "Name must not be null"}'),
         (VALIDATION.NOT_NULL('condition'), '{"message": "Condition must not be null"}'),
         -- group_name and group_rank must be null
         (VALIDATION.IS_NULL('group_name') || ' and ' || VALIDATION.IS_NULL('group_rank'), '{"message": "Group rank may only be provided for grouped labels"}'),
         -- label name must be unique among all names
-        (VALIDATION.LABEL_ABSENT(), '{"message": "A label with this name already exists"}'),
+        (VALIDATION.LABEL_ABSENT(), '{"message": "A label with this name already exists", "create_only": true}'),
         -- label name must be unique across all group_names
         ('(select count(*) = 0 from internal.labels where group_name = f:name and group_name is not null)', '{"message": "A label group already exists with this name", "create_only": true}'),
         -- Condition must compile
@@ -135,20 +135,20 @@ CREATE OR REPLACE VIEW INTERNAL.VALIDATE_LABELS AS
 
 -- Grouped labels
 CREATE OR REPLACE VIEW INTERNAL.VALIDATE_GROUPED_LABELS AS
-    select OBJECT_INSERT(PARSE_JSON(options), 'sql', sql) as obj from (VALUES
+    select OBJECT_INSERT(PARSE_JSON(options), 'sql', sql) as validation_obj from (VALUES
         -- Basic null checks, converting variant null to sql null
         (VALIDATION.NOT_NULL('group_name'), '{"message": "Group name must not be null"}'),
         (VALIDATION.NOT_NULL('name'), '{"message": "Name must not be null"}'),
         (VALIDATION.NOT_NULL('condition'), '{"message": "Condition must not be null"}'),
         (VALIDATION.NOT_NULL('group_rank'), '{"message": "Grouped labels must have a rank"}'),
         -- The pair of group_name and name must be unique
-        (VALIDATION.GROUPED_LABEL_ABSENT(), '{"message": "A label with this name already exists", "complex": true, "create_only": true}'),
+        (VALIDATION.GROUPED_LABEL_ABSENT(), '{"message": "A label with this name already exists", "create_only": true}'),
         -- label group name must be unique across all label names
-        (VALIDATION.GROUP_NAME_UNIQUE(), '{"message": "A label with this name already exists", "complex": true, "create_only": true}'),
+        (VALIDATION.GROUP_NAME_UNIQUE(), '{"message": "A label with this name already exists", "create_only": true}'),
         -- label name must be unique across dynamic grouped labels
-        (VALIDATION.NO_MATCHING_ROWS('internal.labels', 'group_name', 'name'), '{"message": "A label with this name already exists", "complex": true, "create_only": true}'),
+        -- TODO (VALIDATION.NO_MATCHING_ROWS('internal.labels', 'group_name', 'name'), '{"message": "A label with this name already exists", "create_only": true}'),
         -- group rank must be unique across labels in a group
-        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and group_rank = f:group_rank)', '{"message": "A label already already exists with this rank", "complex": true, "create_only": true}'),
+        ('(select count(*) = 0 from internal.labels where group_name = f:group_name and group_rank = f:group_rank)', '{"message": "A label already already exists with this rank", "create_only": true}'),
         -- Condition must compile
         ('CALL VALIDATION.VALID_LABEL_CONDITION(?)', '{"message": "Invalid label condition", "complex": true}'),
         -- make sure label group name doesn't exist as query history column
