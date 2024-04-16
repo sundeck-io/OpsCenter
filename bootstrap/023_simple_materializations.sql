@@ -86,10 +86,16 @@ create table if not exists internal_reporting_mv.serverless_task_history as sele
 create table if not exists internal_reporting_mv.task_history as select * from account_usage.task_history where 1=0;
 create table if not exists internal_reporting_mv.sessions as select * from account_usage.sessions where 1=0;
 create table if not exists internal_reporting_mv.warehouse_metering_history as select * from account_usage.warehouse_metering_history where 1=0;
+create table if not exists internal_reporting_mv.login_history as select * from account_usage.login_history where 1=0;
+create table if not exists internal_reporting_mv.hybrid_table_usage_history as select * from account_usage.hybrid_table_usage_history where 1=0;
+create table if not exists internal_reporting_mv.materialized_view_refresh_history as select * from account_usage.materialized_view_refresh_history where 1=0;
 create or replace view reporting.serverless_task_history as select * from internal_reporting_mv.serverless_task_history;
 create or replace view reporting.task_history as select * from internal_reporting_mv.task_history;
 create or replace view reporting.sessions as select * from internal_reporting_mv.sessions;
 create or replace view reporting.warehouse_metering_history as select * from internal_reporting_mv.warehouse_metering_history;
+create or replace view reporting.login_history as select * from internal_reporting_mv.login_history;
+create or replace view reporting.hybrid_table_usage_history as select * from internal_reporting_mv.hybrid_table_usage_history;
+create or replace view reporting.materialized_view_refresh_history as select * from internal_reporting_mv.materialized_view_refresh_history;
 drop procedure if exists internal.refresh_all_simple_tables();
 create or replace procedure internal.refresh_all_simple_tables(migrate boolean) returns string language sql as
 begin
