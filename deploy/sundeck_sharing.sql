@@ -64,7 +64,7 @@ BEGIN
             SNOWFLAKE_SESSION_ID,
             RAW_ACTIONS
         FROM "{SUNDECK_DB}".INTERNAL.GLOBAL_QUERY_HISTORY
-            WHERE  (SELECT CURRENT_ACCOUNT() || iff(like(CURRENT_REGION(),'AZURE%'),azure_region,region) || cloud from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1)) = PARTITION_KEY;
+            WHERE  (SELECT CURRENT_ACCOUNT() || iff(like(CURRENT_REGION(),'AZURE%'),azure_region,region) || cloud from "{APPLICATION_PACKAGE}".SHARING.REGIONS WHERE snowflake_region = SPLIT_PART(CURRENT_REGION(), '.', -1)) = TENANT_KEY;
 
     -- Grant access on the view to the application package.
     GRANT USAGE ON SCHEMA "{APPLICATION_PACKAGE}".SHARING TO SHARE IN APPLICATION PACKAGE "{APPLICATION_PACKAGE}";
