@@ -134,7 +134,7 @@ begin
             oldest_running := coalesce(input:oldest_running::timestamp, 0::timestamp);
         end if;
 
-        let stmt varchar := 'insert into internal_reporting_mv.warehouse_load_history select start_time, end_time, warehouse_name, avg_running, avg_queued_load, avg_queued_provisioning, avg_blocked from table(information_schema.warehouse_load_history(date_range_start => to_timestamp_ltz(\'{start_time}\'), date_range_end => to_timestamp_ltz(\'{end_time}\'), warehouse_name => \'{warehouse_name}\'))';
+        let stmt varchar := 'insert into internal_reporting_mv.warehouse_load_history select start_time, end_time, warehouse_name, avg_running, avg_queued_load, avg_queued_provisioning, avg_blocked from table(information_schema.warehouse_load_history(date_range_start => to_timestamp_ltz(\'{start_time}\'), date_range_end => to_timestamp_ltz(\'{end_time}\'), warehouse_name => \'"{warehouse_name}"\'))';
         let start_time timestamp := (select greatest(:oldest_running, dateadd(day, -14, current_timestamp())));
         let res resultset := (select tools.templatejs(:stmt,
             {
