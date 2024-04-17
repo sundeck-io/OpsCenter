@@ -338,6 +338,11 @@ BEGIN
         end;
     end for;
 
+exception
+    when other then
+        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing all warehouse events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+        insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, false, 'all', null, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
+        RAISE;
 end;
 
 -- Create the WAREHOUSE_SCHEDULING task without a schedule only if it doesn't exist.
