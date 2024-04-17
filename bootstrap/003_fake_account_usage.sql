@@ -1,6 +1,11 @@
 
 -- This file is about creating fake versions of our base activity tables so that the rest of our views/objects can be pre-initialized.
 -- When the app is given access to the real tables, these views will be replaced by ones that point to the real underlying snowflake tables.
+
+-- Important!! make sure the column names, types, and ordering is exactly as it is in Snowflake. Use a query like the following when adding a new table.
+-- SELECT COLUMN_NAME, DATA_TYPE, ROW_NUMBER() OVER (ORDER BY ORDINAL_POSITION) FROM SNOWFLAKE.INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'ACCOUNT_USAGE' AND TABLE_NAME = '<name>';
+-- The migration logic in 005_table_migrations.sql will fix the tables in INTERNAL_REPORTING_MV, but the correction will cause data loss in the changed columns.
+
 CREATE VIEW ACCOUNT_USAGE.QUERY_HISTORY IF NOT EXISTS AS SELECT
   null::TEXT as "QUERY_ID" ,
  null::TEXT as "QUERY_TEXT" ,
@@ -211,20 +216,20 @@ null::TEXT as "STATE",
 null::TEXT as "RETURN_VALUE",
 null::TEXT as "QUERY_ID",
 null::TIMESTAMP_LTZ as "QUERY_START_TIME",
-null::NUMBER as "ERROR_CODE",
+null::TEXT as "ERROR_CODE",
 null::TEXT as "ERROR_MESSAGE",
 null::NUMBER as "GRAPH_VERSION",
 null::NUMBER as "RUN_ID",
 null::TEXT as "ROOT_TASK_ID",
 null::TEXT as "SCHEDULED_FROM",
-null::NUMBER as "ATTEMP_NUMBER",
 null::NUMBER as "INSTANCE_ID",
+null::NUMBER as "ATTEMPT_NUMBER",
 null::TEXT as "CONFIG",
 null::TEXT as "QUERY_HASH",
 null::NUMBER as "QUERY_HASH_VERSION",
 null::TEXT as "QUERY_PARAMETERIZED_HASH",
 null::NUMBER as "QUERY_PARAMETERIZED_HASH_VERSION",
-null::NUMBER as "GRAPH_RUN_GROUP_ID",
+null::TEXT as "GRAPH_RUN_GROUP_ID",
 null::OBJECT as "BACKFILL_INFO"
 ;
 
@@ -305,7 +310,7 @@ null::TEXT as "OWNER_ROLE_TYPE"
 
 CREATE VIEW ACCOUNT_USAGE.HYBRID_TABLE_USAGE_HISTORY IF NOT EXISTS AS SELECT
 null::TEXT as "OBJECT_TYPE",
-null::NUMBER as "OBJECT_ID",
+null::TEXT as "OBJECT_ID",
 null::TEXT as "OBJECT_NAME",
 null::TIMESTAMP_LTZ as "START_TIME",
 null::TIMESTAMP_LTZ as "END_TIME",
