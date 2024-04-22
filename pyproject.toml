@@ -9,6 +9,7 @@ version = "1.3.0"
 description = "Free & Open Snowflake-Native Cost Management"
 authors = ["Jacques Nadeau <jacques@apache.org>", "Ryan Murray <rymurr@gmail.com>", "Josh Elser <josh@sundeck.io>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "~3.8"
