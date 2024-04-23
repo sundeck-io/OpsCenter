@@ -25,7 +25,7 @@ with tables as (
     )
 ), full_materializations as (
     -- Check if we have completed at least one full materialization
-    select table_name, count(*) > 0 full_materialization_complete from internal.all_task_history where success and IFF(input is null, FALSE, input['oldest_running'] is not null) group by table_name
+    select table_name, count(*) > 0 full_materialization_complete from internal.all_task_history where success and IFF(input is null, FALSE, input['newest_completed'] is not null) group by table_name
 ) select tables.table_name,
         full_materialization_complete,
         {'start': run, 'success': success, 'kind': last_runs.kind} as last_execution,

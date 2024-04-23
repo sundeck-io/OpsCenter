@@ -100,3 +100,23 @@ def timestamp_string(conn):
 def reset_timezone_before_test(conn):
     with conn() as cnx:
         reset_timezone(cnx)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def reset_task_history_view(conn):
+    yield
+
+    print("Restoring internal.all_task_history")
+    with conn() as cnx:
+        cur = cnx.cursor()
+        try:
+            cur.execute("DROP TABLE IF EXISTS internal.all_task_history")
+        except Exception as e:
+            print(f"Ignoring exception during cleanup: {e}")
+            pass
+        cur.execute(
+            """create or replace view internal.all_task_history(run, success, input, output, table_name) as
+        select run, success, input, output, 'QUERY_HISTORY' from internal.task_query_history
+            union all
+        select run, success, input, output, 'WAREHOUSE_EVENTS_HISTORY'  from internal.task_warehouse_events"""
+        )
