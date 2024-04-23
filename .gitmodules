@@ -1,6 +1,6 @@
 [submodule "qtag"]
 	path = qtag
 	url = https://github.com/sundeck-io/qtag.git
-[submodule "proprietary"]
-	path = proprietary
-	url = https://github.com/sundeck-io/proprietary_native_app.git
+[submodule "enterprise"]
+	path = enterprise
+	url = https://github.com/sundeck-io/enterprise_native_app.git
