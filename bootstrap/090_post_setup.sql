@@ -313,6 +313,7 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_LOAD_MAINTENANCE
     AS
 BEGIN
     let dt timestamp := current_timestamp();
+    let root_task_id text := (SELECT SYSTEM$TASK_RUNTIME_INFO('CURRENT_ROOT_TASK_UUID'));
     let wh resultset := (select name from internal.sfwarehouses);
     let wh_cur cursor for wh;
     for wh_row in wh_cur do
@@ -329,11 +330,11 @@ BEGIN
                 total_inserted_rows := total_inserted_rows + new_inserted_rows;
             end for;
             let new_running timestamp := (select max(end_time) from internal_reporting_mv.warehouse_load_history where warehouse_name = :wh_name);
-            insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, true, :wh_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:total_inserted_rows, 0))::VARIANT;
+            insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, true, :wh_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:total_inserted_rows, 0), 'root_task_id', :root_task_id, 'end', current_timestamp())::VARIANT;
         exception
             when other then
                 SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :wh_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-                insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, false, :wh_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
+                insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, false, :wh_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'root_task_id', :root_task_id, 'end', current_timestamp())::variant;
                 RAISE;
         end;
     end for;
@@ -341,7 +342,7 @@ BEGIN
 exception
     when other then
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing all warehouse events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-        insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, false, 'all', null, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
+        insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, false, 'all', null, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'root_task_id', :root_task_id, 'end', current_timestamp())::variant;
         RAISE;
 end;
 

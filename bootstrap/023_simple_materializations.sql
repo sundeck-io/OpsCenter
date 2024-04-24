@@ -34,6 +34,7 @@ CREATE OR REPLACE PROCEDURE internal.refresh_simple_table(table_name varchar, in
     AS
 BEGIN
     let dt timestamp := current_timestamp();
+    let root_task_id text := (SELECT SYSTEM$TASK_RUNTIME_INFO('CURRENT_ROOT_TASK_UUID'));
     SYSTEM$LOG_INFO('Starting refresh ' || :table_name || ' events.');
     let migrate1 string := null;
     if (migrate) then
@@ -62,14 +63,14 @@ BEGIN
         let new_closed number;
         call internal.generate_insert_statement('INTERNAL_REPORTING_MV', :table_name, 'ACCOUNT_USAGE', :table_name, :where_clause_complete) into :new_closed;
         let new_running timestamp := (select max(identifier(:index_col)) from identifier(:table_ident));
-        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, true, :table_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'attempted_migrate', :migrate, 'new_records', coalesce(:new_closed, 0))::VARIANT;
+        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, true, :table_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'attempted_migrate', :migrate, 'new_records', coalesce(:new_closed, 0), 'root_task_id', :root_task_id, 'end', current_timestamp())::VARIANT;
         COMMIT;
 
     EXCEPTION
       WHEN OTHER THEN
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :table_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         ROLLBACK;
-        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, false, :table_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
+        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, false, :table_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'root_task_id', :root_task_id, 'end', current_timestamp())::variant;
         RAISE;
 
     END;
