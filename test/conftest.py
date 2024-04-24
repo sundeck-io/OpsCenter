@@ -7,6 +7,7 @@ from common_utils import (
     delete_list_of_probes,
     fetch_all_warehouse_schedules,
     reset_timezone,
+    get_task_history_tables,
 )
 
 sys.path.append("../deploy")
@@ -102,21 +103,19 @@ def reset_timezone_before_test(conn):
         reset_timezone(cnx)
 
 
-@pytest.fixture(scope="session", autouse=True)
-def reset_task_history_view(conn):
-    yield
-
-    print("Restoring internal.all_task_history")
+@pytest.fixture()
+def reset_task_histories(conn):
+    """
+    Fixture that will truncate all known task history tables prior to test execution
+    """
+    print("Truncating task history tables")
     with conn() as cnx:
         cur = cnx.cursor()
-        try:
-            cur.execute("DROP TABLE IF EXISTS internal.all_task_history")
-        except Exception as e:
-            print(f"Ignoring exception during cleanup: {e}")
-            pass
-        cur.execute(
-            """create or replace view internal.all_task_history(run, success, input, output, table_name) as
-        select run, success, input, output, 'QUERY_HISTORY' from internal.task_query_history
-            union all
-        select run, success, input, output, 'WAREHOUSE_EVENTS_HISTORY'  from internal.task_warehouse_events"""
-        )
+        for table in get_task_history_tables():
+            try:
+                cur.execute(f"TRUNCATE TABLE {table}")
+            except Exception as e:
+                print(f"Ignoring exception during cleanup of {table}: {e}")
+                pass
+
+    yield

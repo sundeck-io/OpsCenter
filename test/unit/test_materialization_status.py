@@ -1,21 +1,13 @@
 import json
-
-
-def recreate_task_history(cur):
-    try:
-        cur.execute("DROP VIEW IF EXISTS internal.all_task_history")
-    except Exception as e:
-        print(f"Ignoring exception during setup: {e}")
-        pass
-    cur.execute(
-        "create or replace table internal.all_task_history(run timestamp, success boolean, "
-        + "input object, output object, table_name text)"
-    )
+from common_utils import QUERY_HISTORY_TASK_TABLE, WAREHOUSE_EVENTS_TASK_TABLE
 
 
 def insert_row(
     cur, run: str, success: bool, input: dict, output: dict, table_name: str
 ):
+    """
+    Inserts a task status row into the given task status table.
+    """
     input_json = "NULL"
     if input:
         input_json = f"parse_json('{json.dumps(input)}')"
@@ -23,15 +15,14 @@ def insert_row(
     if output:
         output_json = f"parse_json('{json.dumps(output)}')"
     cur.execute(
-        f"""insert into internal.all_task_history select '{run}'::TIMESTAMP, {success}, \
-        {input_json}, {output_json}, '{table_name}'"""
+        f"""insert into {table_name} select '{run}'::TIMESTAMP, {success}, \
+        {input_json}, {output_json}"""
     )
 
 
-def test_initial_materialization_status(conn):
+def test_initial_materialization_status(conn, reset_task_histories):
     with conn() as cnx:
         cur = cnx.cursor()
-        recreate_task_history(cur)
 
         rows = cur.execute(
             """select table_name, full_materialization_complete, last_execution, current_execution, next_execution from
@@ -58,10 +49,9 @@ def test_initial_materialization_status(conn):
         assert next_execution.get("estimated_start", None) is not None
 
 
-def test_incremental_materialization_status(conn):
+def test_incremental_materialization_status(conn, reset_task_histories):
     with conn() as cnx:
         cur = cnx.cursor()
-        recreate_task_history(cur)
 
         # Query History
         input = None
@@ -72,7 +62,9 @@ def test_incremental_materialization_status(conn):
             "newest_completed": "2022-04-01 00:45:00",
             "oldest_running": "2022-04-01 00:59:00",
         }
-        insert_row(cur, "2022-04-01 04:00:00", True, input, output, "QUERY_HISTORY")
+        insert_row(
+            cur, "2022-04-01 04:00:00", True, input, output, QUERY_HISTORY_TASK_TABLE
+        )
 
         input = output
         output = {
@@ -82,7 +74,9 @@ def test_incremental_materialization_status(conn):
             "newest_completed": "2022-04-01 01:45:00",
             "oldest_running": "2022-04-01 01:59:00",
         }
-        insert_row(cur, "2022-04-01 05:00:00", True, input, output, "QUERY_HISTORY")
+        insert_row(
+            cur, "2022-04-01 05:00:00", True, input, output, QUERY_HISTORY_TASK_TABLE
+        )
 
         # Warehouse Events
         input = None
@@ -94,7 +88,7 @@ def test_incremental_materialization_status(conn):
             "oldest_running": "2022-04-01 00:55:00",
         }
         insert_row(
-            cur, "2022-04-01 04:00:00", True, input, output, "WAREHOUSE_EVENTS_HISTORY"
+            cur, "2022-04-01 04:00:00", True, input, output, WAREHOUSE_EVENTS_TASK_TABLE
         )
 
         input = output
@@ -106,7 +100,7 @@ def test_incremental_materialization_status(conn):
             "oldest_running": "2022-04-01 01:55:00",
         }
         insert_row(
-            cur, "2022-04-01 05:00:00", True, input, output, "WAREHOUSE_EVENTS_HISTORY"
+            cur, "2022-04-01 05:00:00", True, input, output, WAREHOUSE_EVENTS_TASK_TABLE
         )
 
         rows = cur.execute(
@@ -148,10 +142,9 @@ def test_incremental_materialization_status(conn):
         }
 
 
-def test_failed_full_materialization(conn):
+def test_failed_full_materialization(conn, reset_task_histories):
     with conn() as cnx:
         cur = cnx.cursor()
-        recreate_task_history(cur)
 
         # Query History
         input = None
@@ -161,9 +154,16 @@ def test_failed_full_materialization(conn):
             "SQLERRM": "An error message",
             "SQLSTATE": "A2345",
         }
-        insert_row(cur, "2022-04-01 04:00:00", False, input, output, "QUERY_HISTORY")
         insert_row(
-            cur, "2022-04-01 04:00:00", False, input, output, "WAREHOUSE_EVENTS_HISTORY"
+            cur, "2022-04-01 04:00:00", False, input, output, QUERY_HISTORY_TASK_TABLE
+        )
+        insert_row(
+            cur,
+            "2022-04-01 04:00:00",
+            False,
+            input,
+            output,
+            WAREHOUSE_EVENTS_TASK_TABLE,
         )
 
         rows = cur.execute(
@@ -193,10 +193,9 @@ def test_failed_full_materialization(conn):
         verify_row(rows[1])
 
 
-def test_failed_inc_materialization(conn):
+def test_failed_inc_materialization(conn, reset_task_histories):
     with conn() as cnx:
         cur = cnx.cursor()
-        recreate_task_history(cur)
 
         # Query History
         input = None
@@ -207,7 +206,9 @@ def test_failed_inc_materialization(conn):
             "newest_completed": "2022-04-01 00:45:00",
             "oldest_running": "2022-04-01 00:59:00",
         }
-        insert_row(cur, "2022-04-01 04:00:00", True, input, output, "QUERY_HISTORY")
+        insert_row(
+            cur, "2022-04-01 04:00:00", True, input, output, QUERY_HISTORY_TASK_TABLE
+        )
 
         input = output
         output = {
@@ -216,7 +217,9 @@ def test_failed_inc_materialization(conn):
             "SQLERRM": "An error message",
             "SQLSTATE": "A2345",
         }
-        insert_row(cur, "2022-04-01 05:00:00", False, input, output, "QUERY_HISTORY")
+        insert_row(
+            cur, "2022-04-01 05:00:00", False, input, output, QUERY_HISTORY_TASK_TABLE
+        )
 
         # Warehouse events
         input = None
@@ -228,7 +231,7 @@ def test_failed_inc_materialization(conn):
             "oldest_running": "2022-04-01 00:59:00",
         }
         insert_row(
-            cur, "2022-04-01 04:00:00", True, input, output, "WAREHOUSE_EVENTS_HISTORY"
+            cur, "2022-04-01 04:00:00", True, input, output, WAREHOUSE_EVENTS_TASK_TABLE
         )
 
         input = output
@@ -239,7 +242,12 @@ def test_failed_inc_materialization(conn):
             "SQLSTATE": "A2345",
         }
         insert_row(
-            cur, "2022-04-01 05:00:00", False, input, output, "WAREHOUSE_EVENTS_HISTORY"
+            cur,
+            "2022-04-01 05:00:00",
+            False,
+            input,
+            output,
+            WAREHOUSE_EVENTS_TASK_TABLE,
         )
 
         rows = cur.execute(

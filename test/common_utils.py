@@ -66,3 +66,11 @@ def reset_timezone(conn):
         _ = cur.execute(
             "call internal.set_config('default_timezone', 'America/Los_Angeles')"
         ).fetchone()
+
+
+QUERY_HISTORY_TASK_TABLE = "internal.task_query_history"
+WAREHOUSE_EVENTS_TASK_TABLE = "internal.task_warehouse_events"
+
+
+def get_task_history_tables() -> List[str]:
+    return [QUERY_HISTORY_TASK_TABLE, WAREHOUSE_EVENTS_TASK_TABLE]

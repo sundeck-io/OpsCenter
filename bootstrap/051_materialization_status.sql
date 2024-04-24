@@ -1,12 +1,7 @@
 
-create or replace view internal.all_task_history(run, success, input, output, table_name) as
-    select run, success, input, output, 'QUERY_HISTORY' from internal.task_query_history
-    union all
-    select run, success, input, output, 'WAREHOUSE_EVENTS_HISTORY'  from internal.task_warehouse_events;
-
-
 create or replace function admin.materialization_status()
     returns table(table_name text, full_materialization_complete boolean, last_execution object, current_execution object, next_execution object)
+    language sql
 as
 $$
 -- The tables we materialize and how often the task refreshes them.
@@ -15,15 +10,20 @@ with task_tables as (
         ('QUERY_HISTORY', 60),
         ('WAREHOUSE_EVENTS_HISTORY', 60)
     ) as t(table_name, task_period_minutes)
+), task_history as (
+    -- The history rows generated every time a task is run and the table that task is managing
+    select run, success, input, output, 'QUERY_HISTORY' as table_name from internal.task_query_history
+    union all
+    select run, success, input, output, 'WAREHOUSE_EVENTS_HISTORY' as table_name from internal.task_warehouse_events
 ), default_runs as (
     -- Make some default rows in case we have no materializations recorded
     select table_name, current_timestamp() as run, null as success, null as kind, null as error_message from (select table_name from task_tables)
 ), last_runs as (
     -- Get the last task execution for each table.
-    SELECT table_name, run, success, IFF(INPUT IS NULL, 'FULL', 'INCREMENTAL') as kind, output['SQLERRM'] as error_message FROM internal.all_task_history
+    SELECT table_name, run, success, IFF(INPUT IS NULL, 'FULL', 'INCREMENTAL') as kind, output['SQLERRM'] as error_message FROM task_history
     WHERE (table_name, run) IN (
         SELECT table_name, MAX(run)
-        FROM internal.all_task_history
+        FROM task_history
         GROUP BY table_name
     )
 ), last_runs_with_defaults as (
@@ -32,7 +32,7 @@ with task_tables as (
     left join last_runs lr on lr.table_name = dr.table_name
 ), full_materializations as (
     -- Check if we have completed at least one full materialization
-    select table_name, count(*) > 0 full_materialization_complete from internal.all_task_history where success and IFF(input is null, FALSE, input['newest_completed'] is not null) group by table_name
+    select table_name, count(*) > 0 full_materialization_complete from task_history where success and IFF(input is null, FALSE, input['newest_completed'] is not null) group by table_name
 ) select task_tables.table_name,
         COALESCE(full_materialization_complete, FALSE) as full_materialization_complete,
         IFF(last_runs_with_defaults.kind is null, null, {'start': run, 'success': success, 'kind': last_runs_with_defaults.kind, 'error_message': error_message}) as last_execution,
