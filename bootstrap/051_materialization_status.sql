@@ -10,13 +10,14 @@ create or replace function admin.materialization_status()
 as
 $$
 -- The tables we materialize and how often the task refreshes them.
-with tables as (
+with task_tables as (
     select table_name, task_period_minutes from ( values
         ('QUERY_HISTORY', 60),
         ('WAREHOUSE_EVENTS_HISTORY', 60)
     ) as t(table_name, task_period_minutes)
 ), default_runs as (
-    select table_name, current_timestamp() as run, null as success, null as kind, null as error_message from (select table_name from tables)
+    -- Make some default rows in case we have no materializations recorded
+    select table_name, current_timestamp() as run, null as success, null as kind, null as error_message from (select table_name from task_tables)
 ), last_runs as (
     -- Get the last task execution for each table.
     SELECT table_name, run, success, IFF(INPUT IS NULL, 'FULL', 'INCREMENTAL') as kind, output['SQLERRM'] as error_message FROM internal.all_task_history
@@ -32,12 +33,14 @@ with tables as (
 ), full_materializations as (
     -- Check if we have completed at least one full materialization
     select table_name, count(*) > 0 full_materialization_complete from internal.all_task_history where success and IFF(input is null, FALSE, input['newest_completed'] is not null) group by table_name
-) select tables.table_name,
-        COALESCE(full_materialization_complete, FALSE),
-        IFF(last_runs_with_defaults.kind is null, null, {'start': run, 'success': success, 'kind': last_runs_with_defaults.kind}) as last_execution,
+) select task_tables.table_name,
+        COALESCE(full_materialization_complete, FALSE) as full_materialization_complete,
+        IFF(last_runs_with_defaults.kind is null, null, {'start': run, 'success': success, 'kind': last_runs_with_defaults.kind, 'error_message': error_message}) as last_execution,
         NULL as current_execution,
-        {'estimated_start': timestampadd(MINUTE, task_period_minutes, run), 'kind': IFF(last_runs_with_defaults.kind is null, 'FULL', 'INCREMENTAL')} as next_execution,
+        {'estimated_start': timestampadd(MINUTE, task_period_minutes, run),
+            'kind': COALESCE(IFF(success, 'INCREMENTAL', last_runs_with_defaults.kind), 'FULL')
+        } as next_execution,
     from last_runs_with_defaults
-    left join tables on tables.table_name = last_runs_with_defaults.table_name
-    left join full_materializations on tables.table_name = full_materializations.table_name
+    left join task_tables on last_runs_with_defaults.table_name = task_tables.table_name
+    left join full_materializations on last_runs_with_defaults.table_name = full_materializations.table_name
 $$;
