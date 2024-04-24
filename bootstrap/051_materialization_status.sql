@@ -1,6 +1,6 @@
 
 create or replace function admin.materialization_status()
-    returns table(table_name text, full_materialization_complete boolean, last_execution object, current_execution object, next_execution object)
+    returns table(table_name text, full_materialization_complete boolean, range_min timestamp_ltz, range_max timestamp_ltz, last_execution object, current_execution object, next_execution object)
     language sql
 as
 $$
@@ -31,10 +31,18 @@ with task_tables as (
     from default_runs dr
     left join last_runs lr on lr.table_name = dr.table_name
 ), full_materializations as (
-    -- Check if we have completed at least one full materialization
-    select table_name, count(*) > 0 full_materialization_complete from task_history where success and IFF(input is null, FALSE, input['newest_completed'] is not null) group by table_name
+    -- At least one successful materialization implies the full materialization has been done.
+    select table_name, count(*) > 0 full_materialization_complete from task_history where success group by table_name
+), available_data as (
+    select $1 as table_name, $2 as range_min, $3 as range_max from (
+        select 'QUERY_HISTORY', MIN(start_time), MAX(start_time) from reporting.enriched_query_history
+        UNION ALL
+        select 'WAREHOUSE_EVENTS_HISTORY', MIN(session_start), MAX(session_start) from reporting.warehouse_sessions
+    )
 ) select task_tables.table_name,
         COALESCE(full_materialization_complete, FALSE) as full_materialization_complete,
+        available_data.range_min,
+        available_data.range_max,
         IFF(last_runs_with_defaults.kind is null, null, {'start': run, 'success': success, 'kind': last_runs_with_defaults.kind, 'error_message': error_message}) as last_execution,
         NULL as current_execution,
         {'estimated_start': timestampadd(MINUTE, task_period_minutes, run),
@@ -43,4 +51,5 @@ with task_tables as (
     from last_runs_with_defaults
     left join task_tables on last_runs_with_defaults.table_name = task_tables.table_name
     left join full_materializations on last_runs_with_defaults.table_name = full_materializations.table_name
+    left join available_data on last_runs_with_defaults.table_name = available_data.table_name
 $$;
