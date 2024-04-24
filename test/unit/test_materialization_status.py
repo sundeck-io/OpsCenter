@@ -28,7 +28,37 @@ def insert_row(
     )
 
 
-def test_materialization_status(conn):
+def test_initial_materialization_status(conn):
+    with conn() as cnx:
+        cur = cnx.cursor()
+        recreate_task_history(cur)
+
+        rows = cur.execute(
+            """select table_name, full_materialization_complete, last_execution, current_execution, next_execution from
+            table(admin.materialization_status()) order by table_name"""
+        ).fetchall()
+        assert len(rows) == 2
+
+        row = rows[0]
+        assert row[0] == "QUERY_HISTORY"
+        assert row[1] is False
+        assert row[2] is None  # no last execution
+        assert row[3] is None
+        next_execution = json.loads(row[4])
+        assert next_execution.get("kind", None) == "FULL"
+        assert next_execution.get("estimated_start", None) is not None
+
+        row = rows[1]
+        assert row[0] == "WAREHOUSE_EVENTS_HISTORY"
+        assert row[1] is False
+        assert row[2] is None  # no last execution
+        assert row[3] is None
+        next_execution = json.loads(row[4])
+        assert next_execution.get("kind", None) == "FULL"
+        assert next_execution.get("estimated_start", None) is not None
+
+
+def test_incremental_materialization_status(conn):
     with conn() as cnx:
         cur = cnx.cursor()
         recreate_task_history(cur)
@@ -92,12 +122,12 @@ def test_materialization_status(conn):
         assert last_execution == {
             "kind": "INCREMENTAL",
             "success": True,
-            "start": "2022-04-01 05:00:00.000",
+            "start": "2022-04-01 05:00:00.000 -0700",
         }
         assert row[3] is None
         next_execution = json.loads(row[4])
         assert next_execution == {
-            "estimated_start": "2022-04-01 06:00:00.000",
+            "estimated_start": "2022-04-01 06:00:00.000 -0700",
             "kind": "INCREMENTAL",
         }
 
@@ -108,11 +138,11 @@ def test_materialization_status(conn):
         assert last_execution == {
             "kind": "INCREMENTAL",
             "success": True,
-            "start": "2022-04-01 05:00:00.000",
+            "start": "2022-04-01 05:00:00.000 -0700",
         }
         assert row[3] is None
         next_execution = json.loads(row[4])
         assert next_execution == {
-            "estimated_start": "2022-04-01 06:00:00.000",
+            "estimated_start": "2022-04-01 06:00:00.000 -0700",
             "kind": "INCREMENTAL",
         }
