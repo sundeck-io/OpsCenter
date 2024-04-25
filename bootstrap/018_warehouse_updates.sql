@@ -39,7 +39,7 @@ CREATE OR REPLACE PROCEDURE internal.refresh_warehouse_events(migrate boolean) R
     AS
 BEGIN
     let dt timestamp := current_timestamp();
-    let root_task_id text := (SELECT SYSTEM$TASK_RUNTIME_INFO('CURRENT_ROOT_TASK_UUID'));
+    let task_run_id text := (SELECT SYSTEM$TASK_RUNTIME_INFO('CURRENT_TASK_GRAPH_RUN_GROUP_ID'));
     SYSTEM$LOG_INFO('Starting refresh warehouse events.');
     let migrate1 string := null;
     let migrate2 string := null;
@@ -83,9 +83,9 @@ BEGIN
             let where_clause_complete varchar := (select 'not incomplete and session_end <> to_timestamp_ltz(\'' || :newest_completed || '\')');
             let new_closed number;
             call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_WH_EVT', :where_clause_complete) into :new_closed;
-            insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :run_id, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0), 'root_task_id', :root_task_id, 'end', current_timestamp())::VARIANT;
+            insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :run_id, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0), 'task_run_id', :task_run_id, 'end', current_timestamp())::VARIANT;
         ELSE
-            insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :dt, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0, 'root_task_id', :root_task_id, 'end', current_timestamp())::VARIANT;
+            insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :dt, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0, 'task_run_id', :task_run_id, 'end', current_timestamp())::VARIANT;
         END IF;
         DROP TABLE RAW_WH_EVT;
         COMMIT;
@@ -94,7 +94,7 @@ BEGIN
       WHEN OTHER THEN
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing warehouse events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         ROLLBACK;
-        insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :dt, false, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'root_task_id', :root_task_id, 'end', current_timestamp())::variant;
+        insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :dt, false, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'task_run_id', :task_run_id, 'end', current_timestamp())::variant;
         RAISE;
 
     END;

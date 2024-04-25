@@ -1,55 +1,66 @@
 
-create or replace function admin.materialization_status()
-    returns table(table_name text, full_materialization_complete boolean, range_min timestamp_ltz, range_max timestamp_ltz, last_execution object, current_execution object, next_execution object)
-    language sql
+create or replace function internal.success_to_status(success boolean) returns text
 as
 $$
+    IFF(success IS NULL, NULL, IFF(success, 'SUCCESS', 'FAILURE'))
+$$;
+
+create or replace view admin.materialization_status
+as
 -- The tables we materialize and how often the task refreshes them.
 with task_tables as (
-    select table_name, task_period_minutes from ( values
-        ('QUERY_HISTORY', 60),
-        ('WAREHOUSE_EVENTS_HISTORY', 60)
-    ) as t(table_name, task_period_minutes)
+    select table_name, user_schema, user_view from ( values
+        ('QUERY_HISTORY', 'REPORTING', 'ENRICHED_QUERY_HISTORY'),
+        ('WAREHOUSE_EVENTS_HISTORY', 'REPORTING', 'WAREHOUSE_SESSIONS')
+    ) as t(table_name, user_schema, user_view)
 ), task_history as (
     -- The history rows generated every time a task is run and the table that task is managing
-    select run, success, input, output, 'QUERY_HISTORY' as table_name from internal.task_query_history
-    union all
-    select run, success, input, output, 'WAREHOUSE_EVENTS_HISTORY' as table_name from internal.task_warehouse_events
-), default_runs as (
-    -- Make some default rows in case we have no materializations recorded
-    select table_name, current_timestamp() as run, null as success, null as kind, null as error_message from (select table_name from task_tables)
-), last_runs as (
-    -- Get the last task execution for each table.
-    SELECT table_name, run, success, IFF(INPUT IS NULL, 'FULL', 'INCREMENTAL') as kind, output['SQLERRM'] as error_message FROM task_history
-    WHERE (table_name, run) IN (
-        SELECT table_name, MAX(run)
+    select $1 as run, $2 as success, $3 as input, $4 as output, $5 as table_name, $6 as task_name, $7 as kind FROM (
+        select run, success, input, output, 'QUERY_HISTORY', 'QUERY_HISTORY_MAINTENANCE', IFF(INPUT is null, 'FULL', 'INCREMENTAL')  from internal.task_query_history
+        union all
+        select run, success, input, output, 'WAREHOUSE_EVENTS_HISTORY', 'WAREHOUSE_EVENTS_MAINTENANCE', IFF(INPUT is null, 'FULL', 'INCREMENTAL') from internal.task_warehouse_events
+    )
+), sf_task_history as (
+    select name as task_name, query_id, graph_run_group_id
+    from table(information_schema.task_history(SCHEDULED_TIME_RANGE_START => TIMESTAMPADD(MINUTE, -45, current_timestamp()), result_limit => 1000))
+    WHERE database_name in (select current_database()) and schema_name = 'TASKS'
+), fullmat as (
+    SELECT th.table_name, th.task_name, run, output['end'] as end, success, output['SQLERRM'] as error_message, sf_th.query_id,
+    FROM task_history th
+    LEFT JOIN sf_task_history sf_th ON th.output['task_run_id'] = sf_th.GRAPH_RUN_GROUP_ID
+    WHERE (table_name, th.task_name, run) IN (
+        SELECT table_name, task_name, MAX(run)
         FROM task_history
-        GROUP BY table_name
+        WHERE KIND = 'FULL'
+        GROUP BY table_name, task_name
     )
-), last_runs_with_defaults as (
-    select dr.table_name, coalesce(lr.run, dr.run) as run, coalesce(lr.success, dr.success) as success, coalesce(lr.kind, dr.kind) as kind, coalesce(lr.error_message, dr.error_message) as error_message
-    from default_runs dr
-    left join last_runs lr on lr.table_name = dr.table_name
-), full_materializations as (
-    -- At least one successful materialization implies the full materialization has been done.
-    select table_name, count(*) > 0 full_materialization_complete from task_history where success group by table_name
-), available_data as (
-    select $1 as table_name, $2 as range_min, $3 as range_max from (
-        select 'QUERY_HISTORY', MIN(start_time), MAX(start_time) from reporting.enriched_query_history
-        UNION ALL
-        select 'WAREHOUSE_EVENTS_HISTORY', MIN(session_start), MAX(session_start) from reporting.warehouse_sessions
+), incmat as (
+    SELECT table_name, th.task_name, run, output['end'] as end, success, output['SQLERRM'] as error_message, sf_th.query_id,
+    FROM task_history th
+    LEFT JOIN sf_task_history sf_th ON th.output['task_run_id'] = sf_th.GRAPH_RUN_GROUP_ID
+    WHERE (table_name, th.task_name, run) IN (
+        SELECT table_name, task_name, MAX(run)
+        FROM task_history
+        WHERE KIND = 'INCREMENTAL'
+        GROUP BY table_name, task_name
     )
-) select task_tables.table_name,
-        COALESCE(full_materialization_complete, FALSE) as full_materialization_complete,
-        available_data.range_min,
-        available_data.range_max,
-        IFF(last_runs_with_defaults.kind is null, null, {'start': run, 'success': success, 'kind': last_runs_with_defaults.kind, 'error_message': error_message}) as last_execution,
-        NULL as current_execution,
-        {'estimated_start': timestampadd(MINUTE, task_period_minutes, run),
-            'kind': COALESCE(IFF(success, 'INCREMENTAL', last_runs_with_defaults.kind), 'FULL')
-        } as next_execution,
-    from last_runs_with_defaults
-    left join task_tables on last_runs_with_defaults.table_name = task_tables.table_name
-    left join full_materializations on last_runs_with_defaults.table_name = full_materializations.table_name
-    left join available_data on last_runs_with_defaults.table_name = available_data.table_name
-$$;
+) select
+    task_tables.user_schema as schema_name,
+    task_tables.user_view as table_name,
+    fullmat.run as last_full_start,
+    fullmat.end as last_full_end,
+    internal.success_to_status(fullmat.success) as last_full_status,
+    fullmat.error_message as last_full_error_message,
+    fullmat.query_id as last_full_query_id,
+    incmat.run as last_inc_start,
+    incmat.end as last_inc_end,
+    internal.success_to_status(incmat.success) as last_inc_status,
+    incmat.error_message as last_inc_error_message,
+    incmat.query_id as last_inc_query_id,
+    null::TIMESTAMP_LTZ as next_start,
+    null::TEXT as next_type,
+    null::TEXT as next_status,
+    null::TEXT as next_query_id,
+from task_tables
+left join fullmat on task_tables.table_name = fullmat.table_name
+left join incmat on task_tables.table_name = incmat.table_name;

@@ -24,7 +24,7 @@ end;
 CREATE OR REPLACE PROCEDURE internal.refresh_queries(migrate boolean) RETURNS STRING LANGUAGE SQL AS
 BEGIN
     let dt timestamp := current_timestamp();
-    let root_task_id text := (SELECT SYSTEM$TASK_RUNTIME_INFO('CURRENT_ROOT_TASK_UUID'));
+    let task_run_id text := (SELECT SYSTEM$TASK_RUNTIME_INFO('CURRENT_TASK_GRAPH_RUN_GROUP_ID'));
     SYSTEM$LOG_INFO('Starting refresh queries.');
     let migrate1 string := null;
     let migrate2 string := null;
@@ -70,10 +70,10 @@ BEGIN
             call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_QH_EVT', :where_clause_complete) into :new_closed;
             insert into INTERNAL.TASK_QUERY_HISTORY SELECT :run_id, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed,
                 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0),
-                'root_task_id', :root_task_id, 'end', current_timestamp())::VARIANT;
+                'task_run_id', :task_run_id, 'end', current_timestamp())::VARIANT;
         ELSE
             insert into INTERNAL.TASK_QUERY_HISTORY SELECT :dt, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed,
-                'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0, 'root_task_id', :root_task_id)::VARIANT;
+                'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0, 'task_run_id', :task_run_id)::VARIANT;
         END IF;
         DROP TABLE RAW_QH_EVT;
         COMMIT;
@@ -82,7 +82,7 @@ BEGIN
       WHEN OTHER THEN
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing query history.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         ROLLBACK;
-        insert into INTERNAL.TASK_QUERY_HISTORY SELECT :dt, false, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'root_task_id', :root_task_id, 'end', current_timestamp())::variant;
+        insert into INTERNAL.TASK_QUERY_HISTORY SELECT :dt, false, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'task_run_id', :task_run_id, 'end', current_timestamp())::variant;
         RAISE;
 
     END;
