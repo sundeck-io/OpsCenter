@@ -119,3 +119,17 @@ def reset_task_histories(conn):
                 pass
 
     yield
+
+    # re-insert values to avoid a full materialization
+    with conn() as cnx:
+        cur = cnx.cursor()
+        for table in get_task_history_tables():
+            try:
+                cur.execute(
+                    f"""insert into {table} SELECT current_timestamp(), true, null,
+                    OBJECT_CONSTRUCT('devdeploy', 'true', 'oldest_running', dateadd(day, -1, current_timestamp()),
+                    'newest_completed', dateadd(day, -1, current_timestamp()), 'end', current_timestamp())::VARIANT;"""
+                )
+            except Exception as e:
+                print(f"Ignoring exception during resetting of {table}: {e}")
+                pass
