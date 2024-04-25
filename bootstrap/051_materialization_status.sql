@@ -30,11 +30,11 @@ with task_tables as (
 ), task_history as (
     -- The history rows generated every time a task is run and the table that task is managing
     select $1 as run, $2 as success, $3 as input, $4 as output, $5 as table_name, $6 as task_name, IFF(INPUT is null, 'FULL', 'INCREMENTAL') as kind FROM (
-        select run, success, input, output, 'QUERY_HISTORY', 'QUERY_HISTORY_MAINTENANCE'   from internal.task_query_history
+        select run::TIMESTAMP_LTZ, success, input, output, 'QUERY_HISTORY', 'QUERY_HISTORY_MAINTENANCE'   from internal.task_query_history
         union all
-        select run, success, input, output, 'WAREHOUSE_EVENTS_HISTORY', 'WAREHOUSE_EVENTS_MAINTENANCE' from internal.task_warehouse_events
+        select run::TIMESTAMP_LTZ, success, input, output, 'WAREHOUSE_EVENTS_HISTORY', 'WAREHOUSE_EVENTS_MAINTENANCE' from internal.task_warehouse_events
         union all
-        select run, success, input, output, table_name, 'SIMPLE_DATA_EVENTS_MAINTENANCE' from internal.task_simple_data_events
+        select run::TIMESTAMP_LTZ, success, input, output, table_name, 'SIMPLE_DATA_EVENTS_MAINTENANCE' from internal.task_simple_data_events
     )
 ), sf_task_history as (
     select name as task_name, query_id, graph_run_group_id, state, scheduled_time, QUERY_START_TIME,
@@ -49,7 +49,7 @@ with task_tables as (
 ), pending_tasks as (
     select * from sf_task_history where internal.task_pending(state)
 ), fullmat as (
-    SELECT th.table_name, th.task_name, run, output['end'] as end, success, output['SQLERRM'] as error_message, ct.query_id,
+    SELECT th.table_name, th.task_name, run, output['end']::TIMESTAMP_LTZ as end, success, output['SQLERRM'] as error_message, ct.query_id,
     FROM task_history th
     LEFT JOIN completed_tasks ct ON th.output['task_run_id'] = ct.GRAPH_RUN_GROUP_ID
     WHERE (table_name, th.task_name, run) IN (
@@ -59,7 +59,7 @@ with task_tables as (
         GROUP BY table_name, task_name
     )
 ), incmat as (
-    SELECT table_name, th.task_name, run, output['end'] as end, success, output['SQLERRM'] as error_message, ct.query_id,
+    SELECT table_name, th.task_name, run, output['end']::TIMESTAMP_LTZ as end, success, output['SQLERRM'] as error_message, ct.query_id,
     FROM task_history th
     LEFT JOIN completed_tasks ct ON th.output['task_run_id'] = ct.GRAPH_RUN_GROUP_ID
     WHERE (table_name, th.task_name, run) IN (
@@ -78,19 +78,19 @@ select
     fullmat.run as last_full_start,
     fullmat.end as last_full_end,
     internal.success_to_status(fullmat.success) as last_full_status,
-    fullmat.error_message as last_full_error_message,
+    fullmat.error_message::TEXT as last_full_error_message,
     fullmat.query_id as last_full_query_id,
 
     -- last incremental materialization
     incmat.run as last_inc_start,
     incmat.end as last_inc_end,
     internal.success_to_status(incmat.success) as last_inc_status,
-    incmat.error_message as last_inc_error_message,
+    incmat.error_message::TEXT as last_inc_error_message,
     incmat.query_id as last_inc_query_id,
 
     -- the next invocation
     COALESCE(pt.QUERY_START_TIME, pt.SCHEDULED_TIME) as next_start,
-    IFF(fullmat.run IS NULL, 'FULL', 'INCREMENTAL') as next_type,
+    IFF(fullmat.run IS NULL OR fullmat.success = FALSE, 'FULL', 'INCREMENTAL') as next_type,
     IFF(pt.STATE = 'SCHEDULED', 'PENDING', 'RUNNING') as next_status,
     pt.query_id as next_query_id,
 from task_tables
