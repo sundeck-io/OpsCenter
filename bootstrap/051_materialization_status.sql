@@ -54,8 +54,9 @@ BEGIN
             select run::TIMESTAMP_LTZ, success, input, output, table_name, 'SIMPLE_DATA_EVENTS_MAINTENANCE' from internal.task_simple_data_events
         )
     ), sf_task_history as (
+        -- Our TASK_HISTORY view is updated with a 3hour delay. Limit how far we back we look in the UDTF.
         select name as task_name, query_id, graph_run_group_id, state, scheduled_time, QUERY_START_TIME,
-        from table(information_schema.task_history(SCHEDULED_TIME_RANGE_START => TIMESTAMPADD(HOUR, -3, current_timestamp()), result_limit => 1000))
+        from table(information_schema.task_history(SCHEDULED_TIME_RANGE_START => TIMESTAMPADD(HOUR, -3, current_timestamp()), result_limit => 10000))
         WHERE database_name in (select current_database()) and schema_name = 'TASKS'
         union
         select name as task_name, query_id, graph_run_group_id, state, scheduled_time, QUERY_START_TIME,
@@ -72,8 +73,9 @@ BEGIN
         FROM task_history th
         LEFT JOIN completed_tasks ct ON th.output['task_run_id'] = ct.GRAPH_RUN_GROUP_ID
         LEFT JOIN internal_reporting_mv.task_history th
+        -- Get the warehouse_size from QueryHistory. Check both the view and UDTF to avoid gaps.
         LEFT JOIN internal_reporting_mv.query_history_complete_and_daily_incomplete qh ON ct.query_id = qh.query_id
-        LEFT JOIN table(information_schema.query_history(result_limit => 1000)) qht on ct.query_id = qht.query_id
+        LEFT JOIN table(information_schema.query_history(END_TIME_RANGE_START => TIMESTAMPADD(HOUR, -3, current_timestamp()), result_limit => 10000)) qht on ct.query_id = qht.query_id
         WHERE (table_name, th.task_name, run) IN (
             SELECT table_name, task_name, MAX(run)
             FROM task_history
@@ -86,8 +88,9 @@ BEGIN
             COALESCE(qht.warehouse_size, qh.warehouse_size) as warehouse_size,
         FROM task_history th
         LEFT JOIN completed_tasks ct ON th.output['task_run_id'] = ct.GRAPH_RUN_GROUP_ID
+        -- Get the warehouse_size from QueryHistory. Check both the view and UDTF to avoid gaps.
         LEFT JOIN internal_reporting_mv.query_history_complete_and_daily_incomplete qh ON ct.query_id = qh.query_id
-        LEFT JOIN table(information_schema.query_history(result_limit => 1000)) qht on ct.query_id = qht.query_id
+        LEFT JOIN table(information_schema.query_history(END_TIME_RANGE_START => TIMESTAMPADD(HOUR, -3, current_timestamp()), result_limit => 1000)) qht on ct.query_id = qht.query_id
         WHERE (table_name, th.task_name, run) IN (
             SELECT table_name, task_name, MAX(run)
             FROM task_history
@@ -119,7 +122,11 @@ BEGIN
         -- the next invocation
         COALESCE(pt.QUERY_START_TIME, pt.SCHEDULED_TIME) as next_start,
         IFF(fullmat.run IS NULL OR fullmat.success = FALSE, 'FULL', 'INCREMENTAL') as next_type,
-        IFF(pt.STATE = 'SCHEDULED', 'PENDING', 'RUNNING') as next_status,
+        CASE
+            WHEN pt.state = 'SCHEDULED' THEN 'PENDING'
+            WHEN pt.state = 'EXECUTING' THEN 'RUNNING'
+            ELSE NULL
+        END as next_status,
         pt.query_id as next_query_id,
     from task_tables
     left join fullmat on task_tables.table_name = fullmat.table_name
