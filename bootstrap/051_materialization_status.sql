@@ -122,11 +122,7 @@ BEGIN
         -- the next invocation
         pt.scheduled_time as next_start,
         IFF(fullmat.success IS NULL OR fullmat.success = FALSE, 'FULL', 'INCREMENTAL') as next_type,
-        CASE
-            WHEN pt.state = 'SCHEDULED' THEN 'PENDING'
-            WHEN pt.state = 'EXECUTING' THEN 'RUNNING'
-            ELSE NULL
-        END as next_status,
+        pt.state as next_status,
         pt.query_id as next_query_id,
     from task_tables
     left join fullmat on task_tables.table_name = fullmat.table_name

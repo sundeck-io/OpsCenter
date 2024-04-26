@@ -109,8 +109,8 @@ def test_initial_materialization_status(conn, reset_task_histories):
             # should have the next execution scheduled
             assert row[NEXT_TYPE] == "FULL"
             # The task is either executing or scheduled
-            assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
-            if row[NEXT_STATUS] == "PENDING":
+            assert row[NEXT_STATUS] in ("SCHEDULED", "EXECUTING")
+            if row[NEXT_STATUS] == "SCHEDULED":
                 assert row[NEXT_START] is not None
                 assert row[NEXT_QUERY_ID] is None
             else:
@@ -167,7 +167,7 @@ def test_full_materialization_status(conn, reset_task_histories):
         }
         row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
         verify_row_contains(row, expected_qh)
-        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        assert row[NEXT_STATUS] in ("SCHEDULED", "EXECUTING")
 
         expected_weh = {
             LAST_FULL_START: "2022-04-01 04:00:00",
@@ -178,7 +178,7 @@ def test_full_materialization_status(conn, reset_task_histories):
         }
         row = next(row for row in rows if row[TABLE_NAME] == "WAREHOUSE_SESSIONS")
         verify_row_contains(row, expected_weh)
-        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        assert row[NEXT_STATUS] in ("SCHEDULED", "EXECUTING")
 
 
 def test_incremental_materialization_status(conn, reset_task_histories):
@@ -262,7 +262,7 @@ def test_incremental_materialization_status(conn, reset_task_histories):
         }
         row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
         verify_row_contains(row, expected_qh)
-        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        assert row[NEXT_STATUS] in ("SCHEDULED", "EXECUTING")
 
         expected_weh = {
             LAST_FULL_START: "2022-04-01 04:00:00",
@@ -277,7 +277,7 @@ def test_incremental_materialization_status(conn, reset_task_histories):
         }
         row = next(row for row in rows if row[TABLE_NAME] == "WAREHOUSE_SESSIONS")
         verify_row_contains(row, expected_weh)
-        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        assert row[NEXT_STATUS] in ("SCHEDULED", "EXECUTING")
 
 
 def test_failed_full_materialization(conn, reset_task_histories):
@@ -319,7 +319,7 @@ def test_failed_full_materialization(conn, reset_task_histories):
         }
         row = next(row for row in rows if row[TABLE_NAME] == "WAREHOUSE_SESSIONS")
         verify_row_contains(row, expected_weh)
-        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        assert row[NEXT_STATUS] in ("SCHEDULED", "EXECUTING")
 
         expected_qh = {
             LAST_FULL_START: "2022-04-01 03:00:00",
@@ -329,7 +329,7 @@ def test_failed_full_materialization(conn, reset_task_histories):
         }
         row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
         verify_row_contains(row, expected_qh)
-        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        assert row[NEXT_STATUS] in ("SCHEDULED", "EXECUTING")
 
 
 def test_failed_inc_materialization(conn, reset_task_histories):
@@ -411,7 +411,7 @@ def test_failed_inc_materialization(conn, reset_task_histories):
         }
         row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
         verify_row_contains(row, expected_qh)
-        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        assert row[NEXT_STATUS] in ("SCHEDULED", "EXECUTING")
 
         expected_weh = {
             LAST_FULL_START: "2022-04-01 04:00:00",
@@ -425,4 +425,4 @@ def test_failed_inc_materialization(conn, reset_task_histories):
         }
         row = next(row for row in rows if row[TABLE_NAME] == "WAREHOUSE_SESSIONS")
         verify_row_contains(row, expected_weh)
-        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        assert row[NEXT_STATUS] in ("SCHEDULED", "EXECUTING")
