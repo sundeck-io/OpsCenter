@@ -57,6 +57,9 @@ BEGIN
         let new_records number := (select count(*) from RAW_QH_EVT);
 
         IF (new_records > 0) THEN
+            -- Save where the previous task left off. If there is no previous task, then the smallest end_time we're about to process.
+            let materialized_start timestamp := (SELECT greatest(MIN(end_time), :newest_completed) FROM RAW_QH_EVT WHERE NOT INCOMPLETE);
+
             -- if there are incomplete queries, find the min timestamp of the incomplete queries. If there are no incomplete, find the newest timestamp for a filter condition next time.
             oldest_running := (SELECT greatest(coalesce(MIN(case when incomplete then filterts else null end), max(end_time)), :oldest_running) FROM RAW_QH_EVT);
             newest_completed := (SELECT greatest(coalesce(max(end_time), 0::TIMESTAMP), :newest_completed) FROM RAW_QH_EVT WHERE NOT INCOMPLETE);
@@ -70,10 +73,13 @@ BEGIN
             call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_QH_EVT', :where_clause_complete) into :new_closed;
             insert into INTERNAL.TASK_QUERY_HISTORY SELECT :run_id, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed,
                 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0),
-                'task_run_id', :task_run_id, 'end', current_timestamp())::VARIANT;
+                'task_run_id', :task_run_id, 'materialized_start', :materialized_start, 'materialized_end', :newest_completed)::VARIANT;
         ELSE
+            -- we did not find any new completed queries since newest_completed.
+            let materialized_end timestamp := (select current_timestamp());
             insert into INTERNAL.TASK_QUERY_HISTORY SELECT :dt, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed,
-                'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0, 'task_run_id', :task_run_id)::VARIANT;
+                'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0, 'task_run_id', :task_run_id,
+                'materialized_start', :newest_completed, 'materialized_end', :materialized_end)::VARIANT;
         END IF;
         DROP TABLE RAW_QH_EVT;
         COMMIT;
@@ -82,7 +88,7 @@ BEGIN
       WHEN OTHER THEN
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing query history.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         ROLLBACK;
-        insert into INTERNAL.TASK_QUERY_HISTORY SELECT :dt, false, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'task_run_id', :task_run_id, 'end', current_timestamp())::variant;
+        insert into INTERNAL.TASK_QUERY_HISTORY SELECT :dt, false, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'task_run_id', :task_run_id)::variant;
         RAISE;
 
     END;

@@ -63,14 +63,15 @@ BEGIN
         let new_closed number;
         call internal.generate_insert_statement('INTERNAL_REPORTING_MV', :table_name, 'ACCOUNT_USAGE', :table_name, :where_clause_complete) into :new_closed;
         let new_running timestamp := (select max(identifier(:index_col)) from identifier(:table_ident));
-        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, true, :table_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'attempted_migrate', :migrate, 'new_records', coalesce(:new_closed, 0), 'task_run_id', :task_run_id, 'end', current_timestamp())::VARIANT;
+        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, true, :table_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'attempted_migrate', :migrate, 'new_records', coalesce(:new_closed, 0),
+            'task_run_id', :task_run_id, 'materialized_start', :oldest_running, 'materialized_end', :new_running)::VARIANT;
         COMMIT;
 
     EXCEPTION
       WHEN OTHER THEN
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :table_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         ROLLBACK;
-        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, false, :table_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'task_run_id', :task_run_id, 'end', current_timestamp())::variant;
+        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, false, :table_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'task_run_id', :task_run_id)::variant;
         RAISE;
 
     END;

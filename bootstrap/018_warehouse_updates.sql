@@ -72,6 +72,7 @@ BEGIN
         let new_records number := (select count(*) from RAW_WH_EVT);
 
         IF (new_records > 0) THEN
+            let materialized_start timestamp_ltz := (select greatest(MIN(SESSION_END), :newest_completed) from RAW_WH_EVT WHERE NOT INCOMPLETE);
             -- if there are incomplete queries, find the min timestamp of the incomplete queries. If there are no incomplete, find the newest timestamp for a filter condition next time.
             oldest_running := (SELECT greatest(coalesce(MIN(case when incomplete then filterts else null end), max(SESSION_END)), :oldest_running) FROM RAW_WH_EVT);
             newest_completed := (SELECT greatest(coalesce(max(SESSION_END), 0::TIMESTAMP), :newest_completed) FROM RAW_WH_EVT WHERE NOT INCOMPLETE);
@@ -83,9 +84,13 @@ BEGIN
             let where_clause_complete varchar := (select 'not incomplete and session_end <> to_timestamp_ltz(\'' || :newest_completed || '\')');
             let new_closed number;
             call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_WH_EVT', :where_clause_complete) into :new_closed;
-            insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :run_id, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0), 'task_run_id', :task_run_id, 'end', current_timestamp())::VARIANT;
+            insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :run_id, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0),
+                'task_run_id', :task_run_id, 'materialized_start', :materialized_start, 'materialized_end', :newest_completed)::VARIANT;
         ELSE
-            insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :dt, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0, 'task_run_id', :task_run_id, 'end', current_timestamp())::VARIANT;
+            -- we did not find any new completed queries since newest_completed.
+            let materialized_end timestamp := (select current_timestamp());
+            insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :dt, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0,
+                'task_run_id', :task_run_id, 'materialized_start', :newest_completed, 'materialized_end', :materialized_end)::VARIANT;
         END IF;
         DROP TABLE RAW_WH_EVT;
         COMMIT;
