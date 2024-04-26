@@ -346,6 +346,23 @@ exception
         RAISE;
 end;
 
+-- The admin.materialization_status view has to be created from a task because it reads from the TASK_HISTORY UDTF.
+CREATE OR REPLACE TASK TASKS.CREATE_MATERIALIZATION_STATUS
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
+    AS
+DECLARE
+  sql STRING;
+BEGIN
+    call internal.create_materialization_status() into :sql;
+    execute immediate sql;
+    insert into internal.task_create_materialization_status select current_timestamp(), true, OBJECT_CONSTRUCT('sql', :sql)::variant;
+exception
+    when other then
+        insert into internal.task_materialization_status select current_timestamp(), false, OBJECT_CONSTRUCT('SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'sql', :sql)::variant;
+        RAISE;
+END;
+
 -- Create the WAREHOUSE_SCHEDULING task without a schedule only if it doesn't exist.
 -- If we CREATE OR REPLACE this task, we will miss scheduling after upgrades because the
 -- previous schedule will be overwritten.
@@ -404,6 +421,9 @@ execute task TASKS.WAREHOUSE_EVENTS_MAINTENANCE;
 execute task TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE;
 execute task TASKS.QUERY_HISTORY_MAINTENANCE;
 execute task TASKS.WAREHOUSE_LOAD_MAINTENANCE;
+
+-- Run the task once to create the materialization_status view
+execute task TASKS.CREATE_MATERIALIZATION_STATUS;
 
 -- Only enable and start user limits task if connected to sundeck
 -- let has_url boolean;

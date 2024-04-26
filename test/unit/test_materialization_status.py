@@ -98,6 +98,7 @@ def test_initial_materialization_status(conn, reset_task_histories):
             # should have the next execution scheduled
             assert row[NEXT_START] is not None
             assert row[NEXT_TYPE] == "FULL"
+            # TODO - this should be PENDING but I'm seeing it as RUNNING when the tasks don't exist
             assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
             if row[NEXT_STATUS] == "PENDING":
                 assert row[NEXT_QUERY_ID] is None
