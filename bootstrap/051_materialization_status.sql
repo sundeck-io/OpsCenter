@@ -72,7 +72,6 @@ BEGIN
             COALESCE(qht.warehouse_size, qh.warehouse_size) as warehouse_size,
         FROM task_history th
         LEFT JOIN completed_tasks ct ON th.output['task_run_id'] = ct.GRAPH_RUN_GROUP_ID
-        LEFT JOIN internal_reporting_mv.task_history th
         -- Get the warehouse_size from QueryHistory. Check both the view and UDTF to avoid gaps.
         LEFT JOIN internal_reporting_mv.query_history_complete_and_daily_incomplete qh ON ct.query_id = qh.query_id
         LEFT JOIN table(information_schema.query_history(END_TIME_RANGE_START => TIMESTAMPADD(HOUR, -3, current_timestamp()), result_limit => 10000)) qht on ct.query_id = qht.query_id
