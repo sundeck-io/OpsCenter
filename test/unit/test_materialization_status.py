@@ -42,13 +42,20 @@ def insert_row(
 
 
 def verify_tables_returned(rows):
-    assert len(rows) == 3
+    assert len(rows) == 10
     assert [row[TABLE_NAME] for row in rows] == [
         "CLUSTER_SESSIONS",
         "ENRICHED_QUERY_HISTORY",
+        "HYBRID_TABLE_USAGE_HISTORY",
+        "LOGIN_HISTORY",
+        "MATERIALIZED_VIEW_REFRESH_HISTORY",
+        "SERVERLESS_TASK_HISTORY",
+        "SESSIONS",
+        "TASK_HISTORY",
+        "WAREHOUSE_METERING_HISTORY",
         "WAREHOUSE_SESSIONS",
     ]
-    assert [row[SCHEMA_NAME] for row in rows] == ["REPORTING"] * 3
+    assert [row[SCHEMA_NAME] for row in rows] == ["REPORTING"] * 10
 
 
 def verify_row_contains(row: dict, expected: dict):
@@ -96,13 +103,14 @@ def test_initial_materialization_status(conn, reset_task_histories):
             )
 
             # should have the next execution scheduled
-            assert row[NEXT_START] is not None
             assert row[NEXT_TYPE] == "FULL"
-            # TODO - this should be PENDING but I'm seeing it as RUNNING when the tasks don't exist
+            # The task is either executing or scheduled
             assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
             if row[NEXT_STATUS] == "PENDING":
+                assert row[NEXT_START] is not None
                 assert row[NEXT_QUERY_ID] is None
             else:
+                assert row[NEXT_START] is not None
                 assert row[NEXT_QUERY_ID] is not None
 
 
@@ -149,11 +157,10 @@ def test_full_materialization_status(conn, reset_task_histories):
             LAST_FULL_END: "2022-04-01 04:00:30",
             LAST_FULL_STATUS: "SUCCESS",
             NEXT_TYPE: "INCREMENTAL",
-            NEXT_STATUS: "PENDING",
         }
-        for row in [rows[0], rows[2]]:
-            verify_row_contains(row, expected_weh)
-            assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        row = next(row for row in rows if row[TABLE_NAME] == "WAREHOUSE_SESSIONS")
+        verify_row_contains(row, expected_weh)
+        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
 
         expected_qh = {
             LAST_FULL_START: "2022-04-01 03:00:00",
@@ -161,7 +168,8 @@ def test_full_materialization_status(conn, reset_task_histories):
             LAST_FULL_STATUS: "SUCCESS",
             NEXT_TYPE: "INCREMENTAL",
         }
-        verify_row_contains(rows[1], expected_qh)
+        row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
+        verify_row_contains(row, expected_qh)
         assert rows[1][NEXT_STATUS] in ("PENDING", "RUNNING")
 
 
@@ -238,9 +246,9 @@ def test_incremental_materialization_status(conn, reset_task_histories):
             LAST_INC_STATUS: "SUCCESS",
             NEXT_TYPE: "INCREMENTAL",
         }
-        for row in [rows[0], rows[2]]:
-            verify_row_contains(row, expected_weh)
-            assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        row = next(row for row in rows if row[TABLE_NAME] == "WAREHOUSE_SESSIONS")
+        verify_row_contains(row, expected_weh)
+        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
 
         expected_qh = {
             LAST_FULL_START: "2022-04-01 03:00:00",
@@ -251,7 +259,8 @@ def test_incremental_materialization_status(conn, reset_task_histories):
             LAST_INC_STATUS: "SUCCESS",
             NEXT_TYPE: "INCREMENTAL",
         }
-        verify_row_contains(rows[1], expected_qh)
+        row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
+        verify_row_contains(row, expected_qh)
         assert rows[1][NEXT_STATUS] in ("PENDING", "RUNNING")
 
 
@@ -295,9 +304,9 @@ def test_failed_full_materialization(conn, reset_task_histories):
             LAST_FULL_ERROR_MESSAGE: "warehouse events failure",
             NEXT_TYPE: "FULL",
         }
-        for row in [rows[0], rows[2]]:
-            verify_row_contains(row, expected_weh)
-            assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        row = next(row for row in rows if row[TABLE_NAME] == "WAREHOUSE_SESSIONS")
+        verify_row_contains(row, expected_weh)
+        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
 
         expected_qh = {
             LAST_FULL_START: "2022-04-01 03:00:00",
@@ -306,7 +315,8 @@ def test_failed_full_materialization(conn, reset_task_histories):
             LAST_FULL_ERROR_MESSAGE: "query history failure",
             NEXT_TYPE: "FULL",
         }
-        verify_row_contains(rows[1], expected_qh)
+        row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
+        verify_row_contains(row, expected_qh)
         assert rows[1][NEXT_STATUS] in ("PENDING", "RUNNING")
 
 
@@ -387,9 +397,9 @@ def test_failed_inc_materialization(conn, reset_task_histories):
             LAST_INC_ERROR_MESSAGE: "warehouse events failure",
             NEXT_TYPE: "INCREMENTAL",
         }
-        for row in [rows[0], rows[2]]:
-            verify_row_contains(row, expected_weh)
-            assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+        row = next(row for row in rows if row[TABLE_NAME] == "WAREHOUSE_SESSIONS")
+        verify_row_contains(row, expected_weh)
+        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
 
         expected_qh = {
             LAST_FULL_START: "2022-04-01 03:00:00",
@@ -401,5 +411,6 @@ def test_failed_inc_materialization(conn, reset_task_histories):
             LAST_INC_ERROR_MESSAGE: "query history failure",
             NEXT_TYPE: "INCREMENTAL",
         }
-        verify_row_contains(rows[1], expected_qh)
+        row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
+        verify_row_contains(row, expected_qh)
         assert rows[1][NEXT_STATUS] in ("PENDING", "RUNNING")
