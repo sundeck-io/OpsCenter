@@ -8,12 +8,14 @@ from datetime import datetime
 TABLE_NAME = "TABLE_NAME"
 SCHEMA_NAME = "SCHEMA_NAME"
 LAST_FULL_START = "LAST_FULL_START"
-LAST_FULL_END = "LAST_FULL_END"
+LAST_FULL_DATA_START = "LAST_FULL_DATA_START"
+LAST_FULL_DATA_END = "LAST_FULL_DATA_END"
 LAST_FULL_STATUS = "LAST_FULL_STATUS"
 LAST_FULL_ERROR_MESSAGE = "LAST_FULL_ERROR_MESSAGE"
 LAST_FULL_QUERY_ID = "LAST_FULL_QUERY_ID"
 LAST_INC_START = "LAST_INC_START"
-LAST_INC_END = "LAST_INC_END"
+LAST_INC_DATA_START = "LAST_INC_DATA_START"
+LAST_INC_DATA_END = "LAST_INC_DATA_END"
 LAST_INC_STATUS = "LAST_INC_STATUS"
 LAST_INC_ERROR_MESSAGE = "LAST_INC_ERROR_MESSAGE"
 LAST_INC_QUERY_ID = "LAST_INC_QUERY_ID"
@@ -83,7 +85,8 @@ def test_initial_materialization_status(conn, reset_task_histories):
                 row,
                 {
                     LAST_FULL_START: None,
-                    LAST_FULL_END: None,
+                    LAST_FULL_DATA_START: None,
+                    LAST_FULL_DATA_END: None,
                     LAST_FULL_STATUS: None,
                     LAST_FULL_ERROR_MESSAGE: None,
                     LAST_FULL_QUERY_ID: None,
@@ -95,7 +98,8 @@ def test_initial_materialization_status(conn, reset_task_histories):
                 row,
                 {
                     LAST_INC_START: None,
-                    LAST_INC_END: None,
+                    LAST_INC_DATA_START: None,
+                    LAST_INC_DATA_END: None,
                     LAST_INC_STATUS: None,
                     LAST_INC_ERROR_MESSAGE: None,
                     LAST_INC_QUERY_ID: None,
@@ -126,7 +130,8 @@ def test_full_materialization_status(conn, reset_task_histories):
             "new_records": 1100,
             "newest_completed": "2022-04-01 00:45:00",
             "oldest_running": "2022-04-01 00:59:00",
-            "end": "2022-04-01 03:00:30",
+            "materialized_start": "2022-04-01 00:00:00",
+            "materialized_end": "2022-04-01 00:45:00",
         }
         insert_row(
             cur, "2022-04-01 03:00:00", True, input, output, QUERY_HISTORY_TASK_TABLE
@@ -140,7 +145,8 @@ def test_full_materialization_status(conn, reset_task_histories):
             "new_records": 105,
             "newest_completed": "2022-04-01 00:55:00",
             "oldest_running": "2022-04-01 00:55:00",
-            "end": "2022-04-01 04:00:30",
+            "materialized_start": "2022-04-01 00:00:00",
+            "materialized_end": "2022-04-01 00:55:00",
         }
         insert_row(
             cur, "2022-04-01 04:00:00", True, input, output, WAREHOUSE_EVENTS_TASK_TABLE
@@ -152,25 +158,27 @@ def test_full_materialization_status(conn, reset_task_histories):
 
         verify_tables_returned(rows)
 
+        expected_qh = {
+            LAST_FULL_START: "2022-04-01 03:00:00",
+            LAST_FULL_DATA_START: "2022-04-01 00:00:00",
+            LAST_FULL_DATA_END: "2022-04-01 00:45:00",
+            LAST_FULL_STATUS: "SUCCESS",
+            NEXT_TYPE: "INCREMENTAL",
+        }
+        row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
+        verify_row_contains(row, expected_qh)
+        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+
         expected_weh = {
             LAST_FULL_START: "2022-04-01 04:00:00",
-            LAST_FULL_END: "2022-04-01 04:00:30",
+            LAST_FULL_DATA_START: "2022-04-01 00:00:00",
+            LAST_FULL_DATA_END: "2022-04-01 00:55:00",
             LAST_FULL_STATUS: "SUCCESS",
             NEXT_TYPE: "INCREMENTAL",
         }
         row = next(row for row in rows if row[TABLE_NAME] == "WAREHOUSE_SESSIONS")
         verify_row_contains(row, expected_weh)
         assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
-
-        expected_qh = {
-            LAST_FULL_START: "2022-04-01 03:00:00",
-            LAST_FULL_END: "2022-04-01 03:00:30",
-            LAST_FULL_STATUS: "SUCCESS",
-            NEXT_TYPE: "INCREMENTAL",
-        }
-        row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
-        verify_row_contains(row, expected_qh)
-        assert rows[1][NEXT_STATUS] in ("PENDING", "RUNNING")
 
 
 def test_incremental_materialization_status(conn, reset_task_histories):
@@ -185,7 +193,8 @@ def test_incremental_materialization_status(conn, reset_task_histories):
             "new_records": 1100,
             "newest_completed": "2022-04-01 00:45:00",
             "oldest_running": "2022-04-01 00:59:00",
-            "end": "2022-04-01 03:00:30",
+            "materialized_start": "2022-04-01 00:00:00",
+            "materialized_end": "2022-04-01 00:45:00",
         }
         insert_row(
             cur, "2022-04-01 03:00:00", True, input, output, QUERY_HISTORY_TASK_TABLE
@@ -198,7 +207,8 @@ def test_incremental_materialization_status(conn, reset_task_histories):
             "new_records": 1100,
             "newest_completed": "2022-04-01 01:45:00",
             "oldest_running": "2022-04-01 01:59:00",
-            "end": "2022-04-01 05:00:30",
+            "materialized_start": "2022-04-01 00:45:00",
+            "materialized_end": "2022-04-01 01:45:00",
         }
         insert_row(
             cur, "2022-04-01 05:00:00", True, input, output, QUERY_HISTORY_TASK_TABLE
@@ -212,7 +222,8 @@ def test_incremental_materialization_status(conn, reset_task_histories):
             "new_records": 105,
             "newest_completed": "2022-04-01 00:55:00",
             "oldest_running": "2022-04-01 00:55:00",
-            "end": "2022-04-01 04:00:30",
+            "materialized_start": "2022-04-01 00:00:00",
+            "materialized_end": "2022-04-01 00:55:00",
         }
         insert_row(
             cur, "2022-04-01 04:00:00", True, input, output, WAREHOUSE_EVENTS_TASK_TABLE
@@ -225,7 +236,8 @@ def test_incremental_materialization_status(conn, reset_task_histories):
             "new_records": 105,
             "newest_completed": "2022-04-01 01:55:00",
             "oldest_running": "2022-04-01 01:55:00",
-            "end": "2022-04-01 06:00:30",
+            "materialized_start": "2022-04-01 00:55:00",
+            "materialized_end": "2022-04-01 01:55:00",
         }
         insert_row(
             cur, "2022-04-01 06:00:00", True, input, output, WAREHOUSE_EVENTS_TASK_TABLE
@@ -237,31 +249,35 @@ def test_incremental_materialization_status(conn, reset_task_histories):
 
         verify_tables_returned(rows)
 
+        expected_qh = {
+            LAST_FULL_START: "2022-04-01 03:00:00",
+            LAST_FULL_DATA_START: "2022-04-01 00:00:00",
+            LAST_FULL_DATA_END: "2022-04-01 00:45:00",
+            LAST_FULL_STATUS: "SUCCESS",
+            LAST_INC_START: "2022-04-01 05:00:00",
+            LAST_INC_DATA_START: "2022-04-01 00:45:00",
+            LAST_INC_DATA_END: "2022-04-01 01:45:00",
+            LAST_INC_STATUS: "SUCCESS",
+            NEXT_TYPE: "INCREMENTAL",
+        }
+        row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
+        verify_row_contains(row, expected_qh)
+        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+
         expected_weh = {
             LAST_FULL_START: "2022-04-01 04:00:00",
-            LAST_FULL_END: "2022-04-01 04:00:30",
+            LAST_FULL_DATA_START: "2022-04-01 00:00:00",
+            LAST_FULL_DATA_END: "2022-04-01 00:55:00",
             LAST_FULL_STATUS: "SUCCESS",
             LAST_INC_START: "2022-04-01 06:00:00",
-            LAST_INC_END: "2022-04-01 06:00:30",
+            LAST_INC_DATA_START: "2022-04-01 00:55:00",
+            LAST_INC_DATA_END: "2022-04-01 01:55:00",
             LAST_INC_STATUS: "SUCCESS",
             NEXT_TYPE: "INCREMENTAL",
         }
         row = next(row for row in rows if row[TABLE_NAME] == "WAREHOUSE_SESSIONS")
         verify_row_contains(row, expected_weh)
         assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
-
-        expected_qh = {
-            LAST_FULL_START: "2022-04-01 03:00:00",
-            LAST_FULL_END: "2022-04-01 03:00:30",
-            LAST_FULL_STATUS: "SUCCESS",
-            LAST_INC_START: "2022-04-01 05:00:00",
-            LAST_INC_END: "2022-04-01 05:00:30",
-            LAST_INC_STATUS: "SUCCESS",
-            NEXT_TYPE: "INCREMENTAL",
-        }
-        row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
-        verify_row_contains(row, expected_qh)
-        assert rows[1][NEXT_STATUS] in ("PENDING", "RUNNING")
 
 
 def test_failed_full_materialization(conn, reset_task_histories):
@@ -274,14 +290,12 @@ def test_failed_full_materialization(conn, reset_task_histories):
             "SQLCODE": 12345,
             "SQLERRM": "query history failure",
             "SQLSTATE": "A2345",
-            "end": "2022-04-01 03:00:30",
         }
         insert_row(
             cur, "2022-04-01 03:00:00", False, None, output, QUERY_HISTORY_TASK_TABLE
         )
 
         output["SQLERRM"] = "warehouse events failure"
-        output["end"] = "2022-04-01 04:00:30"
         insert_row(
             cur,
             "2022-04-01 04:00:00",
@@ -299,7 +313,6 @@ def test_failed_full_materialization(conn, reset_task_histories):
 
         expected_weh = {
             LAST_FULL_START: "2022-04-01 04:00:00",
-            LAST_FULL_END: "2022-04-01 04:00:30",
             LAST_FULL_STATUS: "FAILURE",
             LAST_FULL_ERROR_MESSAGE: "warehouse events failure",
             NEXT_TYPE: "FULL",
@@ -310,14 +323,13 @@ def test_failed_full_materialization(conn, reset_task_histories):
 
         expected_qh = {
             LAST_FULL_START: "2022-04-01 03:00:00",
-            LAST_FULL_END: "2022-04-01 03:00:30",
             LAST_FULL_STATUS: "FAILURE",
             LAST_FULL_ERROR_MESSAGE: "query history failure",
             NEXT_TYPE: "FULL",
         }
         row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
         verify_row_contains(row, expected_qh)
-        assert rows[1][NEXT_STATUS] in ("PENDING", "RUNNING")
+        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
 
 
 def test_failed_inc_materialization(conn, reset_task_histories):
@@ -332,7 +344,8 @@ def test_failed_inc_materialization(conn, reset_task_histories):
             "new_records": 1100,
             "newest_completed": "2022-04-01 00:45:00",
             "oldest_running": "2022-04-01 00:59:00",
-            "end": "2022-04-01 03:00:30",
+            "materialized_start": "2022-04-01 00:00:00",
+            "materialized_end": "2022-04-01 00:45:00",
         }
         insert_row(
             cur, "2022-04-01 03:00:00", True, input, output, QUERY_HISTORY_TASK_TABLE
@@ -344,7 +357,6 @@ def test_failed_inc_materialization(conn, reset_task_histories):
             "SQLCODE": 12345,
             "SQLERRM": "query history failure",
             "SQLSTATE": "A2345",
-            "end": "2022-04-01 05:00:30",
         }
         insert_row(
             cur, "2022-04-01 05:00:00", False, input, output, QUERY_HISTORY_TASK_TABLE
@@ -356,9 +368,10 @@ def test_failed_inc_materialization(conn, reset_task_histories):
             "new_INCOMPLETE": 100,
             "new_closed": 1000,
             "new_records": 1100,
-            "newest_completed": "2022-04-01 00:45:00",
+            "newest_completed": "2022-04-01 00:55:00",
             "oldest_running": "2022-04-01 00:59:00",
-            "end": "2022-04-01 04:00:30",
+            "materialized_start": "2022-04-01 00:00:00",
+            "materialized_end": "2022-04-01 00:55:00",
         }
         insert_row(
             cur, "2022-04-01 04:00:00", True, input, output, WAREHOUSE_EVENTS_TASK_TABLE
@@ -370,7 +383,6 @@ def test_failed_inc_materialization(conn, reset_task_histories):
             "SQLCODE": 12345,
             "SQLERRM": "warehouse events failure",
             "SQLSTATE": "A2345",
-            "end": "2022-04-01 06:00:30",
         }
         insert_row(
             cur,
@@ -387,12 +399,26 @@ def test_failed_inc_materialization(conn, reset_task_histories):
 
         verify_tables_returned(rows)
 
+        expected_qh = {
+            LAST_FULL_START: "2022-04-01 03:00:00",
+            LAST_FULL_DATA_START: "2022-04-01 00:00:00",
+            LAST_FULL_DATA_END: "2022-04-01 00:45:00",
+            LAST_FULL_STATUS: "SUCCESS",
+            LAST_INC_START: "2022-04-01 05:00:00",
+            LAST_INC_STATUS: "FAILURE",
+            LAST_INC_ERROR_MESSAGE: "query history failure",
+            NEXT_TYPE: "INCREMENTAL",
+        }
+        row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
+        verify_row_contains(row, expected_qh)
+        assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
+
         expected_weh = {
             LAST_FULL_START: "2022-04-01 04:00:00",
-            LAST_FULL_END: "2022-04-01 04:00:30",
+            LAST_FULL_DATA_START: "2022-04-01 00:00:00",
+            LAST_FULL_DATA_END: "2022-04-01 00:55:00",
             LAST_FULL_STATUS: "SUCCESS",
             LAST_INC_START: "2022-04-01 06:00:00",
-            LAST_INC_END: "2022-04-01 06:00:30",
             LAST_INC_STATUS: "FAILURE",
             LAST_INC_ERROR_MESSAGE: "warehouse events failure",
             NEXT_TYPE: "INCREMENTAL",
@@ -400,17 +426,3 @@ def test_failed_inc_materialization(conn, reset_task_histories):
         row = next(row for row in rows if row[TABLE_NAME] == "WAREHOUSE_SESSIONS")
         verify_row_contains(row, expected_weh)
         assert row[NEXT_STATUS] in ("PENDING", "RUNNING")
-
-        expected_qh = {
-            LAST_FULL_START: "2022-04-01 03:00:00",
-            LAST_FULL_END: "2022-04-01 03:00:30",
-            LAST_FULL_STATUS: "SUCCESS",
-            LAST_INC_START: "2022-04-01 05:00:00",
-            LAST_INC_END: "2022-04-01 05:00:30",
-            LAST_INC_STATUS: "FAILURE",
-            LAST_INC_ERROR_MESSAGE: "query history failure",
-            NEXT_TYPE: "INCREMENTAL",
-        }
-        row = next(row for row in rows if row[TABLE_NAME] == "ENRICHED_QUERY_HISTORY")
-        verify_row_contains(row, expected_qh)
-        assert rows[1][NEXT_STATUS] in ("PENDING", "RUNNING")
