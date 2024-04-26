@@ -66,7 +66,7 @@ BEGIN
     ), pending_tasks as (
         select * from sf_task_history where internal.task_pending(state)
     ), fullmat as (
-        SELECT th.table_name, th.task_name, m_start, m_end, success,
+        SELECT th.table_name, th.task_name, run, m_start, m_end, success,
             output['SQLERRM'] as error_message, ct.query_id,
             COALESCE(qht.warehouse_size, qh.warehouse_size) as warehouse_size,
         FROM task_history th
@@ -81,7 +81,7 @@ BEGIN
             GROUP BY table_name, task_name
         )
     ), incmat as (
-        SELECT table_name, th.task_name, m_start, m_end, success,
+        SELECT table_name, th.task_name, run, m_start, m_end, success,
             output['SQLERRM'] as error_message, ct.query_id,
             COALESCE(qht.warehouse_size, qh.warehouse_size) as warehouse_size,
         FROM task_history th
@@ -102,23 +102,25 @@ BEGIN
         task_tables.user_view as table_name,
 
         -- last full materialization
-        fullmat.m_start as last_full_start,
-        fullmat.m_end as last_full_end,
+        fullmat.run as last_full_start,
+        fullmat.m_start as last_full_data_start,
+        fullmat.m_end as last_full_data_end,
         internal.success_to_status(fullmat.success) as last_full_status,
         fullmat.error_message::TEXT as last_full_error_message,
         fullmat.query_id as last_full_query_id,
         fullmat.warehouse_size as last_full_warehouse_size,
 
         -- last incremental materialization
-        incmat.m_start as last_inc_start,
-        incmat.m_end as last_inc_end,
+        incmat.run as last_inc_start,
+        incmat.m_start as last_inc_data_start,
+        incmat.m_end as last_inc_data_end,
         internal.success_to_status(incmat.success) as last_inc_status,
         incmat.error_message::TEXT as last_inc_error_message,
         incmat.query_id as last_inc_query_id,
         incmat.warehouse_size as last_inc_warehouse_size,
 
         -- the next invocation
-        COALESCE(incmat.m_end, fullmat.m_end) as next_start,
+        pt.scheduled_time as next_start,
         IFF(fullmat.success IS NULL OR fullmat.success = FALSE, 'FULL', 'INCREMENTAL') as next_type,
         CASE
             WHEN pt.state = 'SCHEDULED' THEN 'PENDING'
@@ -140,13 +142,15 @@ select
     NULL::TEXT as schema_name,
     NULL::TEXT table_name,
     NULL::TIMESTAMP_LTZ as last_full_start,
-    NULL::TIMESTAMP_LTZ as last_full_end,
+    NULL::TIMESTAMP_LTZ as last_full_data_start,
+    NULL::TIMESTAMP_LTZ as last_full_data_end,
     NULL::TEXT as last_full_status,
     NULL::TEXT as last_full_error_message,
     NULL::TEXT as last_full_query_id,
     NULL::TEXT as last_full_warehouse_size,
     NULL::TIMESTAMP_LTZ as last_inc_start,
-    NULL::TIMESTAMP_LTZ as last_inc_end,
+    NULL::TIMESTAMP_LTZ as last_inc_data_start,
+    NULL::TIMESTAMP_LTZ as last_inc_data_end,
     NULL::TEXT as last_inc_status,
     NULL::TEXT as last_inc_error_message,
     NULL::TEXT as last_inc_query_id,
