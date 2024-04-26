@@ -359,7 +359,7 @@ BEGIN
     insert into internal.task_create_materialization_status select current_timestamp(), true, OBJECT_CONSTRUCT('sql', :sql)::variant;
 exception
     when other then
-        insert into internal.task_materialization_status select current_timestamp(), false, OBJECT_CONSTRUCT('SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'sql', :sql)::variant;
+        insert into internal.task_create_materialization_status select current_timestamp(), false, OBJECT_CONSTRUCT('SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate, 'sql', :sql)::variant;
         RAISE;
 END;
 

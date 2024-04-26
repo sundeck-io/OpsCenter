@@ -17,8 +17,8 @@ $$
     state in ('SCHEDULED', 'EXECUTING')
 $$;
 
-create table if not exists internal.task_materialization_status(run timestamp_ltz, success boolean, output variant);
-create or replace view reporting.task_materialization_status as select * from internal.task_materialization_status;
+create table if not exists internal.task_create_materialization_status(run timestamp_ltz, success boolean, output variant);
+create or replace view reporting.task_create_materialization_status as select * from internal.task_create_materialization_status;
 
 create or replace procedure internal.create_materialization_status()
     returns text
