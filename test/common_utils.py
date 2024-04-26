@@ -70,6 +70,17 @@ def reset_timezone(conn):
 
 QUERY_HISTORY_TASK_TABLE = "internal.task_query_history"
 WAREHOUSE_EVENTS_TASK_TABLE = "internal.task_warehouse_events"
+SIMPLE_DATA_EVENTS_TASK_TABLE = "internal.task_simple_data_events"
+
+SIMPLE_DATA_EVENT_TABLES = [
+    "HYBRID_TABLE_USAGE_HISTORY",
+    "LOGIN_HISTORY",
+    "MATERIALIZED_VIEW_REFRESH_HISTORY",
+    "SERVERLESS_TASK_HISTORY",
+    "SESSIONS",
+    "TASK_HISTORY",
+    "WAREHOUSE_METERING_HISTORY",
+]
 
 
 def get_task_history_tables() -> List[str]:
