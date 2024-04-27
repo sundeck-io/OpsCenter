@@ -93,23 +93,37 @@ declare
     start_time timestamp default current_timestamp();
     old_version varchar default NULL;
     setup_version varchar default internal.get_version();
+    object_type text default 'UPGRADE';
+    object_name text default 'UPGRADE_CHECK';
+    task_run_id text default (select INTERNAL.TASK_RUN_ID());
+    query_id text default (select query_id from table(information_schema.task_history(TASK_NAME => 'UPGRADE_CHECK')) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
 begin
-    -- It is important that we always call this procedure. If the Sundeck token is regenerated, we need to also recreate
-    -- the external functions. ADMIN.FINALIZE_SETUP does also call setup_external_functions, but this task only runs
-    -- finalize_setup once per native app version.
-    CALL admin.setup_external_functions('opscenter_api_integration');
+    let input variant := (select output from internal.task_log where object_type = :object_type and object_name = :object_name order by task_start desc limit 1);
+    INSERT INTO INTERNAL.TASK_LOG(task_start, task_run_id, query_id, input, object_type, object_name) SELECT :start_time, :task_run_id, :query_id, :input, :object_type, :object_name;
 
-    call internal.get_config('post_setup') into :old_version;
-    if (old_version is null or old_version <> setup_version) then
-        call admin.finalize_setup();
-    end if;
+    let output variant;
+    BEGIN
+        -- It is important that we always call this procedure. If the Sundeck token is regenerated, we need to also recreate
+        -- the external functions. ADMIN.FINALIZE_SETUP does also call setup_external_functions, but this task only runs
+        -- finalize_setup once per native app version.
+        CALL admin.setup_external_functions('opscenter_api_integration');
 
-    INSERT INTO INTERNAL.UPGRADE_HISTORY SELECT :start_time, CURRENT_TIMESTAMP(), :old_version, :setup_version, 'UPGRADE_CHECK: Success';
-EXCEPTION
-    WHEN OTHER THEN
-        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during UPGRADE_CHECK.', 'SQLCODE', :sqlcode,
-            'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-        INSERT INTO INTERNAL.UPGRADE_HISTORY SELECT :start_time, CURRENT_TIMESTAMP(), :old_version, :setup_version,
-            'UPGRADE_CHECK: (' || :sqlcode || ') state=' || :sqlstate || ' msg=' || :sqlerrm;
-        RAISE;
+        call internal.get_config('post_setup') into :old_version;
+        let ran_finalize_setup boolean := false;
+        if (old_version is null or old_version <> setup_version) then
+            call admin.finalize_setup();
+            ran_finalize_setup := true;
+        end if;
+
+        output := OBJECT_CONSTRUCT('old_version', :old_version, 'new_version', :setup_version, 'finalize_setup', :ran_finalize_setup);
+    EXCEPTION
+        WHEN OTHER THEN
+            SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during UPGRADE_CHECK.', 'SQLCODE', :sqlcode,
+                'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+            output := OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during UPGRADE_CHECK.', 'SQLCODE', :sqlcode, 'SQLSTATE', :sqlstate, 'SQLERRM', :sqlerrm);
+    END;
+
+    let success boolean := (select :output['SQLERRM'] is null);
+    UPDATE INTERNAL.TASK_LOG SET output = :output, success = :success, task_end = current_timestamp()
+        WHERE object_type = :object_type and object_name = :object_name and task_start = :start_time and task_run_id = :task_run_id;
 end;

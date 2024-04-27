@@ -1,5 +1,4 @@
 
-CREATE TABLE INTERNAL.TASK_WAREHOUSE_EVENTS IF NOT EXISTS (run timestamp, success boolean, input variant, output variant);
 CREATE TABLE INTERNAL.WAREHOUSE_SIZE_MAPPING IF NOT EXISTS (WAREHOUSE_NAME varchar, WAREHOUSE_SIZE varchar, WAREHOUSE_TYPE varchar);
 
 CREATE OR REPLACE PROCEDURE INTERNAL.MIGRATE_WAREHOUSE_SIZE_MAPPING()
@@ -34,7 +33,7 @@ begin
     return object_construct('migrate1', migrate1, 'migrate2', migrate2);
 end;
 
-CREATE OR REPLACE PROCEDURE internal.refresh_warehouse_events(migrate boolean) RETURNS STRING LANGUAGE SQL
+CREATE OR REPLACE PROCEDURE internal.refresh_warehouse_events(migrate boolean, input variant) RETURNS STRING LANGUAGE SQL
     COMMENT = 'Refreshes the warehouse events materialized view. If migrate is true, then the materialized view will be migrated if necessary.'
     AS
 BEGIN
@@ -49,10 +48,9 @@ BEGIN
         migrate2 := migrate_result:migrate2::string;
     end if;
 
-    let input variant := null;
+    let output variant := NULL;
     BEGIN
         BEGIN TRANSACTION;
-        input := (select output from INTERNAL.TASK_WAREHOUSE_EVENTS where success order by run desc limit 1);
         let oldest_running timestamp := 0::timestamp;
         let newest_completed timestamp := 0::timestamp;
 
@@ -82,9 +80,9 @@ BEGIN
             let where_clause_complete varchar := (select 'not incomplete and session_end <> to_timestamp_ltz(\'' || :newest_completed || '\')');
             let new_closed number;
             call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_WH_EVT', :where_clause_complete) into :new_closed;
-            insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :run_id, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0))::VARIANT;
+            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0))::VARIANT;
         ELSE
-            insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :dt, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0)::VARIANT;
+            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0)::VARIANT;
         END IF;
         DROP TABLE RAW_WH_EVT;
         COMMIT;
@@ -93,10 +91,9 @@ BEGIN
       WHEN OTHER THEN
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing warehouse events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         ROLLBACK;
-        insert into INTERNAL.TASK_WAREHOUSE_EVENTS SELECT :dt, false, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
-        RAISE;
-
+        return OBJECT_CONSTRUCT('Error type', 'warehouse events error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
     END;
+
 
     SYSTEM$LOG_INFO('Starting warehouse size table refresh');
     BEGIN
@@ -105,9 +102,16 @@ BEGIN
             SHOW WAREHOUSES;
             insert into internal.warehouse_size_mapping select "name", "size", "type" from TABLE(RESULT_SCAN(LAST_QUERY_ID()));
         COMMIT;
+    EXCEPTION
+        WHEN OTHER THEN
+            ROLLBACK;
+            return OBJECT_CONSTRUCT('Error type', 'warehouse size mapping error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
     END;
+
     SYSTEM$LOG_INFO('Finished warehouse size table refresh');
     CALL INTERNAL.SET_CONFIG('WAREHOUSE_EVENTS_MAINTENANCE', CURRENT_TIMESTAMP()::string);
+
+    return output;
 END;
 
 CREATE OR REPLACE FUNCTION TOOLS.APPROX_CREDITS_USED(wh_name varchar, start_time timestamp, end_time timestamp)

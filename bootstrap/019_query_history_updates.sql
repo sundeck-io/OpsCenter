@@ -1,6 +1,4 @@
 
-CREATE TABLE INTERNAL.TASK_QUERY_HISTORY IF NOT EXISTS (run timestamp, success boolean, input variant, output variant);
-
 CREATE OR REPLACE PROCEDURE internal.migrate_queries()
 returns variant
 language sql
@@ -21,9 +19,8 @@ begin
     return object_construct('migrate1', migrate1, 'migrate2', migrate2);
 end;
 
-CREATE OR REPLACE PROCEDURE internal.refresh_queries(migrate boolean) RETURNS STRING LANGUAGE SQL AS
+CREATE OR REPLACE PROCEDURE internal.refresh_queries(migrate boolean, input variant) RETURNS OBJECT LANGUAGE SQL AS
 BEGIN
-    let dt timestamp := current_timestamp();
     SYSTEM$LOG_INFO('Starting refresh queries.');
     let migrate1 string := null;
     let migrate2 string := null;
@@ -34,10 +31,8 @@ BEGIN
         migrate2 := migration_result:migrate2::string;
     end if;
 
-    let input variant := null;
     BEGIN
         BEGIN TRANSACTION;
-        input := (select output from INTERNAL.TASK_QUERY_HISTORY where success order by run desc limit 1);
         let oldest_running timestamp := 0::timestamp;
         let newest_completed timestamp := 0::timestamp;
 
@@ -55,6 +50,7 @@ BEGIN
         CREATE TABLE RAW_QH_EVT AS SELECT * FROM INTERNAL_REPORTING.QUERY_HISTORY_COMPLETE_AND_DAILY WHERE filterts >= :oldest_running AND end_time >= :newest_completed;
         let new_records number := (select count(*) from RAW_QH_EVT);
 
+        let output variant := null;
         IF (new_records > 0) THEN
             -- if there are incomplete queries, find the min timestamp of the incomplete queries. If there are no incomplete, find the newest timestamp for a filter condition next time.
             oldest_running := (SELECT greatest(coalesce(MIN(case when incomplete then filterts else null end), max(end_time)), :oldest_running) FROM RAW_QH_EVT);
@@ -67,20 +63,19 @@ BEGIN
             let where_clause_complete varchar := (select 'END_TIME <> to_timestamp_ltz(\'' || :newest_completed || '\')');
             let new_closed number;
             call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_QH_EVT', :where_clause_complete) into :new_closed;
-            insert into INTERNAL.TASK_QUERY_HISTORY SELECT :run_id, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0))::VARIANT;
+            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0));
         ELSE
-            insert into INTERNAL.TASK_QUERY_HISTORY SELECT :dt, true, :input, OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0)::VARIANT;
+            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0);
         END IF;
         DROP TABLE RAW_QH_EVT;
         COMMIT;
 
+        CALL INTERNAL.SET_CONFIG('QUERY_HISTORY_MAINTENANCE', CURRENT_TIMESTAMP()::string);
+        return output;
     EXCEPTION
       WHEN OTHER THEN
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing query history.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         ROLLBACK;
-        insert into INTERNAL.TASK_QUERY_HISTORY SELECT :dt, false, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
-        RAISE;
-
+        return OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
     END;
-    CALL INTERNAL.SET_CONFIG('QUERY_HISTORY_MAINTENANCE', CURRENT_TIMESTAMP()::string);
 END;

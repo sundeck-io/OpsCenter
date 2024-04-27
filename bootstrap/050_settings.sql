@@ -129,8 +129,7 @@ CREATE OR REPLACE PROCEDURE ADMIN.RELOAD_QUERY_HISTORY()
 AS
 BEGIN
     SYSTEM$LOG_INFO('Reloading query history and warehouse events data');
-    truncate table internal.task_query_history;
-    truncate table internal.task_warehouse_events;
+    truncate table internal.task_log;
     truncate table internal_reporting_mv.cluster_and_warehouse_sessions_complete_and_daily;
     truncate table internal_reporting_mv.query_history_complete_and_daily;
     call internal.refresh_warehouse_events(true);

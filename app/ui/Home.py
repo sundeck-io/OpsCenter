@@ -84,8 +84,8 @@ def get_refresh_data():
     query_end_times = (
         "select value from catalog.config where key  = 'QUERY_HISTORY_MAINTENANCE'"
     )
-    queryh_start_times = "select max(run) from internal.task_query_history"
-    warehouse_start_times = "select max(run) from internal.task_warehouse_events"
+    queryh_start_times = "select max(task_start) from internal.task_log where success AND object_type = 'QUERY_HISTORY' AND object_name = 'QUERY_HISTORY'"
+    warehouse_start_times = "select max(task_start) from internal.task_log where success AND object_type = 'WAREHOUSE_EVENTS' AND object_name = 'WAREHOUSE_EVENTS_HISTORY'"
     range_min = "select min(start_time) from reporting.enriched_query_history"
     range_max = "select max(start_time) from reporting.enriched_query_history"
     qet = get(
