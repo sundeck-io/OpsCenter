@@ -1,6 +1,7 @@
 import datetime
 import json
 from snowflake.connector.cursor import DictCursor
+import unittest
 
 TIMESTAMP_PATTERN = "%Y-%m-%d %H:%M:%S.%f"
 
@@ -173,3 +174,67 @@ def test_start_finish_task(conn):
         assert (
             actual_output == output
         ), f"Expected output to be {output}, got {actual_output}"
+
+
+def test_materialization_status(conn):
+    tc = unittest.TestCase()
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        expected_columns = [
+            "SCHEMA_NAME",
+            "TABLE_NAME",
+            "RANGE_START",
+            "RANGE_END",
+            "PARTITION",
+            "LAST_FULL_START",
+            "LAST_FULL_END",
+            "LAST_FULL_STATUS",
+            "LAST_FULL_ERROR_MESSAGE",
+            "LAST_FULL_QUERY_ID",
+            "LAST_INCR_START",
+            "LAST_INCR_END",
+            "LAST_INCR_STATUS",
+            "LAST_INCR_ERROR_MESSAGE",
+            "LAST_INCR_QUERY_ID",
+            "NEXT_START",
+            "NEXT_TYPE",
+            "NEXT_STATUS",
+            "NEXT_QUERY_ID",
+        ]
+
+        # Tests that the two lists have the same elements, irrespective of order
+        cur.execute("SELECT * FROM ADMIN.MATERIALIZATION_STATUS LIMIT 0")
+        tc.assertCountEqual(
+            [col.name for col in cur.description],
+            expected_columns,
+            "Schema of admin.materialization_status view is incorrect.",
+        )
+
+        rows = cur.execute("SHOW VIEWS IN SCHEMA REPORTING").fetchall()
+
+        ignored_views = [
+            "QUERY_MONITOR_ACTIVITY",
+            "QUOTA_TASK_HISTORY",
+            "SUNDECK_QUERY_HISTORY",
+            "TASK_LOG_HISTORY",
+            "UPGRADE_HISTORY",
+            "WAREHOUSE_SCHEDULES_TASK_HISTORY",
+        ]
+
+        # Subtract views we don't include in materialization_status
+        reporting_views = [
+            row["name"] for row in rows if row["name"] not in ignored_views
+        ]
+
+        rows = cur.execute(
+            "select distinct table_name from admin.materialization_status"
+        ).fetchall()
+
+        for row in rows:
+            assert (
+                row["TABLE_NAME"] in reporting_views
+            ), f"Unexpected view in admin.materialization_status: {row['TABLE_NAME']}, expected views were {reporting_views}"
+
+        assert len(rows) == len(
+            reporting_views
+        ), f"Expected equal number of reporting views as rows in admin.materialization_status. Reporting views {reporting_views}, materialization_status rows {rows}"
+

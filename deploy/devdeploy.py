@@ -92,15 +92,17 @@ def _finish_local_setup(cur, database: str, schema: str):
 
     # Then, wait for the tasks to report that they have run.
     while True:
-        # Execute a query to fetch data from the table
+        # Check the markers put into the config table by each task after they have completed an execution successfully.
+        # SNOWFLAKE_WAREHOUSE_MAINTENANCE is set when TASK_SIMPLE_DATA_EVENTS_MAINTENANCE completes.
         cur.execute(
-            "SELECT * FROM internal.config where key in ('WAREHOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE', 'SNOWFLAKE_USER_MAINTENANCE') and value is not null;"
+            """SELECT * FROM internal.config where key in ('WAREHOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE',
+            'SNOWFLAKE_USER_MAINTENANCE', 'SNOWFLAKE_WAREHOUSE_MAINTENANCE') and value is not null;"""
         )
 
         rows = cur.fetchall()
 
         # if we have two rows, means materialization is complete
-        if len(rows) == 3:
+        if len(rows) == 4:
             print("OpsCenter setup complete.")
             break
 
