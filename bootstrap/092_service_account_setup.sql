@@ -93,13 +93,12 @@ declare
     start_time timestamp default current_timestamp();
     old_version varchar default NULL;
     setup_version varchar default internal.get_version();
-    object_type text default 'UPGRADE';
-    object_name text default 'UPGRADE_CHECK';
+    task_name text default 'UPGRADE_CHECK';
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
     query_id text default (select query_id from table(information_schema.task_history(TASK_NAME => 'UPGRADE_CHECK')) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
 begin
-    let input variant := (select output from internal.task_log where object_type = :object_type and object_name = :object_name order by task_start desc limit 1);
-    INSERT INTO INTERNAL.TASK_LOG(task_start, task_run_id, query_id, input, object_type, object_name) SELECT :start_time, :task_run_id, :query_id, :input, :object_type, :object_name;
+    let input variant := (select output from internal.task_log where task_name = :task_name order by task_start desc limit 1);
+    INSERT INTO INTERNAL.TASK_LOG(task_start, task_run_id, query_id, input, task_name) SELECT :start_time, :task_run_id, :query_id, :input, :task_name;
 
     let output variant;
     BEGIN
@@ -125,5 +124,5 @@ begin
 
     let success boolean := (select :output['SQLERRM'] is null);
     UPDATE INTERNAL.TASK_LOG SET output = :output, success = :success, task_end = current_timestamp()
-        WHERE object_type = :object_type and object_name = :object_name and task_start = :start_time and task_run_id = :task_run_id;
+        WHERE task_name = :task_name and task_start = :start_time and task_run_id = :task_run_id;
 end;
