@@ -1,4 +1,5 @@
 import json
+from snowflake.connector.cursor import DictCursor
 
 
 def test_query_history_migration(conn):
@@ -47,3 +48,34 @@ def test_query_history_migration(conn):
 
         assert rows[-1][0] == "QUERY_HASH"
         assert rows[-1][1] == "TEXT"
+
+
+def test_task_log(conn):
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        rows = cur.execute(
+            """SELECT * FROM REPORTING.TASK_LOG_HISTORY
+            WHERE TASK_NAME IN ('QUERY_HISTORY_MAINTENANCE', 'WAREHOUSE_EVENTS_MAINTENANCE')
+            AND (task_name, task_start) in (
+                SELECT task_name, max(task_start) FROM REPORTING.TASK_LOG_HISTORY
+                GROUP BY task_name
+            );
+        """
+        ).fetchall()
+
+        # devdeploy waits for QH and WEH to run. We can do a basic verification over task log.
+        for task_name in ["QUERY_HISTORY_MAINTENANCE", "WAREHOUSE_EVENTS_MAINTENANCE"]:
+            task_log_row = next(row for row in rows if row["TASK_NAME"] == task_name)
+            print(f"Task log row: {task_log_row}")
+
+            assert task_log_row["SUCCESS"] is True
+            assert task_log_row["TASK_RUN_ID"] is not None
+            assert task_log_row["QUERY_ID"] is not None
+            assert task_log_row["TASK_START"] is not None
+            assert task_log_row["OUTPUT"] is not None
+
+            output = json.loads(task_log_row["OUTPUT"])
+            print(f"Output: {output}, {type(output['attempted_migrate'])}")
+            assert "attempted_migrate" in output
+            assert output["attempted_migrate"] is True
+            assert "new_records" in output
+            assert isinstance(output["new_records"], int)

@@ -74,7 +74,7 @@ DECLARE
     start_time timestamp_ltz default (select current_timestamp());
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
     query_id text default (select query_id from table(information_schema.task_history(TASK_NAME => 'WAREHOUSE_EVENTS_MAINTENANCE')) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
-    task_name text default 'WAREHOUSE_EVENTS';
+    task_name text default 'WAREHOUSE_EVENTS_MAINTENANCE';
     object_name text default 'WAREHOUSE_EVENTS_HISTORY';
 BEGIN
     let input variant := (select output from INTERNAL.TASK_LOG where success AND task_name = :task_name AND object_name = :object_name order by task_start desc limit 1);
