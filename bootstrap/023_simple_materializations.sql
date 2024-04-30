@@ -23,7 +23,7 @@ begin
     return object_construct('migrate1', migrate1);
 end;
 
-CREATE OR REPLACE PROCEDURE internal.refresh_simple_table(table_name varchar, index_col varchar, migrate boolean, input variant) RETURNS VARIANT LANGUAGE SQL
+CREATE OR REPLACE PROCEDURE internal.refresh_simple_table(table_name varchar, index_col varchar, migrate boolean, input variant) RETURNS OBJECT LANGUAGE SQL
     COMMENT = 'Refreshes the materialized view for a given table. If migrate is true, then the materialized view will be migrated if necessary.'
     AS
 BEGIN

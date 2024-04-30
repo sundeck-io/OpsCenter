@@ -33,7 +33,7 @@ begin
     return object_construct('migrate1', migrate1, 'migrate2', migrate2);
 end;
 
-CREATE OR REPLACE PROCEDURE internal.refresh_warehouse_events(migrate boolean, input variant) RETURNS VARIANT LANGUAGE SQL
+CREATE OR REPLACE PROCEDURE internal.refresh_warehouse_events(migrate boolean, input variant) RETURNS OBJECT LANGUAGE SQL
     COMMENT = 'Refreshes the warehouse events materialized view. If migrate is true, then the materialized view will be migrated if necessary.'
     AS
 BEGIN
@@ -105,7 +105,7 @@ BEGIN
     EXCEPTION
         WHEN OTHER THEN
             ROLLBACK;
-            return OBJECT_CONSTRUCT('Error type', 'warehouse size mapping error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
+            return OBJECT_CONSTRUCT('Error type', 'warehouse size mapping error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate);
     END;
 
     SYSTEM$LOG_INFO('Finished warehouse size table refresh');
