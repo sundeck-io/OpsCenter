@@ -66,8 +66,8 @@ def _sync_local_to_stage(cur):
         # Write it into /ui, too, because streamlit can't load from outside the app's directory
         f"PUT 'file://app/python/crud.zip' '{FULL_STAGE_SLASH}/ui' overwrite=true auto_compress=false",
     ]
-    if os.path.exists("proprietary/ml"):
-        helpers.zip_python_module("ml", "proprietary/ml", "app/python/ml.zip")
+    if os.path.exists("enterprise/ml"):
+        helpers.zip_python_module("ml", "enterprise/ml", "app/python/ml.zip")
         cmds.append(
             f"PUT 'file://app/python/ml.zip' '{FULL_STAGE_SLASH}/python' overwrite=true auto_compress=false"
         )
