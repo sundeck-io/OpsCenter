@@ -20,21 +20,21 @@ BEGIN
         INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
             SELECT tqh.run, tqh.success, 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', tqh.input, tqh.output, null
             FROM INTERNAL.TASK_QUERY_HISTORY tqh;
-        TRUNCATE TABLE INTERNAL.TASK_QUERY_HISTORY;
+        DROP TABLE INTERNAL.TASK_QUERY_HISTORY;
     end if;
 
     if (exists (select * from information_schema.tables where table_schema = 'INTERNAL' and table_name = 'TASK_WAREHOUSE_EVENTS')) then
         INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
             SELECT twe.run, twe.success, 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_EVENTS_HISTORY', twe.input, twe.output, null
             FROM INTERNAL.TASK_WAREHOUSE_EVENTS twe;
-        TRUNCATE TABLE INTERNAL.TASK_WAREHOUSE_EVENTS;
+        DROP TABLE INTERNAL.TASK_WAREHOUSE_EVENTS;
     end if;
 
     if (exists (select * from information_schema.tables where table_schema = 'INTERNAL' and table_name = 'TASK_SIMPLE_DATA_EVENTS')) then
         INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
             SELECT tsde.run, tsde.success, 'SIMPLE_DATA_EVENTS_MAINTENANCE', tsde.table_name, tsde.input, tsde.output, null
             FROM INTERNAL.TASK_SIMPLE_DATA_EVENTS tsde;
-        TRUNCATE TABLE INTERNAL.TASK_SIMPLE_DATA_EVENTS;
+        DROP TABLE INTERNAL.TASK_SIMPLE_DATA_EVENTS;
     end if;
 END;
 
