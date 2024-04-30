@@ -1,3 +1,4 @@
+import datetime
 import json
 from snowflake.connector.cursor import DictCursor
 
@@ -78,3 +79,11 @@ def test_task_log(conn):
             assert output["attempted_migrate"] is True
             assert "new_records" in output
             assert isinstance(output["new_records"], int)
+            assert "range_min" in output
+            assert datetime.datetime.strptime(
+                output["range_min"], "%Y-%m-%d %H:%M:%S.%f"
+            )
+            assert "range_max" in output
+            assert datetime.datetime.strptime(
+                output["range_max"], "%Y-%m-%d %H:%M:%S.%f"
+            )
