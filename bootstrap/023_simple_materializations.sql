@@ -23,7 +23,7 @@ begin
     return object_construct('migrate1', migrate1);
 end;
 
-CREATE OR REPLACE PROCEDURE internal.refresh_simple_table(table_name varchar, index_col varchar, migrate boolean, input variant) RETURNS STRING LANGUAGE SQL
+CREATE OR REPLACE PROCEDURE internal.refresh_simple_table(table_name varchar, index_col varchar, migrate boolean, input variant) RETURNS VARIANT LANGUAGE SQL
     COMMENT = 'Refreshes the materialized view for a given table. If migrate is true, then the materialized view will be migrated if necessary.'
     AS
 BEGIN
@@ -54,14 +54,14 @@ BEGIN
         let new_closed number;
         call internal.generate_insert_statement('INTERNAL_REPORTING_MV', :table_name, 'ACCOUNT_USAGE', :table_name, :where_clause_complete) into :new_closed;
         let new_running timestamp := (select max(identifier(:index_col)) from identifier(:table_ident));
-        output := OBJECT_CONSTRUCT('oldest_running', :new_running, 'attempted_migrate', :migrate, 'new_records', coalesce(:new_closed, 0))::VARIANT;
+        output := OBJECT_CONSTRUCT('oldest_running', :new_running, 'attempted_migrate', :migrate, 'new_records', coalesce(:new_closed, 0));
         COMMIT;
 
     EXCEPTION
       WHEN OTHER THEN
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :table_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         ROLLBACK;
-        output := OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
+        output := OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate);
     END;
 
     return output;
