@@ -400,8 +400,9 @@ BEGIN
                 let new_inserted_rows number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
                 total_inserted_rows := total_inserted_rows + new_inserted_rows;
             end for;
+            let range_min timestamp := (select min(end_time) from internal_reporting_mv.warehouse_load_history where warehouse_name = :wh_name);
             let new_running timestamp := (select max(end_time) from internal_reporting_mv.warehouse_load_history where warehouse_name = :wh_name);
-            output := OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:total_inserted_rows, 0));
+            output := OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:total_inserted_rows, 0), 'range_min', :range_min, 'range_max', :new_running);
         exception
             when other then
                 SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :wh_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));

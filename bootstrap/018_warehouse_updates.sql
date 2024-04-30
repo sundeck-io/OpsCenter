@@ -80,9 +80,22 @@ BEGIN
             let where_clause_complete varchar := (select 'not incomplete and session_end <> to_timestamp_ltz(\'' || :newest_completed || '\')');
             let new_closed number;
             call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_WH_EVT', :where_clause_complete) into :new_closed;
-            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0));
+            -- Find oldest session, after the new records have been inserted.
+            let range_min timestamp_ltz := (select min(session_end) from (
+                select min(session_end) as session_end from INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY
+                union all
+                select min(session_end) as session_end from INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE)
+            );
+            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
+                'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0), 'range_min', :range_min, 'range_max', :newest_completed);
         ELSE
-            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2, 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0);
+            let range_min timestamp_ltz := (select min(session_end) from (
+                select min(session_end) as session_end from INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY
+                union all
+                select min(session_end) as session_end from INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE
+            ));
+            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
+                'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0, 'range_min', :range_min, 'range_max', :newest_completed);
         END IF;
         DROP TABLE RAW_WH_EVT;
         COMMIT;

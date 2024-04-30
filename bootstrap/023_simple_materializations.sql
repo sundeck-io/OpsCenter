@@ -53,8 +53,9 @@ BEGIN
         let where_clause_complete varchar := (select :index_col || ' >= to_timestamp_ltz(\'' || :oldest_running || '\')');
         let new_closed number;
         call internal.generate_insert_statement('INTERNAL_REPORTING_MV', :table_name, 'ACCOUNT_USAGE', :table_name, :where_clause_complete) into :new_closed;
+        let range_min timestamp := (select min(identifier(:index_col)) from identifier(:table_ident));
         let new_running timestamp := (select max(identifier(:index_col)) from identifier(:table_ident));
-        output := OBJECT_CONSTRUCT('oldest_running', :new_running, 'attempted_migrate', :migrate, 'new_records', coalesce(:new_closed, 0));
+        output := OBJECT_CONSTRUCT('oldest_running', :new_running, 'attempted_migrate', :migrate, 'new_records', coalesce(:new_closed, 0), 'range_min', :range_min, 'range_max', :new_running);
         COMMIT;
 
     EXCEPTION
