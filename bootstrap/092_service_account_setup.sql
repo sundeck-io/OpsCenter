@@ -90,7 +90,7 @@ returns varchar
 language sql
 as
 declare
-    start_time timestamp default current_timestamp();
+    start_time text default (select current_timestamp()::TEXT);
     old_version varchar default NULL;
     setup_version varchar default internal.get_version();
     task_name text default 'UPGRADE_CHECK';

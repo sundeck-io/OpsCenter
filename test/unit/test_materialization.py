@@ -79,11 +79,19 @@ def test_task_log(conn):
             assert output["attempted_migrate"] is True
             assert "new_records" in output
             assert isinstance(output["new_records"], int)
-            assert "range_min" in output
-            assert datetime.datetime.strptime(
-                output["range_min"], "%Y-%m-%d %H:%M:%S.%f"
-            )
-            assert "range_max" in output
-            assert datetime.datetime.strptime(
-                output["range_max"], "%Y-%m-%d %H:%M:%S.%f"
-            )
+            if task_name == "WAREHOUSE_EVENTS_MAINTENANCE":
+                # WEH is different in that we extract two different kinds of data from the same task/source-view.
+                fields = [
+                    "cluster_range_min",
+                    "cluster_range_max",
+                    "warehouse_range_min",
+                    "warehouse_range_max",
+                ]
+            else:
+                fields = ["range_min", "range_max"]
+
+            for f in fields:
+                assert f in output, f"Expected field {f} in output: {output}"
+                assert datetime.datetime.strptime(
+                    output[f], "%Y-%m-%d %H:%M:%S.%f"
+                ), f"Expected field {f} to be a datetime: {output[f]}"

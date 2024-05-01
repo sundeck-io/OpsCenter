@@ -71,7 +71,7 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_EVENTS_MAINTENANCE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
 DECLARE
-    start_time timestamp_ltz default (select current_timestamp());
+    start_time text default (select current_timestamp()::TEXT);
     root_task_id text default (select INTERNAL.ROOT_TASK_ID());
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
     task_name text default 'WAREHOUSE_EVENTS_MAINTENANCE';
@@ -117,7 +117,7 @@ BEGIN
         let table_name text := rowvar.table_name;
         let index_col text := rowvar.index_col;
         BEGIN
-            let start_time timestamp_ltz := (select current_timestamp());
+            let start_time text := (select current_timestamp()::TEXT);
             let input object;
             CALL INTERNAL.START_TASK(:task_name, :table_name, :start_time, :task_run_id, :query_id) into input;
 
@@ -138,7 +138,7 @@ CREATE OR REPLACE TASK TASKS.QUERY_HISTORY_MAINTENANCE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "LARGE"
     AS
 DECLARE
-    start_time timestamp_ltz default (select current_timestamp());
+    start_time text default (select current_timestamp()::TEXT);
     task_name text default 'QUERY_HISTORY_MAINTENANCE';
     object_name text default 'QUERY_HISTORY';
     root_task_id text default (select INTERNAL.ROOT_TASK_ID());
@@ -380,7 +380,7 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_LOAD_MAINTENANCE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
 DECLARE
-    task_start timestamp_ltz default (select current_timestamp());
+    task_start text default (select current_timestamp()::TEXT);
     task_name text default 'WAREHOUSE_LOAD_MAINTENANCE';
     root_task_id text default (select INTERNAL.ROOT_TASK_ID());
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
@@ -390,7 +390,7 @@ BEGIN
     let wh resultset := (select name from internal.sfwarehouses);
     let wh_cur cursor for wh;
     for wh_row in wh_cur do
-        let start_time timestamp_ltz := (select current_timestamp());
+        let start_time text := (select current_timestamp()::TEXT);
         let wh_name varchar := wh_row.name;
         let output object;
         let input object;
