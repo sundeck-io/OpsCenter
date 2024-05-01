@@ -16,6 +16,7 @@ BEGIN
         -- usage granted in 100_final_perms
     ELSE
         SYSTEM$LOG_INFO('Skipping run_as_app procedure because we are installing the application from a different organization');
+        DROP PROCEDURE IF EXISTS admin.run_as_app(string);
     END IF;
 EXCEPTION
     WHEN OTHER THEN
