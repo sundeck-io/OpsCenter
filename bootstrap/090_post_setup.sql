@@ -98,7 +98,29 @@ CREATE OR REPLACE TASK TASKS.UPGRADE_CHECK
     ALLOW_OVERLAPPING_EXECUTION = FALSE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
+BEGIN
+    -- Create a procedure to enable Sundeck developers to debug their own installations of OpsCenter. No-op for non-Sundeck snowflake accounts.
+    BEGIN
+        let org_name text := (select current_organization_name());
+        IF (org_name = 'SUNDECK') THEN
+            CREATE OR REPLACE PROCEDURE admin.run_as_app(sql string)
+            RETURNS table()
+            language sql
+            execute as owner
+            AS
+            BEGIN
+                let rs resultset := (execute immediate sql);
+                return table(rs);
+            END;
+            GRANT USAGE ON PROCEDURE ADMIN.RUN_AS_APP(string) to APPLICATION ROLE ADMIN;
+        END IF;
+    EXCEPTION
+        WHEN OTHER THEN
+            SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Failed to create run_as_app procedure.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
+    END;
+
     CALL ADMIN.UPGRADE_CHECK();
+END;
 
 CREATE OR REPLACE TASK TASKS.PROBE_MONITORING
     SCHEDULE = '1 minute'
@@ -378,28 +400,6 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_SCHEDULING
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
     as
     call INTERNAL.UPDATE_WAREHOUSE_SCHEDULES(NULL, NULL);
-
-CREATE OR REPLACE TASK TASKS.SUNDECK_DEBUG
-    ALLOW_OVERLAPPING_EXECUTION = FALSE
-    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
-    AS
-BEGIN
-    let org_name text := (select current_organization_name());
-    IF (org_name <> 'SUNDECK') THEN
-        RETURN false;
-    END IF;
-
-    CREATE OR REPLACE PROCEDURE admin.run_as_app(sql string)
-    RETURNS table()
-    language sql
-    execute as owner
-    AS
-    BEGIN
-        let rs resultset := (execute immediate sql);
-        return table(rs);
-    END;
-    return true;
-END;
 
 
 -- This clarifies that the post setup script has been executed to match the current installed version.
