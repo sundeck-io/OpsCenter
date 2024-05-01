@@ -379,6 +379,28 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_SCHEDULING
     as
     call INTERNAL.UPDATE_WAREHOUSE_SCHEDULES(NULL, NULL);
 
+CREATE OR REPLACE TASK TASKS.SUNDECK_DEBUG
+    ALLOW_OVERLAPPING_EXECUTION = FALSE
+    USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "X-Small"
+    AS
+BEGIN
+    let org_name text := (select current_organization_name());
+    IF (org_name <> 'SUNDECK') THEN
+        RETURN false;
+    END IF;
+
+    CREATE OR REPLACE PROCEDURE admin.run_as_app(sql string)
+    RETURNS table()
+    language sql
+    execute as owner
+    AS
+    BEGIN
+        let rs resultset := (execute immediate sql);
+        return table(rs);
+    END;
+    return true;
+END;
+
 
 -- This clarifies that the post setup script has been executed to match the current installed version.
 let version string := (select internal.get_version());
