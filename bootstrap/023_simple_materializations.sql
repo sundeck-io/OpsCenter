@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS internal_reporting_mv.warehouse_load_history (start_t
 create or replace view reporting.warehouse_load_history as select * from internal_reporting_mv.warehouse_load_history;
 
 
-CREATE OR REPLACE PROCEDURE internal.refresh_one_warehouse_load_history(warehouse_name varchar, input variant) RETURNS table(sql varchar) LANGUAGE SQL
+CREATE OR REPLACE PROCEDURE internal.refresh_one_warehouse_load_history(warehouse_name varchar, input object) RETURNS table(sql varchar) LANGUAGE SQL
     AS
 begin
     let oldest_running timestamp := 0::timestamp;

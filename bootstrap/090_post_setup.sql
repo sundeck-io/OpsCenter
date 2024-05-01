@@ -85,6 +85,11 @@ BEGIN
     CALL INTERNAL.refresh_warehouse_events(true, :input) into :output;
 
     CALL INTERNAL.FINISH_TASK(:task_name, :object_name, :start_time, :task_run_id, :output);
+
+    -- Warehouse events history is a special case where we want to distinctly track warehouse sessions and cluster sessions
+    -- but not change the existing materialization logic which materializes both at the same time.
+    -- We create a task-level row using the typical API above, but then create domain-specific rows below.
+    CALL INTERNAL.FINISH_WAREHOUSE_EVENTS_TASK(:task_name, :start_time, :task_run_id, :query_id, :input, :output);
 END;
 
 CREATE OR REPLACE TASK TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE

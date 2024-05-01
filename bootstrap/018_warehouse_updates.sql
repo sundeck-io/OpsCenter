@@ -37,7 +37,8 @@ end;
 -- output will contain the following entries
 --  * oldest_running is a timestamp for the old sessions still running
 --  * newest_completed is a timestamp for the newest completed session
---  * range_min and range_max is the minimum and maximum session_end timestamps for the entire materialized dataset at the time of task execution
+--  * Cluster sessions minima/maxima for materialized data is represented as timestamps in 'cluster_range_min' and 'cluster_range_max'
+--  * Warehouse sessions minima/maxima for materialized data is represented as timestamps in 'warehouse_range_min' and 'warehouse_range_max'
 --  * attempted_migrate will be true if the materialized view was migrated. When true, the 'migrate' key contains migration of the complete MV; the 'migrate_INCOMPLETE' key contains migration of the incomplete MV.
 --  * new_records is the number of new records inserted into the complete MV. new_INCOMPLETE is the number of new records inserted into the incomplete MV. new_closed is the number of new records inserted into the complete MV.
 -- If an error is created during execution: SQLERRM, SQLCODE, and SQLSTATE will be returned in the output object.
@@ -88,22 +89,23 @@ BEGIN
             let where_clause_complete varchar := (select 'not incomplete and session_end <> to_timestamp_ltz(\'' || :newest_completed || '\')');
             let new_closed number;
             call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_WH_EVT', :where_clause_complete) into :new_closed;
-            -- Find oldest session, after the new records have been inserted.
-            let range_min timestamp := (select min(session_end) from (
-                select min(session_end) as session_end from INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY
-                union all
-                select min(session_end) as session_end from INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE)
-            );
+
+            -- Find min/max for sessions by cluster and warehouse type, after the new records have been inserted.
+            let warehouse_range_min timestamp := (select min(session_end) from reporting.warehouse_sessions);
+            let warehouse_range_max timestamp := (select max(session_end) from reporting.warehouse_sessions);
+            let cluster_range_min timestamp := (select min(session_end) from reporting.cluster_sessions);
+            let cluster_range_max timestamp := (select max(session_end) from reporting.cluster_sessions);
             output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
-                'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0), 'range_min', :range_min, 'range_max', :newest_completed);
+                'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0),
+                'warehouse_range_min', :warehouse_range_min, 'warehouse_range_max', :warehouse_range_max, 'cluster_range_min', :cluster_range_min, 'cluster_range_max', :cluster_range_max);
         ELSE
-            let range_min timestamp := (select min(session_end) from (
-                select min(session_end) as session_end from INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY
-                union all
-                select min(session_end) as session_end from INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE
-            ));
+            let warehouse_range_min timestamp := (select min(session_end) from reporting.warehouse_sessions);
+            let warehouse_range_max timestamp := (select max(session_end) from reporting.warehouse_sessions);
+            let cluster_range_min timestamp := (select min(session_end) from reporting.cluster_sessions);
+            let cluster_range_max timestamp := (select max(session_end) from reporting.cluster_sessions);
             output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
-                'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0, 'range_min', :range_min, 'range_max', :newest_completed);
+                'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0,
+                'warehouse_range_min', :warehouse_range_min, 'warehouse_range_max', :warehouse_range_max, 'cluster_range_min', :cluster_range_min, 'cluster_range_max', :cluster_range_max);
         END IF;
         DROP TABLE RAW_WH_EVT;
         COMMIT;

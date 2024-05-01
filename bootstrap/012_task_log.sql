@@ -38,6 +38,25 @@ BEGIN
         WHERE task_start = :start_time AND task_run_id = :task_run_id AND task_name = :task_name AND object_name = :object_name;
 END;
 
+-- Special case for the warehouse events task, which inserts extra rows into task log breaking out warehouse and cluster sessions details to
+-- ease reporting on each dataset.
+create or replace procedure internal.finish_warehouse_events_task(task_name text, start_time timestamp_ltz, task_run_id text, query_id text, input object, output object)
+    returns text
+    language sql
+AS
+BEGIN
+    let success boolean := (select :output['SQLERRM'] is null);
+    let cluster_range_min timestamp_ltz := (select :output['cluster_range_min']);
+    let cluster_range_max timestamp_ltz := (select :output['cluster_range_max']);
+    INSERT INTO INTERNAL.TASK_LOG(task_start, success, task_name, object_name, input, output, task_finish, task_run_id, query_id, range_min, range_max)
+    select :start_time, :success, :task_name, 'CLUSTER_SESSIONS', :input, :output, current_timestamp(), :task_run_id, :query_id, :cluster_range_min, :cluster_range_max;
+
+    let warehouse_range_min timestamp_ltz := (select :output['warehouse_range_min']);
+    let warehouse_range_max timestamp_ltz := (select :output['warehouse_range_max']);
+    INSERT INTO INTERNAL.TASK_LOG(task_start, success, task_name, object_name, input, output, task_finish, task_run_id, query_id, range_min, range_max)
+    select :start_time, :success, :task_name, 'WAREHOUSE_SESSIONS', :input, :output, current_timestamp(), :task_run_id, :query_id, :warehouse_range_min, :warehouse_range_max;
+END;
+
 -- Generic table that tasks should record their execution into.
 CREATE TABLE INTERNAL.TASK_LOG IF NOT EXISTS (task_start timestamp_ltz, success boolean, task_name varchar, object_name varchar,
     input variant, output variant, task_finish timestamp_ltz, task_run_id text, query_id text, range_min timestamp_ltz, range_max timestamp_ltz);
