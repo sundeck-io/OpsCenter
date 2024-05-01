@@ -96,13 +96,5 @@ END;
 -- Try to migrate any previous task log records from the old tables
 call internal.migrate_task_logs();
 
--- Create specific-purpose views that we had before.
-CREATE OR REPLACE VIEW REPORTING.SIMPLE_DATA_EVENTS_TASK_HISTORY AS SELECT * exclude (task_name) rename (object_name as table_name)
-    FROM INTERNAL.TASK_LOG WHERE task_name = 'SIMPLE_DATA_EVENTS_MAINTENANCE';
-CREATE OR REPLACE VIEW REPORTING.WAREHOUSE_LOAD_EVENTS_TASK_HISTORY AS SELECT * exclude (task_name) rename (object_name as warehouse_name)
-    FROM INTERNAL.TASK_LOG where task_name = 'WAREHOUSE_LOAD_MAINTENANCE';
-CREATE OR REPLACE VIEW REPORTING.UPGRADE_HISTORY AS SELECT task_start, success, output['old_version'] as old_version, output['new_version'] as new_version, task_finish, task_run_id, query_id,
-    FROM INTERNAL.TASK_LOG where task_name = 'UPGRADE_CHECK';
-
 -- Create a generic view for all task executions.
 CREATE OR REPLACE VIEW REPORTING.TASK_LOG_HISTORY AS SELECT * FROM INTERNAL.TASK_LOG;
