@@ -79,12 +79,12 @@ DECLARE
 BEGIN
     let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
     let input object;
-    CALL INTERNAL.START_TASK(task_name, object_name, start_time, task_run_id, query_id) into input;
+    CALL INTERNAL.START_TASK(:task_name, :object_name, :start_time, :task_run_id, :query_id) into :input;
 
     let output variant;
     CALL INTERNAL.refresh_warehouse_events(true, :input) into :output;
 
-    CALL INTERNAL.FINISH_TASK(task_name, object_name, start_time, task_run_id, output);
+    CALL INTERNAL.FINISH_TASK(:task_name, :object_name, :start_time, :task_run_id, :output);
 END;
 
 CREATE OR REPLACE TASK TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE
@@ -114,12 +114,12 @@ BEGIN
         BEGIN
             let start_time timestamp_ltz := (select current_timestamp());
             let input object;
-            CALL INTERNAL.START_TASK(task_name, table_name, start_time, task_run_id, query_id) into input;
+            CALL INTERNAL.START_TASK(:task_name, :table_name, :start_time, :task_run_id, :query_id) into input;
 
             let output variant;
             CALL INTERNAL.refresh_simple_table(:table_name, :index_col, true, :input) into :output;
 
-            CALL INTERNAL.FINISH_TASK(task_name, table_name, start_time, task_run_id, output);
+            CALL INTERNAL.FINISH_TASK(:task_name, :table_name, :start_time, :task_run_id, :output);
         END;
     END FOR;
 
@@ -141,12 +141,12 @@ DECLARE
 BEGIN
     let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
     let input object;
-    CALL INTERNAL.START_TASK(task_name, object_name, start_time, task_run_id, query_id) into input;
+    CALL INTERNAL.START_TASK(:task_name, :object_name, :start_time, :task_run_id, :query_id) into :input;
 
     let output object;
     CALL INTERNAL.refresh_queries(true, :input) into :output;
 
-    CALL INTERNAL.FINISH_TASK(task_name, object_name, start_time, task_run_id, output);
+    CALL INTERNAL.FINISH_TASK(:task_name, :object_name, :start_time, :task_run_id, :output);
 END;
 
 CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
@@ -382,19 +382,15 @@ DECLARE
 BEGIN
     let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
 
-    let output object;
-    CALL INTERNAL.refresh_queries(true, :input) into :output;
-
-    CALL INTERNAL.FINISH_TASK(task_name, object_name, start_time, task_run_id, output);
     let wh resultset := (select name from internal.sfwarehouses);
     let wh_cur cursor for wh;
     for wh_row in wh_cur do
         let start_time timestamp_ltz := (select current_timestamp());
         let wh_name varchar := wh_row.name;
-        let output variant;
+        let output object;
         let input object;
 
-        CALL INTERNAL.START_TASK(task_name, wh_name, start_time, task_run_id, query_id) into input;
+        CALL INTERNAL.START_TASK(:task_name, :wh_name, :start_time, :task_run_id, :query_id) into :input;
 
         -- We have to run the warehouse load history query in the task and not in a procedure call by the task. The below block is our "task body".
         begin
@@ -416,7 +412,7 @@ BEGIN
                 output := OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate);
         end;
 
-        CALL INTERNAL.FINISH_TASK(task_name, wh_name, start_time, task_run_id, output);
+        CALL INTERNAL.FINISH_TASK(:task_name, :wh_name, :start_time, :task_run_id, :output);
     end for;
 
 exception
