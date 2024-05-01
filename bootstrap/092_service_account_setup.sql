@@ -94,11 +94,12 @@ declare
     old_version varchar default NULL;
     setup_version varchar default internal.get_version();
     task_name text default 'UPGRADE_CHECK';
+    root_task_id text default (select INTERNAL.ROOT_TASK_ID());
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
-    query_id text default (select query_id from table(information_schema.task_history(TASK_NAME => 'UPGRADE_CHECK')) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
 begin
-    let input variant := (select output from internal.task_log where task_name = :task_name order by task_start desc limit 1);
-    INSERT INTO INTERNAL.TASK_LOG(task_start, task_run_id, query_id, input, task_name) SELECT :start_time, :task_run_id, :query_id, :input, :task_name;
+    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+    let input object;
+    CALL INTERNAL.START_TASK(:task_name, :setup_version, :start_time, :task_run_id, :query_id) into :input;
 
     let output variant;
     BEGIN
@@ -122,7 +123,5 @@ begin
             output := OBJECT_CONSTRUCT('error', 'Unhandled exception occurred during UPGRADE_CHECK.', 'SQLCODE', :sqlcode, 'SQLSTATE', :sqlstate, 'SQLERRM', :sqlerrm);
     END;
 
-    let success boolean := (select :output['SQLERRM'] is null);
-    UPDATE INTERNAL.TASK_LOG SET output = :output, success = :success, task_end = current_timestamp()
-        WHERE task_name = :task_name and task_start = :start_time and task_run_id = :task_run_id;
+    CALL INTERNAL.FINISH_TASK(:task_name, :setup_version, :start_time, :task_run_id, :output);
 end;
