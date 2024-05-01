@@ -33,7 +33,15 @@ begin
     return object_construct('migrate1', migrate1, 'migrate2', migrate2);
 end;
 
-CREATE OR REPLACE PROCEDURE internal.refresh_warehouse_events(migrate boolean, input variant) RETURNS OBJECT LANGUAGE SQL
+-- input should have fields oldest_running and newest_completed at a minimum
+-- output will contain the following entries
+--  * oldest_running is a timestamp for the old sessions still running
+--  * newest_completed is a timestamp for the newest completed session
+--  * range_min and range_max is the minimum and maximum session_end timestamps for the entire materialized dataset at the time of task execution
+--  * attempted_migrate will be true if the materialized view was migrated. When true, the 'migrate' key contains migration of the complete MV; the 'migrate_INCOMPLETE' key contains migration of the incomplete MV.
+--  * new_records is the number of new records inserted into the complete MV. new_INCOMPLETE is the number of new records inserted into the incomplete MV. new_closed is the number of new records inserted into the complete MV.
+-- If an error is created during execution: SQLERRM, SQLCODE, and SQLSTATE will be returned in the output object.
+CREATE OR REPLACE PROCEDURE internal.refresh_warehouse_events(migrate boolean, input object) RETURNS OBJECT LANGUAGE SQL
     COMMENT = 'Refreshes the warehouse events materialized view. If migrate is true, then the materialized view will be migrated if necessary.'
     AS
 BEGIN

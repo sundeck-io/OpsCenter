@@ -19,7 +19,15 @@ begin
     return object_construct('migrate1', migrate1, 'migrate2', migrate2);
 end;
 
-CREATE OR REPLACE PROCEDURE internal.refresh_queries(migrate boolean, input variant) RETURNS OBJECT LANGUAGE SQL AS
+-- input should have fields oldest_running and newest_completed at a minimum
+-- output will contain the following entries
+--  * oldest_running is a timestamp for the old sessions still running
+--  * newest_completed is a timestamp for the newest completed session
+--  * range_min and range_max is the minimum and maximum session_end timestamps for the entire materialized dataset at the time of task execution
+--  * attempted_migrate will be true if the materialized view was migrated. When true, the 'migrate' key contains migration of the complete MV; the 'migrate_INCOMPLETE' key contains migration of the incomplete MV.
+--  * new_records is the number of new records inserted into the complete MV. new_INCOMPLETE is the number of new records inserted into the incomplete MV. new_closed is the number of new records inserted into the complete MV.
+-- If an error is created during execution: SQLERRM, SQLCODE, and SQLSTATE will be returned in the output object.
+CREATE OR REPLACE PROCEDURE internal.refresh_queries(migrate boolean, input OBJECT) RETURNS OBJECT LANGUAGE SQL AS
 BEGIN
     SYSTEM$LOG_INFO('Starting refresh queries.');
     let migrate1 string := null;
@@ -64,19 +72,11 @@ BEGIN
             let new_closed number;
             call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_QH_EVT', :where_clause_complete) into :new_closed;
             -- Figure out the oldest row in the table
-            let range_min timestamp := (select min(end_time) from (
-                select min(end_time) as end_time from internal_reporting_mv.QUERY_HISTORY_COMPLETE_AND_DAILY
-                union all
-                select min(end_time) as end_time from internal_reporting_mv.QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE
-            ));
+            let range_min timestamp := (select min(end_time) as end_time from reporting.enriched_query_history);
             output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
                 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0), 'range_min', :range_min, 'range_max', :newest_completed);
         ELSE
-            let range_min timestamp := (select min(end_time) from (
-                select min(end_time) as end_time from internal_reporting_mv.QUERY_HISTORY_COMPLETE_AND_DAILY
-                union all
-                select min(end_time) as end_time from internal_reporting_mv.QUERY_HISTORY_COMPLETE_AND_DAILY_INCOMPLETE
-            ));
+            let range_min timestamp := (select min(end_time) as end_time from reporting.enriched_query_history);
             output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
                 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0, 'range_min', :range_min, 'range_max', :newest_completed);
         END IF;

@@ -72,19 +72,19 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_EVENTS_MAINTENANCE
     AS
 DECLARE
     start_time timestamp_ltz default (select current_timestamp());
+    root_task_id text default (select INTERNAL.ROOT_TASK_ID());
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
     task_name text default 'WAREHOUSE_EVENTS_MAINTENANCE';
     object_name text default 'WAREHOUSE_EVENTS_HISTORY';
 BEGIN
-    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
-    let input variant := (select output from INTERNAL.TASK_LOG where success AND task_name = :task_name AND object_name = :object_name order by task_start desc limit 1);
-    INSERT INTO INTERNAL.TASK_LOG(task_start, task_run_id, query_id, input, task_name, object_name) select :start_time, :task_run_id, :query_id, :input, :task_name, :object_name;
+    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+    let input object;
+    CALL INTERNAL.START_TASK(task_name, object_name, start_time, task_run_id, query_id) into input;
 
     let output variant;
     CALL INTERNAL.refresh_warehouse_events(true, :input) into :output;
 
-    let success boolean := (select :output['SQLERRM'] is null);
-    UPDATE INTERNAL.TASK_LOG SET success = :success, output = :output, task_finish = current_timestamp() WHERE task_start = :start_time AND task_run_id = :task_run_id;
+    CALL INTERNAL.FINISH_TASK(task_name, object_name, start_time, task_run_id, output);
 END;
 
 CREATE OR REPLACE TASK TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE
@@ -94,9 +94,10 @@ CREATE OR REPLACE TASK TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE
     AS
 DECLARE
     task_name text default 'SIMPLE_DATA_EVENTS_MAINTENANCE';
+    root_task_id text default (select INTERNAL.ROOT_TASK_ID());
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
 BEGIN
-    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
     let simple_tables resultset := (SELECT t.table_name, t.index_col FROM (VALUES
         ('SERVERLESS_TASK_HISTORY', 'end_time'),
         ('TASK_HISTORY', 'completed_time'),
@@ -112,14 +113,13 @@ BEGIN
         let index_col text := rowvar.index_col;
         BEGIN
             let start_time timestamp_ltz := (select current_timestamp());
-            let input object := (select output from INTERNAL.TASK_LOG where success and task_name = :task_name and object_name = :table_name order by task_start desc limit 1);
-            INSERT INTO INTERNAL.TASK_LOG(task_start, task_run_id, query_id, input, task_name, object_name) select :start_time, :task_run_id, :query_id, :input, :task_name, :table_name;
+            let input object;
+            CALL INTERNAL.START_TASK(task_name, table_name, start_time, task_run_id, query_id) into input;
 
             let output variant;
             CALL INTERNAL.refresh_simple_table(:table_name, :index_col, true, :input) into :output;
 
-            let success boolean := (select :output['SQLERRM'] is null);
-            UPDATE INTERNAL.TASK_LOG SET success = :success, output = :output, task_finish = current_timestamp() WHERE task_start = :start_time AND task_run_id = :task_run_id and task_name = :task_name AND object_name = :table_name;
+            CALL INTERNAL.FINISH_TASK(task_name, table_name, start_time, task_run_id, output);
         END;
     END FOR;
 
@@ -136,17 +136,17 @@ DECLARE
     start_time timestamp_ltz default (select current_timestamp());
     task_name text default 'QUERY_HISTORY_MAINTENANCE';
     object_name text default 'QUERY_HISTORY';
+    root_task_id text default (select INTERNAL.ROOT_TASK_ID());
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
 BEGIN
-    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
-    let input variant := (select output from INTERNAL.TASK_LOG where success AND task_name = :task_name AND object_name = :object_name order by task_start desc limit 1);
-    INSERT INTO INTERNAL.TASK_LOG(task_start, task_run_id, query_id, input, task_name, object_name) select :start_time, :task_run_id, :query_id, :input, :task_name, :object_name;
+    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+    let input object;
+    CALL INTERNAL.START_TASK(task_name, object_name, start_time, task_run_id, query_id) into input;
 
-    let output variant;
+    let output object;
     CALL INTERNAL.refresh_queries(true, :input) into :output;
 
-    let success boolean := (select :output['SQLERRM'] is null);
-    UPDATE INTERNAL.TASK_LOG SET success = :success, output = :output, task_finish = current_timestamp() WHERE task_start = :start_time AND task_run_id = :task_run_id AND task_name = :task_name AND object_name = :object_name;
+    CALL INTERNAL.FINISH_TASK(task_name, object_name, start_time, task_run_id, output);
 END;
 
 CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
@@ -377,17 +377,24 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_LOAD_MAINTENANCE
 DECLARE
     task_start timestamp_ltz default (select current_timestamp());
     task_name text default 'WAREHOUSE_LOAD_MAINTENANCE';
+    root_task_id text default (select INTERNAL.ROOT_TASK_ID());
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
 BEGIN
-    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+
+    let output object;
+    CALL INTERNAL.refresh_queries(true, :input) into :output;
+
+    CALL INTERNAL.FINISH_TASK(task_name, object_name, start_time, task_run_id, output);
     let wh resultset := (select name from internal.sfwarehouses);
     let wh_cur cursor for wh;
     for wh_row in wh_cur do
         let start_time timestamp_ltz := (select current_timestamp());
         let wh_name varchar := wh_row.name;
         let output variant;
-        let input variant := (select output from INTERNAL.TASK_LOG where success and task_name = :task_name and object_name = :wh_name order by task_start desc limit 1);
-        INSERT INTO INTERNAL.TASK_LOG(task_start, task_run_id, query_id, input, task_name, object_name) select :start_time, :task_run_id, :query_id, :input, :task_name, :wh_name;
+        let input object;
+
+        CALL INTERNAL.START_TASK(task_name, wh_name, start_time, task_run_id, query_id) into input;
 
         -- We have to run the warehouse load history query in the task and not in a procedure call by the task. The below block is our "task body".
         begin
@@ -409,8 +416,7 @@ BEGIN
                 output := OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate);
         end;
 
-        let success boolean := (select :output['SQLERRM'] is null);
-        UPDATE INTERNAL.TASK_LOG SET success = :success, output = :output, task_finish = current_timestamp() WHERE task_start = :start_time AND task_run_id = :task_run_id AND task_name = :task_name AND object_name = :wh_name;
+        CALL INTERNAL.FINISH_TASK(task_name, wh_name, start_time, task_run_id, output);
     end for;
 
 exception
