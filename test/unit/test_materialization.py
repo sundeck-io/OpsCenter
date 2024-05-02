@@ -237,4 +237,3 @@ def test_materialization_status(conn):
         assert len(rows) == len(
             reporting_views
         ), f"Expected equal number of reporting views as rows in admin.materialization_status. Reporting views {reporting_views}, materialization_status rows {rows}"
-
