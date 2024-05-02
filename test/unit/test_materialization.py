@@ -114,7 +114,7 @@ def test_start_finish_task(conn):
         )
 
         # internal.start_task(task_name text, object_name text, start_time text, task_run_id text, query_id text)
-        task_start = "2021-01-01 00:00:00.000"
+        task_start = "2021-01-01 00:00:00.000000"
         run_id = "test_run_id"
         query_id = "test_query_id"
         row = cur.execute(
@@ -151,7 +151,7 @@ def test_start_finish_task(conn):
             "oldest_running": "2021-12-31 23:45:00",
         }
         cur.execute(
-            f"CALL INTERNAL.FINISH_TASK('test_task', 'test_object', '{task_start}', '{run_id}', '{json.dump(output)}')"
+            f"CALL INTERNAL.FINISH_TASK('test_task', 'test_object', '{task_start}'::TIMESTAMP_NTZ, '{run_id}', PARSE_JSON('{json.dumps(output)}'))"
         ).fetchone()
 
         rows = cur.execute(
@@ -167,7 +167,7 @@ def test_start_finish_task(conn):
         # And that we have new fields now.
         assert rows[0]["SUCCESS"] is True
         assert rows[0]["TASK_FINISH"] is not None
-        assert_is_datetime(rows[0]["TASK_FINISH"])
+        assert isinstance(rows[0]["TASK_FINISH"], datetime.datetime)
         assert rows[0]["OUTPUT"] is not None
         actual_output = json.loads(rows[0]["OUTPUT"])
         assert (
