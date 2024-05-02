@@ -2,6 +2,14 @@ import datetime
 import json
 from snowflake.connector.cursor import DictCursor
 
+TIMESTAMP_PATTERN = "%Y-%m-%d %H:%M:%S.%f"
+
+
+def assert_is_datetime(s: str):
+    assert datetime.datetime.strptime(
+        s, TIMESTAMP_PATTERN
+    ), f"Expected value to be a datetime: {s}"
+
 
 def test_query_history_migration(conn):
     with conn() as cnx, cnx.cursor() as cur:
@@ -93,5 +101,75 @@ def test_task_log(conn):
             for f in fields:
                 assert f in output, f"Expected field {f} in output: {output}"
                 assert datetime.datetime.strptime(
-                    output[f], "%Y-%m-%d %H:%M:%S.%f"
+                    output[f], TIMESTAMP_PATTERN
                 ), f"Expected field {f} to be a datetime: {output[f]}"
+
+
+def test_start_finish_task(conn):
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        task_name = "test_task"
+        object_name = "test_object"
+        cur.execute(
+            f"DELETE FROM INTERNAL.TASK_LOG WHERE TASK_NAME = '{task_name}' AND OBJECT_NAME = '{object_name}'"
+        )
+
+        # internal.start_task(task_name text, object_name text, start_time text, task_run_id text, query_id text)
+        task_start = "2021-01-01 00:00:00.000"
+        run_id = "test_run_id"
+        query_id = "test_query_id"
+        row = cur.execute(
+            f"CALL INTERNAL.START_TASK('test_task', 'test_object', '{task_start}', '{run_id}', '{query_id}')"
+        ).fetchone()
+
+        assert row["START_TASK"] is None, "Expected not to find an input to be None"
+
+        rows = cur.execute(
+            f"select * from internal.task_log where task_name = '{task_name}' and object_name = '{object_name}'"
+        ).fetchall()
+        assert len(rows) == 1
+
+        assert rows[0]["TASK_START"].strftime(TIMESTAMP_PATTERN) == task_start
+        assert rows[0]["TASK_RUN_ID"] == run_id
+        assert rows[0]["QUERY_ID"] == query_id
+        for f in [
+            "TASK_FINISH",
+            "INPUT",
+            "OUTPUT",
+            "SUCCESS",
+            "RANGE_MIN",
+            "RANGE_MAX",
+        ]:
+            assert rows[0][f] is None, f"Expected field {f} to be None: {rows[0][f]}"
+
+        output = {
+            "new_records": 100,
+            "new_INCOMPLETE": 1,
+            "new_closed": 99,
+            "range_min": "2021-01-01 00:00:00",
+            "range_max": "2021-12-31 23:59:00",
+            "newest_completed": "2021-12-31 23:59:00",
+            "oldest_running": "2021-12-31 23:45:00",
+        }
+        cur.execute(
+            f"CALL INTERNAL.FINISH_TASK('test_task', 'test_object', '{task_start}', '{run_id}', '{json.dump(output)}')"
+        ).fetchone()
+
+        rows = cur.execute(
+            f"select * from internal.task_log where task_name = '{task_name}' and object_name = '{object_name}'"
+        ).fetchall()
+        assert len(rows) == 1
+
+        # Check that the old fields are still set
+        assert rows[0]["TASK_START"].strftime(TIMESTAMP_PATTERN) == task_start
+        assert rows[0]["TASK_RUN_ID"] == run_id
+        assert rows[0]["QUERY_ID"] == query_id
+
+        # And that we have new fields now.
+        assert rows[0]["SUCCESS"] is True
+        assert rows[0]["TASK_FINISH"] is not None
+        assert_is_datetime(rows[0]["TASK_FINISH"])
+        assert rows[0]["OUTPUT"] is not None
+        actual_output = json.loads(rows[0]["OUTPUT"])
+        assert (
+            actual_output == output
+        ), f"Expected output to be {output}, got {actual_output}"
