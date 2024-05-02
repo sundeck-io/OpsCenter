@@ -279,8 +279,7 @@ with reset:
         connection.execute(
             """
         begin
-            truncate table internal.task_query_history;
-            truncate table internal.task_warehouse_events;
+            truncate table internal.task_log;
             truncate table internal_reporting_mv.cluster_and_warehouse_sessions_complete_and_daily;
             truncate table internal_reporting_mv.query_history_complete_and_daily;
         end;

@@ -11,12 +11,6 @@ BEGIN
     COMMIT;
 END;
 
-CREATE TABLE INTERNAL.TASK_SIMPLE_DATA_EVENTS IF NOT EXISTS (run timestamp, success boolean, table_name varchar, input variant, output variant);
-CREATE TABLE INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS IF NOT EXISTS (run timestamp, success boolean, warehouse_name varchar, input variant, output variant);
-
-CREATE OR REPLACE VIEW REPORTING.SIMPLE_DATA_EVENTS_TASK_HISTORY AS SELECT * FROM INTERNAL.TASK_SIMPLE_DATA_EVENTS;
-CREATE OR REPLACE VIEW REPORTING.WAREHOUSE_LOAD_EVENTS_TASK_HISTORY AS SELECT * FROM INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS;
-
 CREATE OR REPLACE PROCEDURE internal.migrate_events(table_name varchar)
 returns variant
 language sql
@@ -29,11 +23,10 @@ begin
     return object_construct('migrate1', migrate1);
 end;
 
-CREATE OR REPLACE PROCEDURE internal.refresh_simple_table(table_name varchar, index_col varchar, migrate boolean) RETURNS STRING LANGUAGE SQL
+CREATE OR REPLACE PROCEDURE internal.refresh_simple_table(table_name varchar, index_col varchar, migrate boolean, input variant) RETURNS OBJECT LANGUAGE SQL
     COMMENT = 'Refreshes the materialized view for a given table. If migrate is true, then the materialized view will be migrated if necessary.'
     AS
 BEGIN
-    let dt timestamp := current_timestamp();
     SYSTEM$LOG_INFO('Starting refresh ' || :table_name || ' events.');
     let migrate1 string := null;
     if (migrate) then
@@ -42,10 +35,9 @@ BEGIN
         migrate1 := migrate_result:migrate1::string;
     end if;
 
-    let input variant := null;
+    let output variant := null;
     BEGIN
         BEGIN TRANSACTION;
-        input := (select output from INTERNAL.TASK_SIMPLE_DATA_EVENTS where success and table_name = :table_name order by run desc limit 1);
         let oldest_running timestamp := 0::timestamp;
 
         if (input is not null) then
@@ -61,18 +53,19 @@ BEGIN
         let where_clause_complete varchar := (select :index_col || ' >= to_timestamp_ltz(\'' || :oldest_running || '\')');
         let new_closed number;
         call internal.generate_insert_statement('INTERNAL_REPORTING_MV', :table_name, 'ACCOUNT_USAGE', :table_name, :where_clause_complete) into :new_closed;
+        let range_min timestamp := (select min(identifier(:index_col)) from identifier(:table_ident));
         let new_running timestamp := (select max(identifier(:index_col)) from identifier(:table_ident));
-        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, true, :table_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'attempted_migrate', :migrate, 'new_records', coalesce(:new_closed, 0))::VARIANT;
+        output := OBJECT_CONSTRUCT('oldest_running', :new_running, 'attempted_migrate', :migrate, 'new_records', coalesce(:new_closed, 0), 'range_min', :range_min, 'range_max', :new_running);
         COMMIT;
 
     EXCEPTION
       WHEN OTHER THEN
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :table_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
         ROLLBACK;
-        insert into INTERNAL.TASK_SIMPLE_DATA_EVENTS SELECT :dt, false, :table_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
-        RAISE;
-
+        output := OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate);
     END;
+
+    return output;
 end;
 
 create or replace procedure internal.migrate_simple_data_view(table_name varchar) returns variant language sql as
@@ -120,32 +113,24 @@ CREATE TABLE IF NOT EXISTS internal_reporting_mv.warehouse_load_history (start_t
 create or replace view reporting.warehouse_load_history as select * from internal_reporting_mv.warehouse_load_history;
 
 
-CREATE OR REPLACE PROCEDURE internal.refresh_one_warehouse_load_history(warehouse_name varchar) RETURNS table(sql varchar) LANGUAGE SQL
+CREATE OR REPLACE PROCEDURE internal.refresh_one_warehouse_load_history(warehouse_name varchar, input object) RETURNS table(sql varchar) LANGUAGE SQL
     AS
 begin
-    let dt timestamp := current_timestamp();
+    let oldest_running timestamp := 0::timestamp;
 
-    let input variant := null;
-    BEGIN
-        input := (select output from INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS where success and warehouse_name = :warehouse_name order by run desc limit 1);
-        let oldest_running timestamp := 0::timestamp;
+    if (input is not null) then
+        oldest_running := coalesce(input:oldest_running::timestamp, 0::timestamp);
+    end if;
 
-        if (input is not null) then
-            oldest_running := coalesce(input:oldest_running::timestamp, 0::timestamp);
-        end if;
+    let stmt varchar := 'insert into internal_reporting_mv.warehouse_load_history select start_time, end_time, warehouse_name, avg_running, avg_queued_load, avg_queued_provisioning, avg_blocked from table(information_schema.warehouse_load_history(date_range_start => to_timestamp_ltz(\'{start_time}\'), date_range_end => to_timestamp_ltz(\'{end_time}\'), warehouse_name => \'"{warehouse_name}"\'))';
+    let start_time timestamp := (select greatest(:oldest_running, dateadd(day, -14, current_timestamp())));
+    let res resultset := (select tools.templatejs(:stmt,
+        {
+          'warehouse_name': :warehouse_name,
+          'start_time': dateadd(hours, value, :start_time)::text,
+          'end_time': dateadd(hours, value+8, :start_time)::text
+        })
+    from table(flatten(input=>array_generate_range(0, datediff(hours, :start_time, current_timestamp()), 8))) f);
 
-        let stmt varchar := 'insert into internal_reporting_mv.warehouse_load_history select start_time, end_time, warehouse_name, avg_running, avg_queued_load, avg_queued_provisioning, avg_blocked from table(information_schema.warehouse_load_history(date_range_start => to_timestamp_ltz(\'{start_time}\'), date_range_end => to_timestamp_ltz(\'{end_time}\'), warehouse_name => \'"{warehouse_name}"\'))';
-        let start_time timestamp := (select greatest(:oldest_running, dateadd(day, -14, current_timestamp())));
-        let res resultset := (select tools.templatejs(:stmt,
-            {
-              'warehouse_name': :warehouse_name,
-              'start_time': dateadd(hours, value, :start_time)::text,
-              'end_time': dateadd(hours, value+8, :start_time)::text
-            })
-        from table(flatten(input=>array_generate_range(0, datediff(hours, :start_time, current_timestamp()), 8))) f);
-
-        return table(res);
-
-
-    END;
+    return table(res);
 end;

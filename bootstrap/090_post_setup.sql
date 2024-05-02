@@ -70,21 +70,89 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_EVENTS_MAINTENANCE
     ALLOW_OVERLAPPING_EXECUTION = FALSE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
-    CALL INTERNAL.refresh_warehouse_events(true);
+DECLARE
+    start_time timestamp_ntz default (select current_timestamp()::TIMESTAMP_NTZ);
+    root_task_id text default (select INTERNAL.ROOT_TASK_ID());
+    task_run_id text default (select INTERNAL.TASK_RUN_ID());
+    task_name text default 'WAREHOUSE_EVENTS_MAINTENANCE';
+    object_name text default 'WAREHOUSE_EVENTS_HISTORY';
+BEGIN
+    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+    let input object;
+    CALL INTERNAL.START_TASK(:task_name, :object_name, :start_time, :task_run_id, :query_id) into :input;
+
+    let output variant;
+    CALL INTERNAL.refresh_warehouse_events(true, :input) into :output;
+
+    CALL INTERNAL.FINISH_TASK(:task_name, :object_name, :start_time, :task_run_id, :output);
+
+    -- Warehouse events history is a special case where we want to distinctly track warehouse sessions and cluster sessions
+    -- but not change the existing materialization logic which materializes both at the same time.
+    -- We create a task-level row using the typical API above, but then create domain-specific rows below.
+    CALL INTERNAL.FINISH_WAREHOUSE_EVENTS_TASK(:task_name, :start_time, :task_run_id, :query_id, :input, :output);
+END;
 
 CREATE OR REPLACE TASK TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE
     SCHEDULE = '60 minute'
     ALLOW_OVERLAPPING_EXECUTION = FALSE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
-    CALL INTERNAL.refresh_all_simple_tables(true);
+DECLARE
+    task_name text default 'SIMPLE_DATA_EVENTS_MAINTENANCE';
+    root_task_id text default (select INTERNAL.ROOT_TASK_ID());
+    task_run_id text default (select INTERNAL.TASK_RUN_ID());
+BEGIN
+    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+    let simple_tables resultset := (SELECT t.table_name, t.index_col FROM (VALUES
+        ('SERVERLESS_TASK_HISTORY', 'end_time'),
+        ('TASK_HISTORY', 'completed_time'),
+        ('SESSIONS', 'created_on'),
+        ('WAREHOUSE_METERING_HISTORY', 'end_time'),
+        ('LOGIN_HISTORY', 'event_timestamp'),
+        ('HYBRID_TABLE_USAGE_HISTORY', 'end_time'),
+        ('MATERIALIZED_VIEW_REFRESH_HISTORY', 'end_time')
+    ) AS t(table_name, index_col));
+    let cur cursor for simple_tables;
+    FOR rowvar IN cur DO
+        let table_name text := rowvar.table_name;
+        let index_col text := rowvar.index_col;
+        BEGIN
+            let start_time TIMESTAMP_NTZ := (select current_timestamp()::TIMESTAMP_NTZ);
+            let input object;
+            CALL INTERNAL.START_TASK(:task_name, :table_name, :start_time, :task_run_id, :query_id) into input;
+
+            let output variant;
+            CALL INTERNAL.refresh_simple_table(:table_name, :index_col, true, :input) into :output;
+
+            CALL INTERNAL.FINISH_TASK(:task_name, :table_name, :start_time, :task_run_id, :output);
+        END;
+    END FOR;
+
+    -- TODO add table log
+    call internal.refresh_warehouses();
+END;
 
 CREATE OR REPLACE TASK TASKS.QUERY_HISTORY_MAINTENANCE
     SCHEDULE = '60 minute'
     ALLOW_OVERLAPPING_EXECUTION = FALSE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "LARGE"
     AS
-    CALL INTERNAL.refresh_queries(true);
+DECLARE
+    start_time timestamp_ntz default (select current_timestamp()::TIMESTAMP_NTZ);
+    task_name text default 'QUERY_HISTORY_MAINTENANCE';
+    object_name text default 'QUERY_HISTORY';
+    root_task_id text default (select INTERNAL.ROOT_TASK_ID());
+    task_run_id text default (select INTERNAL.TASK_RUN_ID());
+BEGIN
+    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+    let input object;
+    CALL INTERNAL.START_TASK(:task_name, :object_name, :start_time, :task_run_id, :query_id) into :input;
+
+    let output object;
+    CALL INTERNAL.refresh_queries(true, :input) into :output;
+
+    CALL INTERNAL.FINISH_TASK(:task_name, :object_name, :start_time, :task_run_id, :output);
+END;
 
 CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
     SCHEDULE = '1440 minute'
@@ -311,15 +379,27 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_LOAD_MAINTENANCE
     ALLOW_OVERLAPPING_EXECUTION = FALSE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
+DECLARE
+    task_start text default (select current_timestamp()::TEXT);
+    task_name text default 'WAREHOUSE_LOAD_MAINTENANCE';
+    root_task_id text default (select INTERNAL.ROOT_TASK_ID());
+    task_run_id text default (select INTERNAL.TASK_RUN_ID());
 BEGIN
-    let dt timestamp := current_timestamp();
+    let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+
     let wh resultset := (select name from internal.sfwarehouses);
     let wh_cur cursor for wh;
     for wh_row in wh_cur do
+        let start_time timestamp_ntz := (select current_timestamp()::TIMESTAMP_NTZ);
         let wh_name varchar := wh_row.name;
-        let input variant := (select output from INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS where success and warehouse_name = :wh_name order by run desc limit 1);
+        let output object;
+        let input object;
+
+        CALL INTERNAL.START_TASK(:task_name, :wh_name, :start_time, :task_run_id, :query_id) into :input;
+
+        -- We have to run the warehouse load history query in the task and not in a procedure call by the task. The below block is our "task body".
         begin
-            let stmt resultset := (call internal.refresh_one_warehouse_load_history(:wh_name));
+            let stmt resultset := (call internal.refresh_one_warehouse_load_history(:wh_name, :input));
             let stmt_cur cursor for stmt;
             let total_inserted_rows number := 0;
             for stmt_row in stmt_cur do
@@ -328,20 +408,22 @@ BEGIN
                 let new_inserted_rows number := (select * from TABLE(RESULT_SCAN(LAST_QUERY_ID())));
                 total_inserted_rows := total_inserted_rows + new_inserted_rows;
             end for;
+            let range_min timestamp := (select min(end_time) from internal_reporting_mv.warehouse_load_history where warehouse_name = :wh_name);
             let new_running timestamp := (select max(end_time) from internal_reporting_mv.warehouse_load_history where warehouse_name = :wh_name);
-            insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, true, :wh_name, :input, OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:total_inserted_rows, 0))::VARIANT;
+            output := OBJECT_CONSTRUCT('oldest_running', :new_running, 'new_records', coalesce(:total_inserted_rows, 0), 'range_min', :range_min, 'range_max', :new_running);
         exception
             when other then
                 SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing ' || :wh_name || ' events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-                insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, false, :wh_name, :input, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
-                RAISE;
+                output := OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate);
         end;
+
+        CALL INTERNAL.FINISH_TASK(:task_name, :wh_name, :start_time, :task_run_id, :output);
     end for;
 
 exception
     when other then
         SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while refreshing all warehouse events.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
-        insert into INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS SELECT :dt, false, 'all', null, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant;
+        insert into INTERNAL.TASK_LOG(task_start, success, object_name, input, output, task_run_id, query_id, task_name) SELECT :task_start, false, 'all', null, OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate)::variant, :task_run_id, :query_id, :task_name;
         RAISE;
 end;
 
