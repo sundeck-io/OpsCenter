@@ -72,12 +72,12 @@ BEGIN
         BEGIN TRANSACTION;
         let config_key := (select 'MIGRATION_TASK_QUERY_HISTORY');
         let config_value text;
-        call internal.get_config(config_key) into :config_value;
+        call internal.get_config(:config_key) into :config_value;
         if (config_value is null) then
             INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
                 SELECT tqh.run, tqh.success, 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', tqh.input, tqh.output, null
                 FROM INTERNAL.TASK_QUERY_HISTORY tqh;
-            call internal.set_config(config_key, 'true');
+            call internal.set_config(:config_key, 'true');
         END IF;
         commit;
     end if;
@@ -86,12 +86,12 @@ BEGIN
         BEGIN TRANSACTION;
         let config_key := (select 'MIGRATION_TASK_WAREHOUSE_EVENTS');
         let config_value text;
-        call internal.get_config(config_key) into :config_value;
+        call internal.get_config(:config_key) into :config_value;
         if (config_value is null) then
             INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
                 SELECT twe.run, twe.success, 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_EVENTS_HISTORY', twe.input, twe.output, null
                 FROM INTERNAL.TASK_WAREHOUSE_EVENTS twe;
-            call internal.set_config(config_key, 'true');
+            call internal.set_config(:config_key, 'true');
         END IF;
         commit;
     end if;
@@ -100,13 +100,28 @@ BEGIN
         BEGIN TRANSACTION;
         let config_key := (select 'MIGRATION_TASK_SIMPLE_DATA_EVENTS');
         let config_value text;
-        call internal.get_config(config_key) into :config_value;
+        call internal.get_config(:config_key) into :config_value;
         if (config_value is null) then
             -- Different from the previous, carrying table_name into task_log as object_name
             INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
                 SELECT tsde.run, tsde.success, 'SIMPLE_DATA_EVENTS_MAINTENANCE', tsde.table_name, tsde.input, tsde.output, null
                 FROM INTERNAL.TASK_SIMPLE_DATA_EVENTS tsde;
-            call internal.set_config(config_key, 'true');
+            call internal.set_config(:config_key, 'true');
+        END IF;
+        commit;
+    end if;
+
+    if (exists (select * from information_schema.tables where table_schema = 'INTERNAL' and table_name = 'TASK_WAREHOUSE_LOAD_EVENTS')) then
+        BEGIN TRANSACTION;
+        let config_key := (select 'MIGRATION_TASK_WAREHOUSE_LOAD_EVENTS');
+        let config_value text;
+        call internal.get_config(:config_key) into :config_value;
+        if (config_value is null) then
+            -- Different from the previous, carrying table_name into task_log as object_name
+            INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
+                SELECT twle.run, twle.success, 'WAREHOUSE_LOAD_MAINTENANCE', twle.warehouse_name, twle.input, twle.output, null
+                FROM INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS twle;
+            call internal.set_config(:config_key, 'true');
         END IF;
         commit;
     end if;
