@@ -9,8 +9,73 @@ $$;
 create or replace view admin.materialization_status
     copy grants
 as
-with task_tables as (
-    select user_schema, user_view, task_name, object_name, task_period_mins from ( values
+WITH RANKED_RAW AS (
+    select
+        task_start,
+        task_finish,
+        case
+            when success is null then null
+            when success then 'SUCCESS'
+            else 'FAILURE'
+        end as success,
+        input,
+        output,
+        task_name,
+        object_name,
+        INPUT is null as full_refresh,
+        SUCCESS IS NULL AS RUNNING,
+        output['SQLERRM']::TEXT as error_message,
+        query_id,
+        range_min,
+        range_max,
+    FROM REPORTING.TASK_LOG_HISTORY
+    -- limit to the last record of each type.
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY task_name, object_name, full_refresh, running ORDER BY task_start DESC) = 1
+),
+
+summary as (
+select
+    task_name,
+    object_name,
+
+    ANY_VALUE(IFF(full_refresh AND NOT RUNNING, task_start, null)) AS last_full_start,
+    ANY_VALUE(IFF(full_refresh AND NOT RUNNING, task_finish, null)) AS last_full_end,
+    ANY_VALUE(IFF(full_refresh AND NOT RUNNING, success, null)) AS last_full_status,
+    ANY_VALUE(IFF(full_refresh AND NOT RUNNING, error_message, null)) AS last_full_error_message,
+    ANY_VALUE(IFF(full_refresh AND NOT RUNNING, query_id, null)) AS last_full_query_id,
+
+    ANY_VALUE(IFF(NOT full_refresh AND NOT RUNNING, task_start, null)) AS last_incr_start,
+    ANY_VALUE(IFF(NOT full_refresh AND NOT RUNNING, task_finish, null)) AS last_incr_end,
+    ANY_VALUE(IFF(NOT full_refresh AND NOT RUNNING, success, null)) AS last_incr_status,
+    ANY_VALUE(IFF(NOT full_refresh AND NOT RUNNING, error_message, null)) AS last_incr_error_message,
+    ANY_VALUE(IFF(NOT full_refresh AND NOT RUNNING, query_id, null)) AS last_incr_query_id,
+
+    MAX(IFF(NOT RUNNING, task_start, null)) AS last_start,
+
+    ANY_VALUE(IFF(RUNNING, task_start, null)) AS running_start,
+    ANY_VALUE(IFF(RUNNING, task_finish, null)) AS running_end,
+    ANY_VALUE(IFF(RUNNING, query_id, null)) AS running_query_id,
+    ANY_VALUE(IFF(RUNNING, IFF(full_refresh, 'FULL', 'INCREMENTAL'), null)) AS running_type,
+    FROM RANKED_RAW
+    GROUP BY task_name, object_name
+),
+
+-- don't report the last incremental unless it comes after a successful full refresh.
+summary_onlyincrpostfull as (
+select
+    last_incr_start > last_full_end and last_full_status = 'SUCCESS' as incr_valid,
+    * REPLACE (
+    IFF(incr_valid, last_incr_start, null) as last_incr_start,
+    IFF(incr_valid, last_incr_end, null) as last_incr_end,
+    IFF(incr_valid, last_incr_status, null) as last_incr_status,
+    IFF(incr_valid, last_incr_error_message, null) as last_incr_error_message,
+    IFF(incr_valid, last_incr_query_id, null) as last_incr_query_id
+    )
+    FROM summary
+),
+
+task_tables as (
+    select * from ( values
         ('REPORTING', 'DBT_HISTORY', 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', 60),
         ('REPORTING', 'ENRICHED_QUERY_HISTORY', 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', 60),
         ('REPORTING', 'ENRICHED_QUERY_HISTORY_DAILY', 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', 60),
@@ -34,69 +99,33 @@ with task_tables as (
         ('REPORTING', 'WAREHOUSE_SESSIONS_DAILY', 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_SESSIONS', 60),
         ('REPORTING', 'WAREHOUSE_SESSIONS_HOURLY', 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_SESSIONS', 60)
     ) as t(user_schema, user_view, task_name, object_name, task_period_mins)
-    UNION ALL
-    -- Expand all pairs of WAREHOUSE_LOAD_MAINTENANCE + warehouse_name (as object_name)
-    select 'REPORTING', 'WAREHOUSE_LOAD_HISTORY', 'WAREHOUSE_LOAD_MAINTENANCE', object_name, 60 from (select distinct object_name from internal.task_log where task_name = 'WAREHOUSE_LOAD_MAINTENANCE')
-), completed_tasks as (
-    -- The history rows generated every time a task is run and the table that task is managing
-    select task_start, task_finish, success, input, output, task_name, object_name, IFF(INPUT is null, 'FULL', 'INCREMENTAL') as kind, query_id, range_min, range_max,
-    FROM INTERNAL.TASK_LOG
-    WHERE success is not null
-), running_tasks as (
-    select task_start, task_finish, success, input, output, task_name, object_name, IFF(INPUT is null, 'FULL', 'INCREMENTAL') as kind, query_id, range_min, range_max,
-    FROM INTERNAL.TASK_LOG
-    WHERE success is null
-), fullmat as (
-    SELECT ct.task_name, ct.object_name, ct.task_start, ct.task_finish, ct.success,
-        output['SQLERRM'] as error_message, ct.range_min, ct.range_max, ct.query_id,
-    FROM completed_tasks ct
-    WHERE (ct.object_name, ct.task_name, ct.task_start) IN (
-        SELECT object_name, task_name, MAX(task_start)
-        FROM completed_tasks
-        WHERE KIND = 'FULL'
-        GROUP BY object_name, task_name
-    )
-), incmat as (
-    SELECT ct.task_name, ct.object_name, ct.task_start, ct.task_finish, ct.success,
-        output['SQLERRM'] as error_message, ct.range_min, ct.range_max, ct.query_id,
-    FROM completed_tasks ct
-    WHERE (ct.object_name, ct.task_name, ct.task_start) IN (
-        SELECT object_name, task_name, MAX(task_start)
-        FROM completed_tasks
-        WHERE KIND = 'INCREMENTAL'
-        GROUP BY object_name, task_name
-    )
+),
+
+expanded as (
+    select
+        -- WAREHOUSE_LOAD_MAINTENANCE won't join below so we have to statically populate the values from that here.
+        IFF(s.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', 'REPORTING', user_schema) as user_schema,
+        IFF(s.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', 'WAREHOUSE_LOAD_HISTORY', user_view) as user_view,
+        IFF(s.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', s.object_name, null) as partition,
+        last_full_start,
+        last_full_end,
+        last_full_status,
+        last_full_error_message,
+        last_full_query_id,
+        last_incr_start,
+        last_incr_end,
+        last_incr_status,
+        last_incr_error_message,
+        last_incr_query_id,
+        COALESCE(running_start, timestampadd(minutes, coalesce(task_period_mins, 60), last_start)) as next_start,
+        COALESCE(running_type, IFF(last_full_status <> 'SUCCESS', 'FULL', 'INCREMENTAL')) as next_type,
+        IFF(running_type is not null, 'EXECUTING', 'SCHEDULED') as next_status,
+        running_query_id as next_query_id,
+    from summary_onlyincrpostfull s
+    LEFT JOIN task_tables t on s.task_name = t.task_name and s.object_name = t.object_name
+
+    -- exclude non-matching rows other than warehouse load maintenance.
+    WHERE t.task_name is not null OR s.task_name = 'WAREHOUSE_LOAD_MAINTENANCE'
 )
-select
-    -- the user-facing view
-    task_tables.user_schema as schema_name,
-    task_tables.user_view as table_name,
-    COALESCE(incmat.range_min, fullmat.range_min)::TIMESTAMP_LTZ as range_start,
-    COALESCE(incmat.range_max, fullmat.range_min)::TIMESTAMP_LTZ as range_end,
-    -- WAREHOUSE_LOAD_MAINTENANCE is unique in that we have multiple discrete objects materialized into a single table
-    IFF(task_tables.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', task_tables.object_name, null) as partition,
 
-    -- last full materialization
-    fullmat.task_start as last_full_start,
-    fullmat.task_finish as last_full_end,
-    internal.success_to_status(fullmat.success) as last_full_status,
-    fullmat.error_message::TEXT as last_full_error_message,
-    fullmat.query_id as last_full_query_id,
-
-    -- last incremental materialization
-    incmat.task_start as last_incr_start,
-    incmat.task_finish as last_incr_end,
-    internal.success_to_status(incmat.success) as last_incr_status,
-    incmat.error_message::TEXT as last_incr_error_message,
-    incmat.query_id as last_incr_query_id,
-
-    -- the next invocation
-    COALESCE(rt.task_start, timestampadd(minutes, task_period_mins, incmat.task_start), timestampadd(minutes, task_period_mins, fullmat.task_start)) as next_start,
-    IFF(fullmat.success IS NULL OR fullmat.success = FALSE, 'FULL', 'INCREMENTAL') as next_type,
-    IFF(rt.task_start is not null, 'EXECUTING', 'SCHEDULED') as next_status,
-    rt.query_id as next_query_id,
-from task_tables
-left join fullmat on task_tables.task_name = fullmat.task_name AND task_tables.object_name = fullmat.object_name
-left join incmat on task_tables.task_name = incmat.task_name AND task_tables.object_name = incmat.object_name
-left join running_tasks rt on task_tables.task_name = rt.task_name
-ORDER BY schema_name, table_name;
+select * from expanded;
