@@ -63,10 +63,10 @@ def test_task_log(conn):
     with conn() as cnx, cnx.cursor(DictCursor) as cur:
         # Get the latest QH and WEH rows
         rows = cur.execute(
-            """SELECT * FROM REPORTING.TASK_LOG_HISTORY
+            """SELECT * FROM ADMIN.TASK_LOG_HISTORY
             WHERE TASK_NAME IN ('QUERY_HISTORY_MAINTENANCE', 'WAREHOUSE_EVENTS_MAINTENANCE')
             AND (task_name, task_start) in (
-                SELECT task_name, max(task_start) FROM REPORTING.TASK_LOG_HISTORY
+                SELECT task_name, max(task_start) FROM ADMIN.TASK_LOG_HISTORY
                 GROUP BY task_name
             );
         """
