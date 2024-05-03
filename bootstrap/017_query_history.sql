@@ -148,3 +148,16 @@ END;
 call INTERNAL.create_view_enriched_query_history_hourly();
 
 CREATE OR REPLACE VIEW REPORTING.LABELED_QUERY_HISTORY AS SELECT * FROM REPORTING.enriched_query_history;
+
+-- Cluster the table for complete Query History rows by record_type/st_period. We want this to be done exactly once.
+DECLARE
+    key text default 'CLUSTERED_QUERY_HISTORY';
+BEGIN
+    let already_clustered text;
+    call internal.get_config(:key) into :already_clustered;
+    if (already_clustered is null OR already_clustered <> 'true') then
+        SYSTEM$LOG_INFO('Clustering QUERY_HISTORY_COMPLETE_AND_DAILY by (RECORD_TYPE, ST_PERIOD::DATE)');
+        ALTER TABLE INTERNAL_REPORTING_MV.QUERY_HISTORY_COMPLETE_AND_DAILY CLUSTER BY (RECORD_TYPE, ST_PERIOD::date);
+        call internal.set_config(:key, 'true');
+    end if;
+END;
