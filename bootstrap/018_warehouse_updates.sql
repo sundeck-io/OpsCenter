@@ -95,7 +95,7 @@ BEGIN
             let warehouse_range_max timestamp := (select max(session_end) from reporting.warehouse_sessions);
             let cluster_range_min timestamp := (select min(session_end) from reporting.cluster_sessions);
             let cluster_range_max timestamp := (select max(session_end) from reporting.cluster_sessions);
-            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
+            output := OBJECT_CONSTRUCT_KEEP_NULL('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
                 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0),
                 'warehouse_range_min', :warehouse_range_min, 'warehouse_range_max', :warehouse_range_max, 'cluster_range_min', :cluster_range_min, 'cluster_range_max', :cluster_range_max);
         ELSE
@@ -103,7 +103,7 @@ BEGIN
             let warehouse_range_max timestamp := (select max(session_end) from reporting.warehouse_sessions);
             let cluster_range_min timestamp := (select min(session_end) from reporting.cluster_sessions);
             let cluster_range_max timestamp := (select max(session_end) from reporting.cluster_sessions);
-            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
+            output := OBJECT_CONSTRUCT_KEEP_NULL('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
                 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0,
                 'warehouse_range_min', :warehouse_range_min, 'warehouse_range_max', :warehouse_range_max, 'cluster_range_min', :cluster_range_min, 'cluster_range_max', :cluster_range_max);
         END IF;

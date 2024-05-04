@@ -95,9 +95,11 @@ def test_task_log(conn):
 
             for f in fields:
                 assert f in output, f"Expected field {f} in output: {output}"
-                assert datetime.datetime.strptime(
+                # in the pre-commit account, the little amount of data combined with the small materialization
+                # range means we can have no warehouse_session rows.
+                assert output[f] is None or datetime.datetime.strptime(
                     output[f], TIMESTAMP_PATTERN
-                ), f"Expected field {f} to be a datetime: {output[f]}"
+                ), f"Expected field {f} to be a nullable datetime: {output[f]}"
 
 
 def test_start_finish_task(conn):

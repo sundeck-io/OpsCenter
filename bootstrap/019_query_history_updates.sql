@@ -73,11 +73,11 @@ BEGIN
             call internal.generate_insert_statement('INTERNAL_REPORTING_MV', 'QUERY_HISTORY_COMPLETE_AND_DAILY', 'INTERNAL', 'RAW_QH_EVT', :where_clause_complete) into :new_closed;
             -- Figure out the oldest row in the table
             let range_min timestamp := (select min(end_time) as end_time from reporting.enriched_query_history);
-            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
+            output := OBJECT_CONSTRUCT_KEEP_NULL('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
                 'new_records', :new_records, 'new_INCOMPLETE', :new_INCOMPLETE, 'new_closed', coalesce(:new_closed, 0), 'range_min', :range_min, 'range_max', :newest_completed);
         ELSE
             let range_min timestamp := (select min(end_time) as end_time from reporting.enriched_query_history);
-            output := OBJECT_CONSTRUCT('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
+            output := OBJECT_CONSTRUCT_KEEP_NULL('oldest_running', :oldest_running, 'newest_completed', :newest_completed, 'attempted_migrate', :migrate, 'migrate', :migrate1, 'migrate_INCOMPLETE', :migrate2,
                 'new_records', 0, 'new_INCOMPLETE', 0, 'new_closed', 0, 'range_min', :range_min, 'range_max', :newest_completed);
         END IF;
         DROP TABLE RAW_QH_EVT;
