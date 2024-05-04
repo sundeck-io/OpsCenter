@@ -115,27 +115,27 @@ create table INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_D
 
 
 create or replace view reporting.warehouse_sessions as
-    select * exclude (period_plus, record_type, session_type) from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY') AND session_type = 'WH'
+    select * exclude (period_plus, record_type, session_type, st_period), ST_PERIOD::DATE as ST_DAY from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY') AND session_type = 'WH'
     union all
-    select * exclude (period_plus, record_type, session_type) from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY') AND session_type = 'WH'
+    select * exclude (period_plus, record_type, session_type, st_period), ST_PERIOD::DATE as ST_DAY from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY') AND session_type = 'WH'
     ;
 
 
 create or replace view reporting.cluster_sessions as
-    select * exclude (period_plus, record_type, session_type) from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY') AND session_type = 'CL'
+    select * exclude (period_plus, record_type, session_type, st_period), ST_PERIOD::DATE as ST_DAY from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY') AND session_type = 'CL'
     union all
-    select * exclude (period_plus, record_type, session_type) from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY') AND session_type = 'CL'
+    select * exclude (period_plus, record_type, session_type, st_period), ST_PERIOD::DATE as ST_DAY from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY') AND session_type = 'CL'
     ;
 
 create or replace view reporting.warehouse_sessions_daily as
-    select * exclude (period_plus, record_type, session_type) from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE')
+    select * exclude (period_plus, record_type, session_type, st_period), ST_PERIOD::DATE as ST_DAY from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE')
     union all
-    select * exclude (period_plus, record_type, session_type) from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE');
+    select * exclude (period_plus, record_type, session_type, st_period), ST_PERIOD::DATE as ST_DAY from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE');
 
 create or replace view reporting.cluster_sessions_daily as
-    select * exclude (period_plus, record_type, session_type) from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE') AND session_type = 'CL'
+    select * exclude (period_plus, record_type, session_type, st_period), ST_PERIOD::DATE as ST_DAY from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE') AND session_type = 'CL'
     union all
-    select * exclude (period_plus, record_type, session_type) from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE') AND session_type = 'CL';
+    select * exclude (period_plus, record_type, session_type, st_period), ST_PERIOD::DATE as ST_DAY from internal_reporting_mv.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY_INCOMPLETE where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE') AND session_type = 'CL';
 
 
 CREATE OR REPLACE VIEW reporting.warehouse_sessions_hourly AS
@@ -144,7 +144,8 @@ SELECT
     warehouse_id,
     IFF(index = 0, st, dateadd('hour', index, date_trunc('hour', st))) as st,
     IFF(index = DATEDIFF('hour', st, et), et, dateadd('hour', index + 1, date_trunc('hour', st))) as et,
-    DATEDIFF('milliseconds', st, et) AS duration
+    DATEDIFF('milliseconds', st, et) AS duration,
+    ST_DAY,
 FROM reporting.warehouse_sessions evts,
 LATERAL FLATTEN(internal.period_range('hour', evts.st, evts.et)) emt(index)
 ;
@@ -156,7 +157,22 @@ SELECT
     cluster_number,
     IFF(index = 0, st, dateadd('hour', index, date_trunc('hour', st))) as st,
     IFF(index = DATEDIFF('hour', st, et), et, dateadd('hour', index + 1, date_trunc('hour', st))) as et,
-    DATEDIFF('milliseconds', st, et) AS DURATION_HOURLY_MS
+    DATEDIFF('milliseconds', st, et) AS DURATION_HOURLY_MS,
+    ST_DAY,
 FROM reporting.warehouse_sessions evts,
 LATERAL FLATTEN(internal.period_range('hour', evts.st, evts.et)) emt(index)
 ;
+
+
+-- Cluster the table for complete Warehouse Events rows by record_type/st_period. We want this to be done exactly once.
+DECLARE
+    key text default 'CLUSTERED_WAREHOUSE_EVENTS';
+BEGIN
+    let already_clustered text;
+    call internal.get_config(:key) into :already_clustered;
+    if (already_clustered is null OR already_clustered <> 'true') then
+        SYSTEM$LOG_INFO('Clustering CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY by (RECORD_TYPE, ST_PERIOD::DATE)');
+        ALTER TABLE INTERNAL_REPORTING_MV.CLUSTER_AND_WAREHOUSE_SESSIONS_COMPLETE_AND_DAILY CLUSTER BY (RECORD_TYPE, ST_PERIOD::date);
+        call internal.set_config(:key, 'true');
+    end if;
+END;

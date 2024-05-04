@@ -56,6 +56,7 @@ BEGIN
                 tools.qtag_to_map(qtag) as qtag_filter,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
+                ST_PERIOD::DATE as ST_DAY,
                 * exclude (period_plus, record_type, unloaded_direct_compute_credits)
             -- We may have reversed RECORD_TYPE rows in the materialized table. Filter to the new "correct" RECORD_TYPE and the old "incorrect" RECORD_TYPE.
             from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY')
@@ -64,6 +65,7 @@ BEGIN
                 tools.qtag_to_map(qtag) as qtag_filter,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
+                ST_PERIOD::DATE as ST_DAY,
                 * exclude (period_plus, record_type, unloaded_direct_compute_credits)
             from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY')
             ;
@@ -88,6 +90,7 @@ BEGIN
                 tools.qtag_to_map(qtag) as qtag_filter,
         case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
+                ST_PERIOD::DATE as ST_DAY,
             -- We may have reversed RECORD_TYPE rows in the materialized table. Filter to the new "correct" RECORD_TYPE and the old "incorrect" RECORD_TYPE.
             * exclude (period_plus, record_type, unloaded_direct_compute_credits) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE')
         union all
@@ -95,6 +98,7 @@ BEGIN
                 tools.qtag_to_map(qtag) as qtag_filter,
         case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
+                ST_PERIOD::DATE as ST_DAY,
             * exclude (period_plus, record_type, unloaded_direct_compute_credits) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE');
     $$;
     RETURN 'Success';
@@ -120,7 +124,7 @@ BEGIN
         COPY GRANTS
         AS
         WITH QH AS (
-            SELECT * EXCLUDE (ST, ET, ST_PERIOD, unloaded_direct_compute_credits, cost, DURATION)
+            SELECT * EXCLUDE (ST, ET, unloaded_direct_compute_credits, cost, DURATION, ST_PERIOD)
             FROM reporting.enriched_query_history
         ),
         EXTRAS AS (
@@ -128,6 +132,7 @@ BEGIN
             DATEDIFF('hour', START_TIME, END_TIME) AS PERIOD_PLUS,
             IFF(index in (0, PERIOD_PLUS), start_time, dateadd('hour', index, date_trunc('hour', start_time))) as ST,
             IFF(index in (PERIOD_PLUS), end_time, least(CURRENT_TIMESTAMP(), dateadd('hour', index + 1, date_trunc('hour', start_time)))) as ET,
+            -- inherit ST_DAY from QH as that will not change from a time truncation
             date_trunc('hour', ST) AS ST_PERIOD,
             -- note that this formula can overcount compute consumption in the cases where snowflake reports
             -- peak load as opposed to average load. Ideally load percent would be area under the curve.
