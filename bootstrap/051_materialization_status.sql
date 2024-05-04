@@ -1,11 +1,4 @@
 
-create or replace function internal.success_to_status(success boolean) returns text
-as
-$$
-    IFF(success IS NULL, NULL, IFF(success, 'SUCCESS', 'FAILURE'))
-$$;
-
-
 create or replace view admin.materialization_status
     copy grants
 as
@@ -28,7 +21,7 @@ WITH RANKED_RAW AS (
         query_id,
         range_min,
         range_max,
-    FROM REPORTING.TASK_LOG_HISTORY
+    FROM ADMIN.TASK_LOG_HISTORY
     -- limit to the last record of each type.
     QUALIFY ROW_NUMBER() OVER (PARTITION BY task_name, object_name, full_refresh, running ORDER BY task_start DESC) = 1
 ),
@@ -37,25 +30,30 @@ summary as (
 select
     task_name,
     object_name,
+    -- Take the range min/max from the last incr if it exists, else from the last full.
+    COALESCE(MAX(IFF(NOT full_refresh, range_min, null)),
+        MAX(IFF(full_refresh, range_min, null))) as range_start,
+    COALESCE(MAX(IFF(NOT full_refresh, range_max, null)),
+        MAX(IFF(full_refresh, range_max, null))) as range_end,
 
-    ANY_VALUE(IFF(full_refresh AND NOT RUNNING, task_start, null)) AS last_full_start,
-    ANY_VALUE(IFF(full_refresh AND NOT RUNNING, task_finish, null)) AS last_full_end,
-    ANY_VALUE(IFF(full_refresh AND NOT RUNNING, success, null)) AS last_full_status,
-    ANY_VALUE(IFF(full_refresh AND NOT RUNNING, error_message, null)) AS last_full_error_message,
-    ANY_VALUE(IFF(full_refresh AND NOT RUNNING, query_id, null)) AS last_full_query_id,
+    MAX(IFF(full_refresh AND NOT RUNNING, task_start, null)) AS last_full_start,
+    MAX(IFF(full_refresh AND NOT RUNNING, task_finish, null)) AS last_full_end,
+    MAX(IFF(full_refresh AND NOT RUNNING, success, null)) AS last_full_status,
+    MAX(IFF(full_refresh AND NOT RUNNING, error_message, null)) AS last_full_error_message,
+    MAX(IFF(full_refresh AND NOT RUNNING, query_id, null)) AS last_full_query_id,
 
-    ANY_VALUE(IFF(NOT full_refresh AND NOT RUNNING, task_start, null)) AS last_incr_start,
-    ANY_VALUE(IFF(NOT full_refresh AND NOT RUNNING, task_finish, null)) AS last_incr_end,
-    ANY_VALUE(IFF(NOT full_refresh AND NOT RUNNING, success, null)) AS last_incr_status,
-    ANY_VALUE(IFF(NOT full_refresh AND NOT RUNNING, error_message, null)) AS last_incr_error_message,
-    ANY_VALUE(IFF(NOT full_refresh AND NOT RUNNING, query_id, null)) AS last_incr_query_id,
+    MAX(IFF(NOT full_refresh AND NOT RUNNING, task_start, null)) AS last_incr_start,
+    MAX(IFF(NOT full_refresh AND NOT RUNNING, task_finish, null)) AS last_incr_end,
+    MAX(IFF(NOT full_refresh AND NOT RUNNING, success, null)) AS last_incr_status,
+    MAX(IFF(NOT full_refresh AND NOT RUNNING, error_message, null)) AS last_incr_error_message,
+    MAX(IFF(NOT full_refresh AND NOT RUNNING, query_id, null)) AS last_incr_query_id,
 
     MAX(IFF(NOT RUNNING, task_start, null)) AS last_start,
 
-    ANY_VALUE(IFF(RUNNING, task_start, null)) AS running_start,
-    ANY_VALUE(IFF(RUNNING, task_finish, null)) AS running_end,
-    ANY_VALUE(IFF(RUNNING, query_id, null)) AS running_query_id,
-    ANY_VALUE(IFF(RUNNING, IFF(full_refresh, 'FULL', 'INCREMENTAL'), null)) AS running_type,
+    MAX(IFF(RUNNING, task_start, null)) AS running_start,
+    MAX(IFF(RUNNING, task_finish, null)) AS running_end,
+    MAX(IFF(RUNNING, query_id, null)) AS running_query_id,
+    MAX(IFF(RUNNING, IFF(full_refresh, 'FULL', 'INCREMENTAL'), null)) AS running_type,
     FROM RANKED_RAW
     GROUP BY task_name, object_name
 ),
@@ -107,6 +105,8 @@ expanded as (
         IFF(s.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', 'REPORTING', user_schema) as user_schema,
         IFF(s.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', 'WAREHOUSE_LOAD_HISTORY', user_view) as user_view,
         IFF(s.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', s.object_name, null) as partition,
+        range_start,
+        range_end,
         last_full_start,
         last_full_end,
         last_full_status,

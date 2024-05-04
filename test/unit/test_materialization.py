@@ -6,12 +6,6 @@ import unittest
 TIMESTAMP_PATTERN = "%Y-%m-%d %H:%M:%S.%f"
 
 
-def assert_is_datetime(s: str):
-    assert datetime.datetime.strptime(
-        s, TIMESTAMP_PATTERN
-    ), f"Expected value to be a datetime: {s}"
-
-
 def test_query_history_migration(conn):
     with conn() as cnx, cnx.cursor() as cur:
         # Drop some columns
@@ -119,7 +113,7 @@ def test_start_finish_task(conn):
         run_id = "test_run_id"
         query_id = "test_query_id"
         row = cur.execute(
-            f"CALL INTERNAL.START_TASK('test_task', 'test_object', '{task_start}', '{run_id}', '{query_id}')"
+            f"CALL INTERNAL.START_TASK('test_task', 'test_object', '{task_start}'::TIMESTAMP_NTZ, '{run_id}', '{query_id}')"
         ).fetchone()
 
         assert row["START_TASK"] is None, "Expected not to find an input to be None"
@@ -176,12 +170,13 @@ def test_start_finish_task(conn):
         ), f"Expected output to be {output}, got {actual_output}"
 
 
-def test_materialization_status(conn):
+def test_materialization_status_structure(conn):
     tc = unittest.TestCase()
     with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        # Schema
         expected_columns = [
-            "SCHEMA_NAME",
-            "TABLE_NAME",
+            "USER_SCHEMA",
+            "USER_VIEW",
             "RANGE_START",
             "RANGE_END",
             "PARTITION",
@@ -225,15 +220,35 @@ def test_materialization_status(conn):
             row["name"] for row in rows if row["name"] not in ignored_views
         ]
 
+        # Check for the expected set of rows
         rows = cur.execute(
-            "select distinct table_name from admin.materialization_status"
+            "select distinct user_view from admin.materialization_status"
         ).fetchall()
 
         for row in rows:
             assert (
-                row["TABLE_NAME"] in reporting_views
+                row["USER_VIEW"] in reporting_views
             ), f"Unexpected view in admin.materialization_status: {row['TABLE_NAME']}, expected views were {reporting_views}"
 
         assert len(rows) == len(
             reporting_views
         ), f"Expected equal number of reporting views as rows in admin.materialization_status. Reporting views {reporting_views}, materialization_status rows {rows}"
+
+
+def test_materialization_status_values(conn):
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        rows = cur.execute(
+            "select user_schema, user_view, partition, range_start, range_end from admin.materialization_status"
+        ).fetchall()
+
+        for row in rows:
+            assert row["USER_SCHEMA"] is not None
+            assert row["USER_VIEW"] is not None
+            if row["USER_VIEW"] == "WAREHOUSE_LOAD_HISTORY":
+                assert row["PARTITION"] is not None
+            for c in ["RANGE_START", "RANGE_END"]:
+                assert row[c] is not None, f"Expected field {c} to be not null: {row}"
+                assert isinstance(row[c], datetime.datetime)
+            assert (
+                row["RANGE_START"] <= row["RANGE_END"]
+            ), "Range end should never be greater than start"

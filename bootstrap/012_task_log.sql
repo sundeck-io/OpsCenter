@@ -20,7 +20,11 @@ create or replace procedure internal.start_task(task_name text, object_name text
 AS
 BEGIN
     let input object := (select output from INTERNAL.TASK_LOG where success AND task_name = :task_name AND object_name = :object_name order by task_start desc limit 1);
-    INSERT INTO INTERNAL.TASK_LOG(task_start, task_run_id, query_id, input, task_name, object_name) select :start_time::TIMESTAMP_LTZ, :task_run_id, :query_id, :input, :task_name, :object_name;
+    -- Set the previous range_min/max when we start a task to avoid a look-back in admin.materialization_status
+    let range_min timestamp_ltz := (select :input['range_min']);
+    let range_max timestamp_ltz := (select :input['range_max']);
+    INSERT INTO INTERNAL.TASK_LOG(task_start, task_run_id, query_id, input, task_name, object_name, range_min, range_max) select :start_time, :task_run_id, :query_id,
+        :input, :task_name, :object_name, :range_min, :range_max;
     return input;
 END;
 
@@ -35,7 +39,7 @@ BEGIN
     let range_max timestamp_ltz := (select :output['range_max']);
     UPDATE INTERNAL.TASK_LOG
         SET success = :success, output = :output, task_finish = current_timestamp(), range_min = :range_min, range_max = :range_max
-        WHERE task_start = :start_time::TIMESTAMP_LTZ AND task_run_id = :task_run_id AND task_name = :task_name AND object_name = :object_name;
+        WHERE task_start = :start_time AND task_run_id = :task_run_id AND task_name = :task_name AND object_name = :object_name;
 END;
 
 -- Special case for the warehouse events task, which inserts extra rows into task log breaking out warehouse and cluster sessions details to
