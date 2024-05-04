@@ -36,6 +36,8 @@ select
     COALESCE(MAX(IFF(NOT full_refresh, range_max, null)),
         MAX(IFF(full_refresh, range_max, null))) as range_end,
 
+    -- ANY_VALUE will pick any row within the window and the evaluating the IFF.
+    -- MAX, however, will evaluate the condition first, and then select a value.
     MAX(IFF(full_refresh AND NOT RUNNING, task_start, null)) AS last_full_start,
     MAX(IFF(full_refresh AND NOT RUNNING, task_finish, null)) AS last_full_end,
     MAX(IFF(full_refresh AND NOT RUNNING, success, null)) AS last_full_status,
