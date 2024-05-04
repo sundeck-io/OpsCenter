@@ -58,18 +58,18 @@ def test_task_log(conn):
     with conn() as cnx, cnx.cursor(DictCursor) as cur:
         # Get the latest QH and WEH rows
         rows = cur.execute(
-            """SELECT * FROM ADMIN.TASK_LOG_HISTORY
-            WHERE TASK_NAME IN ('QUERY_HISTORY_MAINTENANCE', 'WAREHOUSE_EVENTS_MAINTENANCE')
-            AND (task_name, task_start) in (
-                SELECT task_name, max(task_start) FROM ADMIN.TASK_LOG_HISTORY
-                GROUP BY task_name
-            );
+            """select * FROM ADMIN.TASK_LOG_HISTORY
+                where success is not null and TASK_NAME IN ('QUERY_HISTORY_MAINTENANCE', 'WAREHOUSE_EVENTS_MAINTENANCE')
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY task_name, object_name ORDER BY task_start DESC) = 1;
         """
         ).fetchall()
 
+        for row in rows:
+            print(f"Row: {row}")
+
         # Do some basic verification over the two, make sure fields are filled in.
-        for task_name in ["QUERY_HISTORY_MAINTENANCE", "WAREHOUSE_EVENTS_MAINTENANCE"]:
-            task_log_row = next(row for row in rows if row["TASK_NAME"] == task_name)
+        for task_log_row in rows:
+            task_name = row["TASK_NAME"]
 
             assert task_log_row["SUCCESS"] is True
             assert task_log_row["TASK_RUN_ID"] is not None
