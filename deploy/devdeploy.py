@@ -101,7 +101,7 @@ def _finish_local_setup(cur, database: str, schema: str):
 
         rows = cur.fetchall()
 
-        # if we have two rows, means materialization is complete
+        # if we have four rows, it means the materialization is complete.
         if len(rows) == 4:
             print("OpsCenter setup complete.")
             break
