@@ -252,3 +252,57 @@ def test_materialization_status_values(conn):
             assert (
                 row["RANGE_START"] <= row["RANGE_END"]
             ), "Range end should never be greater than start"
+
+
+def test_migrate_task_log(conn):
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        try:
+            cur.execute(
+                "CREATE OR REPLACE TABLE INTERNAL.TASK_LOG_BACKUP as SELECT * FROM INTERNAL.TASK_LOG"
+            )
+            cur.execute("TRUNCATE TABLE INTERNAL.TASK_LOG")
+            # Create a successful, unsuccessful, and in-progress full materialization record
+            cur.execute(
+                """
+                INSERT INTO INTERNAL.TASK_LOG(task_start, success, task_name, object_name, input, output, task_finish)
+                VALUES (current_timestamp()::TIMESTAMP_NTZ, TRUE, 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_EVENTS_HISTORY', NULL, NULl, NULL),
+                (current_timestamp()::TIMESTAMP_NTZ, FALSE, 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', NULL, NULL, NULL),
+                (current_timestamp()::TIMESTAMP_NTZ, NULL, 'SIMPLE_DATA_EVENTS_MAINTENANCE', 'SESSIONS', NULL, NULL, NULL)
+            """
+            )
+
+            # We don't have rows for cluster_sessions and warehouse_sessions
+            row = cur.execute(
+                "SELECT count(*) as c from INTERNAL.TASK_LOG WHERE TASK_NAME = 'WAREHOUSE_EVENTS_MAINTENANCE' and OBJECT_NAME in ('CLUSTER_SESSIONS', 'WAREHOUSE_SESSIONS')"
+            ).fetchone()
+            assert row["C"] == 0
+
+            cur.execute("call internal.migrate_task_logs()")
+
+            # Verify two rows which are complete has a task_finish. The in-progress row should not have a task_finish.
+            rows = cur.execute(
+                """
+                SELECT task_name, success, input, task_start, task_finish FROM INTERNAL.TASK_LOG
+                WHERE input is null AND object_name in ('WAREHOUSE_EVENTS_HISTORY', 'QUERY_HISTORY', 'SESSIONS')
+            """
+            ).fetchall()
+            for row in rows:
+                if row["SUCCESS"] is not None:
+                    assert row["INPUT"] is None
+                    assert row["TASK_FINISH"] is not None
+                    assert row["TASK_FINISH"] == row["TASK_START"]
+                else:
+                    assert row["INPUT"] is None
+                    assert row["TASK_START"] is not None
+                    assert row["TASK_FINISH"] is None
+
+            # After the procedure runs, we should have these rows
+            row = cur.execute(
+                "SELECT count(*) as c from INTERNAL.TASK_LOG WHERE TASK_NAME = 'WAREHOUSE_EVENTS_MAINTENANCE' and OBJECT_NAME in ('CLUSTER_SESSIONS', 'WAREHOUSE_SESSIONS')"
+            ).fetchone()
+            assert row["C"] == 2
+        finally:
+            cur.execute("DROP TABLE INTERNAL.TASK_LOG")
+            cur.execute(
+                "ALTER TABLE INTERNAL.TASK_LOG_BACKUP RENAME TO INTERNAL.TASK_LOG"
+            )

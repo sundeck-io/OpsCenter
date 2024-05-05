@@ -79,7 +79,7 @@ BEGIN
         call internal.get_config(:config_key) into :config_value;
         if (config_value is null) then
             INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
-                SELECT tqh.run, tqh.success, 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', tqh.input, tqh.output, null
+                SELECT tqh.run, tqh.success, 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', tqh.input, tqh.output, tqh.run,
                 FROM INTERNAL.TASK_QUERY_HISTORY tqh;
             call internal.set_config(:config_key, 'true');
         END IF;
@@ -93,7 +93,7 @@ BEGIN
         call internal.get_config(:config_key) into :config_value;
         if (config_value is null) then
             INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
-                SELECT twe.run, twe.success, 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_EVENTS_HISTORY', twe.input, twe.output, null
+                SELECT twe.run, twe.success, 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_EVENTS_HISTORY', twe.input, twe.output, twe.run,
                 FROM INTERNAL.TASK_WAREHOUSE_EVENTS twe;
             call internal.set_config(:config_key, 'true');
         END IF;
@@ -108,7 +108,7 @@ BEGIN
         if (config_value is null) then
             -- Different from the previous, carrying table_name into task_log as object_name
             INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
-                SELECT tsde.run, tsde.success, 'SIMPLE_DATA_EVENTS_MAINTENANCE', tsde.table_name, tsde.input, tsde.output, null
+                SELECT tsde.run, tsde.success, 'SIMPLE_DATA_EVENTS_MAINTENANCE', tsde.table_name, tsde.input, tsde.output, tsde.run,
                 FROM INTERNAL.TASK_SIMPLE_DATA_EVENTS tsde;
             call internal.set_config(:config_key, 'true');
         END IF;
@@ -123,12 +123,25 @@ BEGIN
         if (config_value is null) then
             -- Different from the previous, carrying table_name into task_log as object_name
             INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
-                SELECT twle.run, twle.success, 'WAREHOUSE_LOAD_MAINTENANCE', twle.warehouse_name, twle.input, twle.output, null
+                SELECT twle.run, twle.success, 'WAREHOUSE_LOAD_MAINTENANCE', twle.warehouse_name, twle.input, twle.output, twle.run,
                 FROM INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS twle;
             call internal.set_config(:config_key, 'true');
         END IF;
         commit;
     end if;
+
+    -- Fill in any null values for task_finish for completed tasks.
+    update INTERNAL.TASK_LOG set task_finish = task_start where task_finish is null and success is not null;
+
+    -- Create a FULL materialization row for the objects CLUSTER_SESSIONS and WAREHOUSE_SESSIONS.
+    -- We previously did not generate these rows, so we need to backfill the FULL materialization rows. The incremental
+    -- materializations will fill themselves on next execution.
+    insert into INTERNAL.TASK_LOG(task_start, success, task_name, object_name, input, output, task_finish, task_run_id, query_id, range_min, range_max)
+        select task_start, success, task_name, 'CLUSTER_SESSIONS', input, output, task_finish, task_run_id, query_id, range_min, range_max from INTERNAL.TASK_LOG
+        where task_name = 'WAREHOUSE_EVENTS_MAINTENANCE' and OBJECT_NAME = 'WAREHOUSE_EVENTS_HISTORY' and input is null;
+    insert into INTERNAL.TASK_LOG(task_start, success, task_name, object_name, input, output, task_finish, task_run_id, query_id, range_min, range_max)
+        select task_start, success, task_name, 'WAREHOUSE_SESSIONS', input, output, task_finish, task_run_id, query_id, range_min, range_max from INTERNAL.TASK_LOG
+        where task_name = 'WAREHOUSE_EVENTS_MAINTENANCE' and OBJECT_NAME = 'WAREHOUSE_EVENTS_HISTORY' and input is null;
 END;
 
 -- Try to migrate any previous task log records from the old tables
