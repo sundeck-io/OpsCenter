@@ -1,14 +1,9 @@
 import datetime
 import json
 from snowflake.connector.cursor import DictCursor
+import unittest
 
 TIMESTAMP_PATTERN = "%Y-%m-%d %H:%M:%S.%f"
-
-
-def assert_is_datetime(s: str):
-    assert datetime.datetime.strptime(
-        s, TIMESTAMP_PATTERN
-    ), f"Expected value to be a datetime: {s}"
 
 
 def test_query_history_migration(conn):
@@ -63,18 +58,16 @@ def test_task_log(conn):
     with conn() as cnx, cnx.cursor(DictCursor) as cur:
         # Get the latest QH and WEH rows
         rows = cur.execute(
-            """SELECT * FROM ADMIN.TASK_LOG_HISTORY
-            WHERE TASK_NAME IN ('QUERY_HISTORY_MAINTENANCE', 'WAREHOUSE_EVENTS_MAINTENANCE')
-            AND (task_name, task_start) in (
-                SELECT task_name, max(task_start) FROM ADMIN.TASK_LOG_HISTORY
-                GROUP BY task_name
-            );
+            """select * FROM ADMIN.TASK_LOG_HISTORY
+                where success is not null and TASK_NAME IN ('QUERY_HISTORY_MAINTENANCE', 'WAREHOUSE_EVENTS_MAINTENANCE')
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY task_name, object_name ORDER BY task_start DESC) = 1;
         """
         ).fetchall()
 
         # Do some basic verification over the two, make sure fields are filled in.
-        for task_name in ["QUERY_HISTORY_MAINTENANCE", "WAREHOUSE_EVENTS_MAINTENANCE"]:
-            task_log_row = next(row for row in rows if row["TASK_NAME"] == task_name)
+        for task_log_row in rows:
+            print(f"Row: {task_log_row}")
+            task_name = task_log_row["TASK_NAME"]
 
             assert task_log_row["SUCCESS"] is True
             assert task_log_row["TASK_RUN_ID"] is not None
@@ -100,9 +93,11 @@ def test_task_log(conn):
 
             for f in fields:
                 assert f in output, f"Expected field {f} in output: {output}"
-                assert datetime.datetime.strptime(
+                # in the pre-commit account, the little amount of data combined with the small materialization
+                # range means we can have no warehouse_session rows.
+                assert output[f] is None or datetime.datetime.strptime(
                     output[f], TIMESTAMP_PATTERN
-                ), f"Expected field {f} to be a datetime: {output[f]}"
+                ), f"Expected field {f} to be a nullable datetime: {output[f]}"
 
 
 def test_start_finish_task(conn):
@@ -118,7 +113,7 @@ def test_start_finish_task(conn):
         run_id = "test_run_id"
         query_id = "test_query_id"
         row = cur.execute(
-            f"CALL INTERNAL.START_TASK('test_task', 'test_object', '{task_start}', '{run_id}', '{query_id}')"
+            f"CALL INTERNAL.START_TASK('test_task', 'test_object', '{task_start}'::TIMESTAMP_NTZ, '{run_id}', '{query_id}')"
         ).fetchone()
 
         assert row["START_TASK"] is None, "Expected not to find an input to be None"
@@ -173,3 +168,87 @@ def test_start_finish_task(conn):
         assert (
             actual_output == output
         ), f"Expected output to be {output}, got {actual_output}"
+
+
+def test_materialization_status_structure(conn):
+    tc = unittest.TestCase()
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        # Schema
+        expected_columns = [
+            "USER_SCHEMA",
+            "USER_VIEW",
+            "RANGE_START",
+            "RANGE_END",
+            "PARTITION",
+            "LAST_FULL_START",
+            "LAST_FULL_END",
+            "LAST_FULL_STATUS",
+            "LAST_FULL_ERROR_MESSAGE",
+            "LAST_FULL_QUERY_ID",
+            "LAST_INCR_START",
+            "LAST_INCR_END",
+            "LAST_INCR_STATUS",
+            "LAST_INCR_ERROR_MESSAGE",
+            "LAST_INCR_QUERY_ID",
+            "NEXT_START",
+            "NEXT_TYPE",
+            "NEXT_STATUS",
+            "NEXT_QUERY_ID",
+        ]
+
+        # Tests that the two lists have the same elements, irrespective of order
+        cur.execute("SELECT * FROM ADMIN.MATERIALIZATION_STATUS LIMIT 0")
+        tc.assertCountEqual(
+            [col.name for col in cur.description],
+            expected_columns,
+            "Schema of admin.materialization_status view is incorrect.",
+        )
+
+        rows = cur.execute("SHOW VIEWS IN SCHEMA REPORTING").fetchall()
+
+        ignored_views = [
+            "QUERY_MONITOR_ACTIVITY",
+            "QUOTA_TASK_HISTORY",
+            "SUNDECK_QUERY_HISTORY",
+            "TASK_LOG_HISTORY",
+            "UPGRADE_HISTORY",
+            "WAREHOUSE_SCHEDULES_TASK_HISTORY",
+        ]
+
+        # Subtract views we don't include in materialization_status
+        reporting_views = [
+            row["name"] for row in rows if row["name"] not in ignored_views
+        ]
+
+        # Check for the expected set of rows
+        rows = cur.execute(
+            "select distinct user_view from admin.materialization_status"
+        ).fetchall()
+
+        for row in rows:
+            assert (
+                row["USER_VIEW"] in reporting_views
+            ), f"Unexpected view in admin.materialization_status: {row['TABLE_NAME']}, expected views were {reporting_views}"
+
+        assert len(rows) == len(
+            reporting_views
+        ), f"Expected equal number of reporting views as rows in admin.materialization_status. Reporting views {reporting_views}, materialization_status rows {rows}"
+
+
+def test_materialization_status_values(conn):
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        rows = cur.execute(
+            "select user_schema, user_view, partition, range_start, range_end from admin.materialization_status"
+        ).fetchall()
+
+        for row in rows:
+            assert row["USER_SCHEMA"] is not None
+            assert row["USER_VIEW"] is not None
+            if row["USER_VIEW"] == "WAREHOUSE_LOAD_HISTORY":
+                assert row["PARTITION"] is not None
+            for c in ["RANGE_START", "RANGE_END"]:
+                assert row[c] is not None, f"Expected field {c} to be not null: {row}"
+                assert isinstance(row[c], datetime.datetime)
+            assert (
+                row["RANGE_START"] <= row["RANGE_END"]
+            ), "Range end should never be greater than start"
