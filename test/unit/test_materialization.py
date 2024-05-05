@@ -64,12 +64,10 @@ def test_task_log(conn):
         """
         ).fetchall()
 
-        for row in rows:
-            print(f"Row: {row}")
-
         # Do some basic verification over the two, make sure fields are filled in.
         for task_log_row in rows:
-            task_name = row["TASK_NAME"]
+            print(f"Row: {task_log_row}")
+            task_name = task_log_row["TASK_NAME"]
 
             assert task_log_row["SUCCESS"] is True
             assert task_log_row["TASK_RUN_ID"] is not None
