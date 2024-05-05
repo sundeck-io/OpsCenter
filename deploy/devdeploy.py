@@ -95,7 +95,7 @@ def _finish_local_setup(cur, database: str, schema: str):
         # Check the markers put into the config table by each task after they have completed an execution successfully.
         # SNOWFLAKE_WAREHOUSE_MAINTENANCE is set when TASK_SIMPLE_DATA_EVENTS_MAINTENANCE completes.
         cur.execute(
-            """SELECT * FROM internal.config where key in ('WAREHOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE',
+            f"""SELECT * FROM {database}.internal.config where key in ('WAREHOUSE_EVENTS_MAINTENANCE', 'QUERY_HISTORY_MAINTENANCE',
             'SNOWFLAKE_USER_MAINTENANCE', 'SNOWFLAKE_WAREHOUSE_MAINTENANCE') and value is not null;"""
         )
 

@@ -87,6 +87,7 @@ select
         total_elapsed_time,
         end_time,
         qtag,
+        st_day,
         query_type,
         tools.model_run_time(total_elapsed_time) as run_time_Grade,
         tools.model_size(tools.model_size_rows(zeroifnull(rows_produced)),          tools.model_size_bytes(bytes_written_to_result)) as size_grade,
