@@ -90,6 +90,7 @@ create or replace view reporting.login_history as select * from internal_reporti
 create or replace view reporting.hybrid_table_usage_history as select * from internal_reporting_mv.hybrid_table_usage_history;
 create or replace view reporting.materialized_view_refresh_history as select * from internal_reporting_mv.materialized_view_refresh_history;
 drop procedure if exists internal.refresh_all_simple_tables();
+-- TODO drop after the next public release and we can be sure finalize_setup has had a chance to recreate the tasks (2024-05-07)
 create or replace procedure internal.refresh_all_simple_tables(migrate boolean) returns string language sql as
 begin
     call internal.refresh_simple_table('SERVERLESS_TASK_HISTORY', 'end_time', :migrate);
