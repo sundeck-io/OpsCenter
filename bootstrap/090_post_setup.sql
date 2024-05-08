@@ -78,6 +78,32 @@ DECLARE
     object_name text default 'WAREHOUSE_EVENTS_HISTORY';
 BEGIN
     let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+
+    -- One-time migration from the old table to the consolidated task_log
+    if (exists (select * from information_schema.tables where table_schema = 'INTERNAL' and table_name = 'TASK_WAREHOUSE_EVENTS')) then
+        BEGIN TRANSACTION;
+        let config_key := (select 'MIGRATION_TASK_WAREHOUSE_EVENTS');
+        let config_value text;
+        call internal.get_config(:config_key) into :config_value;
+        if (config_value is null) then
+            -- Copy all materializations from the old table to the new table for WAREHOUSE_EVENTS_HISTORY so the task finds its input/output properly
+            INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
+                SELECT twe.run, twe.success, 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_EVENTS_HISTORY', twe.input, twe.output, twe.run,
+                FROM INTERNAL.TASK_WAREHOUSE_EVENTS twe;
+            -- Copy any materializations for CLUSTER_SESSIONS and WAREHOUSE_SESSIONS so the materialization_status view will report these two object_names correctly
+            insert into INTERNAL.TASK_LOG(task_start, success, task_name, object_name, input, output, task_finish, task_run_id, query_id, range_min, range_max)
+                select task_start, success, task_name, 'CLUSTER_SESSIONS', input, output, task_finish, task_run_id, query_id, range_min, range_max from INTERNAL.TASK_LOG
+                where task_name = 'WAREHOUSE_EVENTS_MAINTENANCE' and OBJECT_NAME = 'WAREHOUSE_EVENTS_HISTORY';
+            insert into INTERNAL.TASK_LOG(task_start, success, task_name, object_name, input, output, task_finish, task_run_id, query_id, range_min, range_max)
+                select task_start, success, task_name, 'WAREHOUSE_SESSIONS', input, output, task_finish, task_run_id, query_id, range_min, range_max from INTERNAL.TASK_LOG
+                where task_name = 'WAREHOUSE_EVENTS_MAINTENANCE' and OBJECT_NAME = 'WAREHOUSE_EVENTS_HISTORY';
+
+            call internal.set_config(:config_key, 'true');
+        END IF;
+        commit;
+    end if;
+
+
     let input object;
     CALL INTERNAL.START_TASK(:task_name, :object_name, :start_time, :task_run_id, :query_id) into :input;
 
@@ -103,6 +129,24 @@ DECLARE
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
 BEGIN
     let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+
+    -- One-time migration from the old table to the consolidated task_log
+    if (exists (select * from information_schema.tables where table_schema = 'INTERNAL' and table_name = 'TASK_SIMPLE_DATA_EVENTS')) then
+        BEGIN TRANSACTION;
+        let config_key := (select 'MIGRATION_TASK_SIMPLE_DATA_EVENTS');
+        let config_value text;
+        call internal.get_config(:config_key) into :config_value;
+        if (config_value is null) then
+            -- Different from the previous, carrying table_name into task_log as object_name
+            INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
+                SELECT tsde.run, tsde.success, 'SIMPLE_DATA_EVENTS_MAINTENANCE', tsde.table_name, tsde.input, tsde.output, tsde.run,
+                FROM INTERNAL.TASK_SIMPLE_DATA_EVENTS tsde;
+            call internal.set_config(:config_key, 'true');
+        END IF;
+        commit;
+    end if;
+
+
     let simple_tables resultset := (SELECT t.table_name, t.index_col FROM (VALUES
         ('SERVERLESS_TASK_HISTORY', 'end_time'),
         ('TASK_HISTORY', 'completed_time'),
@@ -142,6 +186,22 @@ DECLARE
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
 BEGIN
     let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+
+    -- One-time migration from the old table to the consolidated task_log
+    if (exists (select * from information_schema.tables where table_schema = 'INTERNAL' and table_name = 'TASK_QUERY_HISTORY')) then
+        BEGIN TRANSACTION;
+        let config_key := (select 'MIGRATION_TASK_QUERY_HISTORY');
+        let config_value text;
+        call internal.get_config(:config_key) into :config_value;
+        if (config_value is null) then
+            INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
+                SELECT tqh.run, tqh.success, 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', tqh.input, tqh.output, tqh.run,
+                FROM INTERNAL.TASK_QUERY_HISTORY tqh;
+            call internal.set_config(:config_key, 'true');
+        END IF;
+        commit;
+    end if;
+
     let input object;
     CALL INTERNAL.START_TASK(:task_name, :object_name, :start_time, :task_run_id, :query_id) into :input;
 
@@ -383,6 +443,21 @@ DECLARE
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
 BEGIN
     let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+
+    if (exists (select * from information_schema.tables where table_schema = 'INTERNAL' and table_name = 'TASK_WAREHOUSE_LOAD_EVENTS')) then
+        BEGIN TRANSACTION;
+        let config_key := (select 'MIGRATION_TASK_WAREHOUSE_LOAD_EVENTS');
+        let config_value text;
+        call internal.get_config(:config_key) into :config_value;
+        if (config_value is null) then
+            -- Different from the previous, carrying table_name into task_log as object_name
+            INSERT INTO INTERNAL.TASK_LOG (task_start, success, task_name, object_name, input, output, task_finish)
+                SELECT twle.run, twle.success, 'WAREHOUSE_LOAD_MAINTENANCE', twle.warehouse_name, twle.input, twle.output, twle.run,
+                FROM INTERNAL.TASK_WAREHOUSE_LOAD_EVENTS twle;
+            call internal.set_config(:config_key, 'true');
+        END IF;
+        commit;
+    end if;
 
     -- Refresh the warehouses prior to refreshing the warehouse load history
     call internal.refresh_warehouses();
