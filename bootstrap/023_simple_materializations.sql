@@ -128,9 +128,9 @@ begin
         {
           'warehouse_name': :warehouse_name,
           'start_time': dateadd(hours, value, :start_time)::text,
-          'end_time': dateadd(hours, value+7, :start_time)::text
+          'end_time': dateadd(hours, value+8, :start_time)::text
         })
-    from table(flatten(input=>array_generate_range(0, datediff(hours, :start_time, current_timestamp()), 7))) f);
+    from table(flatten(input=>array_generate_range(0, datediff(hours, :start_time, current_timestamp()), 8))) f);
 
     return table(res);
 end;

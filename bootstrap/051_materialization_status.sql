@@ -119,7 +119,8 @@ expanded as (
         last_incr_status,
         last_incr_error_message,
         last_incr_query_id,
-        COALESCE(running_start, timestampadd(minutes, coalesce(task_period_mins, 60), last_start)) as next_start,
+        -- 60*7=420mins which is the schedule for WAREHOUSE_LOAD_MAINTENANCE
+        COALESCE(running_start, timestampadd(minutes, coalesce(task_period_mins, 420), last_start)) as next_start,
         COALESCE(running_type, IFF(last_full_status <> 'SUCCESS', 'FULL', 'INCREMENTAL')) as next_type,
         IFF(running_type is not null, 'EXECUTING', 'SCHEDULED') as next_status,
         running_query_id as next_query_id,
