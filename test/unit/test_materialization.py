@@ -242,7 +242,7 @@ def test_materialization_status_structure(conn):
 def test_materialization_status_values(conn):
     with conn() as cnx, cnx.cursor(DictCursor) as cur:
         rows = cur.execute(
-            "select user_schema, user_view, partition, last_full_start, last_full_end, range_start, range_end from admin.materialization_status"
+            "select user_schema, user_view, partition, last_full_start, last_full_end, last_full_status, range_start, range_end from admin.materialization_status"
         ).fetchall()
 
         for row in rows:
@@ -251,6 +251,7 @@ def test_materialization_status_values(conn):
             if row["USER_VIEW"] == "WAREHOUSE_LOAD_HISTORY":
                 assert row["PARTITION"] is not None
 
+            assert row["LAST_FULL_STATUS"] == "SUCCESS"
             for c in ["LAST_FULL_START", "LAST_FULL_END"]:
                 assert row[c] is not None, f"Expected field {c} to be not null: {row}"
                 assert isinstance(row[c], datetime.datetime)
