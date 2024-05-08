@@ -93,7 +93,7 @@ BEGIN
 END;
 
 CREATE OR REPLACE TASK TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE
-    SCHEDULE = '60 minute'
+    SCHEDULE = '720 minute' -- 12hours
     ALLOW_OVERLAPPING_EXECUTION = FALSE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
@@ -127,9 +127,6 @@ BEGIN
             CALL INTERNAL.FINISH_TASK(:task_name, :table_name, :start_time, :task_run_id, :output);
         END;
     END FOR;
-
-    -- TODO add table log
-    call internal.refresh_warehouses();
 END;
 
 CREATE OR REPLACE TASK TASKS.QUERY_HISTORY_MAINTENANCE
@@ -386,6 +383,9 @@ DECLARE
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
 BEGIN
     let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
+
+    -- Refresh the warehouses prior to refreshing the warehouse load history
+    call internal.refresh_warehouses();
 
     let wh resultset := (select name from internal.sfwarehouses);
     let wh_cur cursor for wh;
