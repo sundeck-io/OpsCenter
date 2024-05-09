@@ -1,11 +1,8 @@
 
 
-
-
-
 create or replace view CATALOG.BROKERS as
  with b as (
- select p.value FROM TABLE(FLATTEN(input => parse_json(internal.wrapper_ef_run(object_construct(), object_construct('SQLText', 'SHOW SUNDECK FLOWS'))))) p
+ select p.value FROM TABLE(FLATTEN(input => parse_json(internal.wrapper_ef_run(object_construct('SQLText', 'SHOW SUNDECK FLOWS'))))) p
 )
 
 select
@@ -22,7 +19,7 @@ from b;
 
 create or replace view CATALOG.ROUTINES as
  with b as (
- select p.value FROM TABLE(FLATTEN(input => parse_json(internal.wrapper_ef_run(object_construct(), object_construct('SQLText', 'SHOW SUNDECK ROUTINES'))))) p
+ select p.value FROM TABLE(FLATTEN(input => parse_json(internal.wrapper_ef_run(object_construct('SQLText', 'SHOW SUNDECK ROUTINES'))))) p
 )
 
 select
@@ -37,7 +34,7 @@ from b;
 
 create or replace view CATALOG.PINS as
  with b as (
- select p.value FROM TABLE(FLATTEN(input => parse_json(internal.wrapper_ef_run(object_construct(), object_construct('SQLText', 'SHOW SUNDECK TABLES'))))) p
+ select p.value FROM TABLE(FLATTEN(input => parse_json(internal.wrapper_ef_run(object_construct('SQLText', 'SHOW SUNDECK TABLES'))))) p
 )
 
 select

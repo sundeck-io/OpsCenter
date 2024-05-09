@@ -109,14 +109,14 @@ EXCEPTION
         RAISE;
 END;
 
-create or replace function internal.wrapper_ef_run(tenant_info object, request object)
+create or replace function internal.wrapper_ef_run(request object)
     returns VARIANT
     immutable
 as
 $$
-    iff(length(internal.ef_run(tenant_info, request):error) != 0,
-        internal.throw_exception(internal.ef_run(tenant_info, request):error),
-        internal.ef_run(tenant_info, request):payload)
+    iff(length(internal.ef_run(NULL, request):error) != 0,
+        internal.throw_exception(internal.ef_run(NULL, request):error),
+        internal.ef_run(NULL, request):payload)
 $$;
 
 
