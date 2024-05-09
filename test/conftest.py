@@ -1,6 +1,7 @@
 import sys
 import datetime
 import pytest
+import pytz
 from contextlib import contextmanager
 from common_utils import (
     delete_list_of_labels,
@@ -8,6 +9,7 @@ from common_utils import (
     fetch_all_warehouse_schedules,
     reset_timezone,
 )
+from snowflake.connector.cursor import DictCursor
 
 sys.path.append("../deploy")
 import helpers  # noqa E402
@@ -100,3 +102,10 @@ def timestamp_string(conn):
 def reset_timezone_before_test(conn):
     with conn() as cnx:
         reset_timezone(cnx)
+
+
+@pytest.fixture
+def current_timezone(conn) -> pytz.timezone:
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        row = cur.execute("show parameters like 'timezone'").fetchone()
+        return pytz.timezone(row["value"])

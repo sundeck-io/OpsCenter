@@ -262,7 +262,7 @@ def test_materialization_status_values(conn):
                 ), "Range end should never be less than range start"
 
 
-def test_migrate_old_query_history_log(conn):
+def test_migrate_old_query_history_log(conn, current_timezone):
     with conn() as cnx, cnx.cursor(DictCursor) as cur:
         try:
             cur.execute(
@@ -309,8 +309,12 @@ def test_migrate_old_query_history_log(conn):
             assert input == {"input": True}
             output = json.loads(row["OUTPUT"])
             assert output == {"output": True}
-            assert row["TASK_START"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
-            assert row["TASK_FINISH"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
+            assert row["TASK_START"] == datetime.datetime(
+                2020, 1, 1, 12, 0, 0, tzinfo=current_timezone
+            )
+            assert row["TASK_FINISH"] == datetime.datetime(
+                2020, 1, 1, 12, 0, 0, tzinfo=current_timezone
+            )
             assert row["TASK_NAME"] == key
             assert row["OBJECT_NAME"] == "QUERY_HISTORY"
         finally:
@@ -320,7 +324,7 @@ def test_migrate_old_query_history_log(conn):
             )
 
 
-def test_migrate_old_warehouse_events_log(conn):
+def test_migrate_old_warehouse_events_log(conn, current_timezone):
     with conn() as cnx, cnx.cursor(DictCursor) as cur:
         try:
             cur.execute(
@@ -372,8 +376,12 @@ def test_migrate_old_warehouse_events_log(conn):
                 assert input == {"input": True}
                 output = json.loads(row["OUTPUT"])
                 assert output == {"output": True}
-                assert row["TASK_START"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
-                assert row["TASK_FINISH"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
+                assert row["TASK_START"] == datetime.datetime(
+                    2020, 1, 1, 12, 0, 0, tzinfo=current_timezone
+                )
+                assert row["TASK_FINISH"] == datetime.datetime(
+                    2020, 1, 1, 12, 0, 0, tzinfo=current_timezone
+                )
 
                 assert row["TASK_NAME"] == "WAREHOUSE_EVENTS_MAINTENANCE"
                 assert row["OBJECT_NAME"] == obj
