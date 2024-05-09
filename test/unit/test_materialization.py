@@ -5,7 +5,7 @@ import time
 from snowflake.connector.cursor import DictCursor
 import unittest
 
-TIMESTAMP_PATTERN = "%Y-%m-%d %H:%M:%S.%f"
+TIMESTAMP_PATTERN = "%Y-%m-%d %H:%M:%S.%f %Z"
 
 
 def test_query_history_migration(conn):
@@ -98,7 +98,7 @@ def test_task_log(conn):
                 # in the pre-commit account, the little amount of data combined with the small materialization
                 # range means we can have no warehouse_session rows.
                 assert output[f] is None or datetime.datetime.strptime(
-                    output[f], TIMESTAMP_PATTERN
+                    output[f], "%Y-%m-%d %H:%M:%S.%f"
                 ), f"Expected field {f} to be a nullable datetime: {output[f]}"
 
 
@@ -110,22 +110,22 @@ def test_start_finish_task(conn):
             f"DELETE FROM INTERNAL.TASK_LOG WHERE TASK_NAME = '{task_name}' AND OBJECT_NAME = '{object_name}'"
         )
 
-        # internal.start_task(task_name text, object_name text, start_time text, task_run_id text, query_id text)
-        task_start = "2021-01-01 00:00:00.000000"
+        # internal.start_task(task_name text, object_name text, task_run_id text, query_id text)
         run_id = "test_run_id"
         query_id = "test_query_id"
-        row = cur.execute(
-            f"CALL INTERNAL.START_TASK('test_task', 'test_object', '{task_start}'::TIMESTAMP_NTZ, '{run_id}', '{query_id}')"
+        input = cur.execute(
+            f"CALL INTERNAL.START_TASK('test_task', 'test_object', '{run_id}', '{query_id}')"
         ).fetchone()
 
-        assert row["START_TASK"] is None, "Expected not to find an input to be None"
+        assert input["START_TASK"] is None, "Expected NULL from internal.start_task"
 
         rows = cur.execute(
             f"select * from internal.task_log where task_name = '{task_name}' and object_name = '{object_name}'"
         ).fetchall()
         assert len(rows) == 1
 
-        assert rows[0]["TASK_START"].strftime(TIMESTAMP_PATTERN) == task_start
+        assert rows[0]["TASK_START"] is not None, "Should have a start time of the task"
+        orig_task_start = rows[0]["TASK_START"]
         assert rows[0]["TASK_RUN_ID"] == run_id
         assert rows[0]["QUERY_ID"] == query_id
         for f in [
@@ -148,7 +148,7 @@ def test_start_finish_task(conn):
             "oldest_running": "2021-12-31 23:45:00",
         }
         cur.execute(
-            f"CALL INTERNAL.FINISH_TASK('test_task', 'test_object', '{task_start}'::TIMESTAMP_NTZ, '{run_id}', PARSE_JSON('{json.dumps(output)}'))"
+            f"CALL INTERNAL.FINISH_TASK('{task_name}', '{object_name}', '{run_id}', PARSE_JSON('{json.dumps(output)}'))"
         ).fetchone()
 
         rows = cur.execute(
@@ -157,7 +157,7 @@ def test_start_finish_task(conn):
         assert len(rows) == 1
 
         # Check that the old fields are still set
-        assert rows[0]["TASK_START"].strftime(TIMESTAMP_PATTERN) == task_start
+        assert rows[0]["TASK_START"] == orig_task_start
         assert rows[0]["TASK_RUN_ID"] == run_id
         assert rows[0]["QUERY_ID"] == query_id
 
@@ -262,7 +262,7 @@ def test_materialization_status_values(conn):
                 ), "Range end should never be less than range start"
 
 
-def test_migrate_old_query_history_log(conn):
+def test_migrate_old_query_history_log(conn, current_timezone):
     with conn() as cnx, cnx.cursor(DictCursor) as cur:
         try:
             cur.execute(
@@ -273,7 +273,7 @@ def test_migrate_old_query_history_log(conn):
             )
 
             cur.execute(
-                "INSERT INTO INTERNAL.TASK_QUERY_HISTORY select '2020-01-01 12:00:00'::TIMESTAMP_NTZ, TRUE, OBJECT_CONSTRUCT('input', true), OBJECT_CONSTRUCT('output', true)"
+                "INSERT INTO INTERNAL.TASK_QUERY_HISTORY select '2020-01-01 12:00:00'::TIMESTAMP_LTZ, TRUE, OBJECT_CONSTRUCT('input', true), OBJECT_CONSTRUCT('output', true)"
             )
 
             key = "QUERY_HISTORY_MAINTENANCE"
@@ -298,7 +298,7 @@ def test_migrate_old_query_history_log(conn):
             assert new_task_run != last_task_run, f"{key} task has not re-run"
 
             row = cur.execute(
-                f"select * from internal.task_log where task_name = '{key}' and task_start <= '2020-01-01 12:00:00'::TIMESTAMP_NTZ"
+                f"select * from internal.task_log where task_name = '{key}' and task_start <= '2020-01-01 12:00:00'::TIMESTAMP_LTZ"
             ).fetchone()
 
             assert row is not None
@@ -309,8 +309,15 @@ def test_migrate_old_query_history_log(conn):
             assert input == {"input": True}
             output = json.loads(row["OUTPUT"])
             assert output == {"output": True}
-            assert row["TASK_START"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
-            assert row["TASK_FINISH"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
+
+            # Localize the datetime to the current timezone from snowflake
+            expected_start = current_timezone.localize(
+                datetime.datetime(2020, 1, 1, 12, 0, 0)
+            )
+            assert row["TASK_START"] == expected_start
+            assert (
+                row["TASK_FINISH"] == expected_start
+            )  # migration sets a task_finish which is the same as task_start (we didn't capture this data prior)
             assert row["TASK_NAME"] == key
             assert row["OBJECT_NAME"] == "QUERY_HISTORY"
         finally:
@@ -320,7 +327,7 @@ def test_migrate_old_query_history_log(conn):
             )
 
 
-def test_migrate_old_warehouse_events_log(conn):
+def test_migrate_old_warehouse_events_log(conn, current_timezone):
     with conn() as cnx, cnx.cursor(DictCursor) as cur:
         try:
             cur.execute(
@@ -331,7 +338,7 @@ def test_migrate_old_warehouse_events_log(conn):
             )
 
             cur.execute(
-                "INSERT INTO INTERNAL.TASK_WAREHOUSE_EVENTS select '2020-01-01 12:00:00'::TIMESTAMP_NTZ, TRUE, OBJECT_CONSTRUCT('input', true), OBJECT_CONSTRUCT('output', true)"
+                "INSERT INTO INTERNAL.TASK_WAREHOUSE_EVENTS select '2020-01-01 12:00:00'::TIMESTAMP_LTZ, TRUE, OBJECT_CONSTRUCT('input', true), OBJECT_CONSTRUCT('output', true)"
             )
 
             key = "WAREHOUSE_EVENTS_MAINTENANCE"
@@ -361,7 +368,7 @@ def test_migrate_old_warehouse_events_log(conn):
                 "WAREHOUSE_SESSIONS",
             ]:
                 row = cur.execute(
-                    f"select * from internal.task_log where task_name = '{key}' and task_start <= '2020-01-01 12:00:00'::TIMESTAMP_NTZ and object_name = '{obj}'"
+                    f"select * from internal.task_log where task_name = '{key}' and task_start <= '2020-01-01 12:00:00'::TIMESTAMP_LTZ and object_name = '{obj}'"
                 ).fetchone()
 
                 assert row is not None
@@ -372,8 +379,14 @@ def test_migrate_old_warehouse_events_log(conn):
                 assert input == {"input": True}
                 output = json.loads(row["OUTPUT"])
                 assert output == {"output": True}
-                assert row["TASK_START"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
-                assert row["TASK_FINISH"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
+
+                expected_start = current_timezone.localize(
+                    datetime.datetime(2020, 1, 1, 12, 0, 0)
+                )
+                assert row["TASK_START"] == expected_start
+                assert (
+                    row["TASK_FINISH"] == expected_start
+                )  # migration sets a task_finish which is the same as task_start (we didn't capture this data prior)
 
                 assert row["TASK_NAME"] == "WAREHOUSE_EVENTS_MAINTENANCE"
                 assert row["OBJECT_NAME"] == obj

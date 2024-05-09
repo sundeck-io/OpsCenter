@@ -71,7 +71,6 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_EVENTS_MAINTENANCE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
     AS
 DECLARE
-    start_time timestamp_ntz default (select current_timestamp()::TIMESTAMP_NTZ);
     root_task_id text default (select INTERNAL.ROOT_TASK_ID());
     task_run_id text default (select INTERNAL.TASK_RUN_ID());
     task_name text default 'WAREHOUSE_EVENTS_MAINTENANCE';
@@ -105,17 +104,17 @@ BEGIN
 
 
     let input object;
-    CALL INTERNAL.START_TASK(:task_name, :object_name, :start_time, :task_run_id, :query_id) into :input;
+    CALL INTERNAL.START_TASK(:task_name, :object_name, :task_run_id, :query_id) into :input;
 
     let output variant;
     CALL INTERNAL.refresh_warehouse_events(true, :input) into :output;
 
-    CALL INTERNAL.FINISH_TASK(:task_name, :object_name, :start_time, :task_run_id, :output);
+    CALL INTERNAL.FINISH_TASK(:task_name, :object_name, :task_run_id, :output);
 
     -- Warehouse events history is a special case where we want to distinctly track warehouse sessions and cluster sessions
     -- but not change the existing materialization logic which materializes both at the same time.
     -- We create a task-level row using the typical API above, but then create domain-specific rows below.
-    CALL INTERNAL.FINISH_WAREHOUSE_EVENTS_TASK(:task_name, :start_time, :task_run_id, :query_id, :input, :output);
+    CALL INTERNAL.FINISH_WAREHOUSE_EVENTS_TASK(:task_name, :task_run_id, :output);
 END;
 
 CREATE OR REPLACE TASK TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE
@@ -161,14 +160,13 @@ BEGIN
         let table_name text := rowvar.table_name;
         let index_col text := rowvar.index_col;
         BEGIN
-            let start_time TIMESTAMP_NTZ := (select current_timestamp()::TIMESTAMP_NTZ);
             let input object;
-            CALL INTERNAL.START_TASK(:task_name, :table_name, :start_time, :task_run_id, :query_id) into input;
+            CALL INTERNAL.START_TASK(:task_name, :table_name, :task_run_id, :query_id) into input;
 
             let output variant;
             CALL INTERNAL.refresh_simple_table(:table_name, :index_col, true, :input) into :output;
 
-            CALL INTERNAL.FINISH_TASK(:task_name, :table_name, :start_time, :task_run_id, :output);
+            CALL INTERNAL.FINISH_TASK(:task_name, :table_name, :task_run_id, :output);
         END;
     END FOR;
 END;
@@ -179,7 +177,6 @@ CREATE OR REPLACE TASK TASKS.QUERY_HISTORY_MAINTENANCE
     USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "LARGE"
     AS
 DECLARE
-    start_time timestamp_ntz default (select current_timestamp()::TIMESTAMP_NTZ);
     task_name text default 'QUERY_HISTORY_MAINTENANCE';
     object_name text default 'QUERY_HISTORY';
     root_task_id text default (select INTERNAL.ROOT_TASK_ID());
@@ -203,12 +200,12 @@ BEGIN
     end if;
 
     let input object;
-    CALL INTERNAL.START_TASK(:task_name, :object_name, :start_time, :task_run_id, :query_id) into :input;
+    CALL INTERNAL.START_TASK(:task_name, :object_name, :task_run_id, :query_id) into :input;
 
     let output object;
     CALL INTERNAL.refresh_queries(true, :input) into :output;
 
-    CALL INTERNAL.FINISH_TASK(:task_name, :object_name, :start_time, :task_run_id, :output);
+    CALL INTERNAL.FINISH_TASK(:task_name, :object_name, :task_run_id, :output);
 END;
 
 CREATE OR REPLACE TASK TASKS.SFUSER_MAINTENANCE
@@ -465,12 +462,11 @@ BEGIN
     let wh resultset := (select name from internal.sfwarehouses);
     let wh_cur cursor for wh;
     for wh_row in wh_cur do
-        let start_time timestamp_ntz := (select current_timestamp()::TIMESTAMP_NTZ);
         let wh_name varchar := wh_row.name;
         let output object;
         let input object;
 
-        CALL INTERNAL.START_TASK(:task_name, :wh_name, :start_time, :task_run_id, :query_id) into :input;
+        CALL INTERNAL.START_TASK(:task_name, :wh_name, :task_run_id, :query_id) into :input;
 
         -- We have to run the warehouse load history query in the task and not in a procedure call by the task. The below block is our "task body".
         begin
@@ -492,7 +488,7 @@ BEGIN
                 output := OBJECT_CONSTRUCT('Error type', 'Other error', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate);
         end;
 
-        CALL INTERNAL.FINISH_TASK(:task_name, :wh_name, :start_time, :task_run_id, :output);
+        CALL INTERNAL.FINISH_TASK(:task_name, :wh_name, :task_run_id, :output);
     end for;
 
 exception
