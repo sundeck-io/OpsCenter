@@ -273,7 +273,7 @@ def test_migrate_old_query_history_log(conn, current_timezone):
             )
 
             cur.execute(
-                "INSERT INTO INTERNAL.TASK_QUERY_HISTORY select '2020-01-01 12:00:00'::TIMESTAMP_NTZ, TRUE, OBJECT_CONSTRUCT('input', true), OBJECT_CONSTRUCT('output', true)"
+                "INSERT INTO INTERNAL.TASK_QUERY_HISTORY select '2020-01-01 12:00:00'::TIMESTAMP_LTZ, TRUE, OBJECT_CONSTRUCT('input', true), OBJECT_CONSTRUCT('output', true)"
             )
 
             key = "QUERY_HISTORY_MAINTENANCE"
@@ -298,7 +298,7 @@ def test_migrate_old_query_history_log(conn, current_timezone):
             assert new_task_run != last_task_run, f"{key} task has not re-run"
 
             row = cur.execute(
-                f"select * from internal.task_log where task_name = '{key}' and task_start <= '2020-01-01 12:00:00'::TIMESTAMP_NTZ"
+                f"select * from internal.task_log where task_name = '{key}' and task_start <= '2020-01-01 12:00:00'::TIMESTAMP_LTZ"
             ).fetchone()
 
             assert row is not None
@@ -309,12 +309,15 @@ def test_migrate_old_query_history_log(conn, current_timezone):
             assert input == {"input": True}
             output = json.loads(row["OUTPUT"])
             assert output == {"output": True}
-            assert row["TASK_START"] == datetime.datetime(
-                2020, 1, 1, 12, 0, 0, tzinfo=current_timezone
+
+            # Localize the datetime to the current timezone from snowflake
+            expected_start = current_timezone.localize(
+                datetime.datetime(2020, 1, 1, 12, 0, 0)
             )
-            assert row["TASK_FINISH"] == datetime.datetime(
-                2020, 1, 1, 12, 0, 0, tzinfo=current_timezone
-            )
+            assert row["TASK_START"] == expected_start
+            assert (
+                row["TASK_FINISH"] == expected_start
+            )  # migration sets a task_finish which is the same as task_start (we didn't capture this data prior)
             assert row["TASK_NAME"] == key
             assert row["OBJECT_NAME"] == "QUERY_HISTORY"
         finally:
@@ -335,7 +338,7 @@ def test_migrate_old_warehouse_events_log(conn, current_timezone):
             )
 
             cur.execute(
-                "INSERT INTO INTERNAL.TASK_WAREHOUSE_EVENTS select '2020-01-01 12:00:00'::TIMESTAMP_NTZ, TRUE, OBJECT_CONSTRUCT('input', true), OBJECT_CONSTRUCT('output', true)"
+                "INSERT INTO INTERNAL.TASK_WAREHOUSE_EVENTS select '2020-01-01 12:00:00'::TIMESTAMP_LTZ, TRUE, OBJECT_CONSTRUCT('input', true), OBJECT_CONSTRUCT('output', true)"
             )
 
             key = "WAREHOUSE_EVENTS_MAINTENANCE"
@@ -365,7 +368,7 @@ def test_migrate_old_warehouse_events_log(conn, current_timezone):
                 "WAREHOUSE_SESSIONS",
             ]:
                 row = cur.execute(
-                    f"select * from internal.task_log where task_name = '{key}' and task_start <= '2020-01-01 12:00:00'::TIMESTAMP_NTZ and object_name = '{obj}'"
+                    f"select * from internal.task_log where task_name = '{key}' and task_start <= '2020-01-01 12:00:00'::TIMESTAMP_LTZ and object_name = '{obj}'"
                 ).fetchone()
 
                 assert row is not None
@@ -376,12 +379,14 @@ def test_migrate_old_warehouse_events_log(conn, current_timezone):
                 assert input == {"input": True}
                 output = json.loads(row["OUTPUT"])
                 assert output == {"output": True}
-                assert row["TASK_START"] == datetime.datetime(
-                    2020, 1, 1, 12, 0, 0, tzinfo=current_timezone
+
+                expected_start = current_timezone.localize(
+                    datetime.datetime(2020, 1, 1, 12, 0, 0)
                 )
-                assert row["TASK_FINISH"] == datetime.datetime(
-                    2020, 1, 1, 12, 0, 0, tzinfo=current_timezone
-                )
+                assert row["TASK_START"] == expected_start
+                assert (
+                    row["TASK_FINISH"] == expected_start
+                )  # migration sets a task_finish which is the same as task_start (we didn't capture this data prior)
 
                 assert row["TASK_NAME"] == "WAREHOUSE_EVENTS_MAINTENANCE"
                 assert row["OBJECT_NAME"] == obj
