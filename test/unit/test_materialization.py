@@ -1,5 +1,7 @@
 import datetime
 import json
+import time
+
 from snowflake.connector.cursor import DictCursor
 import unittest
 
@@ -213,6 +215,8 @@ def test_materialization_status_structure(conn):
             "TASK_LOG_HISTORY",
             "UPGRADE_HISTORY",
             "WAREHOUSE_SCHEDULES_TASK_HISTORY",
+            "WAREHOUSE_LOAD_EVENTS_TASK_HISTORY",
+            "SIMPLE_DATA_EVENTS_TASK_HISTORY",
         ]
 
         # Subtract views we don't include in materialization_status
@@ -238,7 +242,7 @@ def test_materialization_status_structure(conn):
 def test_materialization_status_values(conn):
     with conn() as cnx, cnx.cursor(DictCursor) as cur:
         rows = cur.execute(
-            "select user_schema, user_view, partition, range_start, range_end from admin.materialization_status"
+            "select user_schema, user_view, partition, last_full_start, last_full_end, last_full_status, range_start, range_end from admin.materialization_status"
         ).fetchall()
 
         for row in rows:
@@ -246,63 +250,135 @@ def test_materialization_status_values(conn):
             assert row["USER_VIEW"] is not None
             if row["USER_VIEW"] == "WAREHOUSE_LOAD_HISTORY":
                 assert row["PARTITION"] is not None
-            for c in ["RANGE_START", "RANGE_END"]:
+
+            assert row["LAST_FULL_STATUS"] == "SUCCESS"
+            for c in ["LAST_FULL_START", "LAST_FULL_END"]:
                 assert row[c] is not None, f"Expected field {c} to be not null: {row}"
                 assert isinstance(row[c], datetime.datetime)
-            assert (
-                row["RANGE_START"] <= row["RANGE_END"]
-            ), "Range end should never be greater than start"
+            # If we have a range of data, the start should always be less than or equal to the end.
+            if row["RANGE_START"] and row["RANGE_END"]:
+                assert (
+                    row["RANGE_START"] <= row["RANGE_END"]
+                ), "Range end should never be less than range start"
 
 
-def test_migrate_task_log(conn):
+def test_migrate_old_query_history_log(conn):
     with conn() as cnx, cnx.cursor(DictCursor) as cur:
         try:
             cur.execute(
-                "CREATE OR REPLACE TABLE INTERNAL.TASK_LOG_BACKUP as SELECT * FROM INTERNAL.TASK_LOG"
+                "delete from internal.config where key = 'MIGRATION_TASK_QUERY_HISTORY'"
             )
-            cur.execute("TRUNCATE TABLE INTERNAL.TASK_LOG")
-            # Create a successful, unsuccessful, and in-progress full materialization record
             cur.execute(
-                """
-                INSERT INTO INTERNAL.TASK_LOG(task_start, success, task_name, object_name, input, output, task_finish)
-                VALUES (current_timestamp()::TIMESTAMP_NTZ, TRUE, 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_EVENTS_HISTORY', NULL, NULl, NULL),
-                (current_timestamp()::TIMESTAMP_NTZ, FALSE, 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', NULL, NULL, NULL),
-                (current_timestamp()::TIMESTAMP_NTZ, NULL, 'SIMPLE_DATA_EVENTS_MAINTENANCE', 'SESSIONS', NULL, NULL, NULL)
-            """
+                "CREATE OR REPLACE TABLE INTERNAL.TASK_QUERY_HISTORY(run timestamp_ntz, success boolean, input variant, output variant)"
             )
 
-            # We don't have rows for cluster_sessions and warehouse_sessions
+            cur.execute(
+                "INSERT INTO INTERNAL.TASK_QUERY_HISTORY select '2020-01-01 12:00:00'::TIMESTAMP_NTZ, TRUE, OBJECT_CONSTRUCT('input', true), OBJECT_CONSTRUCT('output', true)"
+            )
+
+            key = "QUERY_HISTORY_MAINTENANCE"
+            last_task_run = cur.execute(
+                f"select value from catalog.config where key = '{key}'"
+            ).fetchone()["VALUE"]
+
+            cur.execute("execute task tasks.query_history_maintenance")
+
+            new_task_run = None
+            # wait 2 minutes total, checking every 20 seconds
+            for i in range(0, 6):
+                time.sleep(20)
+
+                new_task_run = cur.execute(
+                    f"select value from catalog.config where key = '{key}'"
+                ).fetchone()["VALUE"]
+                if new_task_run != last_task_run:
+                    break
+
+            assert new_task_run is not None
+            assert new_task_run != last_task_run, f"{key} task has not re-run"
+
             row = cur.execute(
-                "SELECT count(*) as c from INTERNAL.TASK_LOG WHERE TASK_NAME = 'WAREHOUSE_EVENTS_MAINTENANCE' and OBJECT_NAME in ('CLUSTER_SESSIONS', 'WAREHOUSE_SESSIONS')"
+                f"select * from internal.task_log where task_name = '{key}' and task_start <= '2020-01-01 12:00:00'::TIMESTAMP_NTZ"
             ).fetchone()
-            assert row["C"] == 0
 
-            cur.execute("call internal.migrate_task_logs()")
-
-            # Verify two rows which are complete has a task_finish. The in-progress row should not have a task_finish.
-            rows = cur.execute(
-                """
-                SELECT task_name, success, input, task_start, task_finish FROM INTERNAL.TASK_LOG
-                WHERE input is null AND object_name in ('WAREHOUSE_EVENTS_HISTORY', 'QUERY_HISTORY', 'SESSIONS')
-            """
-            ).fetchall()
-            for row in rows:
-                if row["SUCCESS"] is not None:
-                    assert row["INPUT"] is None
-                    assert row["TASK_FINISH"] is not None
-                    assert row["TASK_FINISH"] == row["TASK_START"]
-                else:
-                    assert row["INPUT"] is None
-                    assert row["TASK_START"] is not None
-                    assert row["TASK_FINISH"] is None
-
-            # After the procedure runs, we should have these rows
-            row = cur.execute(
-                "SELECT count(*) as c from INTERNAL.TASK_LOG WHERE TASK_NAME = 'WAREHOUSE_EVENTS_MAINTENANCE' and OBJECT_NAME in ('CLUSTER_SESSIONS', 'WAREHOUSE_SESSIONS')"
-            ).fetchone()
-            assert row["C"] == 2
+            assert row is not None
+            assert row["SUCCESS"] is True
+            assert row["INPUT"] is not None
+            assert row["OUTPUT"] is not None
+            input = json.loads(row["INPUT"])
+            assert input == {"input": True}
+            output = json.loads(row["OUTPUT"])
+            assert output == {"output": True}
+            assert row["TASK_START"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
+            assert row["TASK_FINISH"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
+            assert row["TASK_NAME"] == key
+            assert row["OBJECT_NAME"] == "QUERY_HISTORY"
         finally:
-            cur.execute("DROP TABLE INTERNAL.TASK_LOG")
+            # Remove any junk rows we created
             cur.execute(
-                "ALTER TABLE INTERNAL.TASK_LOG_BACKUP RENAME TO INTERNAL.TASK_LOG"
+                "DELETE FROM INTERNAL.TASK_LOG where task_name = 'QUERY_HISTORY_MAINTENANCE' and task_start::DATE <= '2020-01-30'::DATE"
+            )
+
+
+def test_migrate_old_warehouse_events_log(conn):
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        try:
+            cur.execute(
+                "delete from internal.config where key = 'MIGRATION_TASK_WAREHOUSE_EVENTS'"
+            )
+            cur.execute(
+                "CREATE OR REPLACE TABLE INTERNAL.TASK_WAREHOUSE_EVENTS(run timestamp_ntz, success boolean, input variant, output variant)"
+            )
+
+            cur.execute(
+                "INSERT INTO INTERNAL.TASK_WAREHOUSE_EVENTS select '2020-01-01 12:00:00'::TIMESTAMP_NTZ, TRUE, OBJECT_CONSTRUCT('input', true), OBJECT_CONSTRUCT('output', true)"
+            )
+
+            key = "WAREHOUSE_EVENTS_MAINTENANCE"
+            last_task_run = cur.execute(
+                f"select value from catalog.config where key = '{key}'"
+            ).fetchone()["VALUE"]
+
+            cur.execute("execute task tasks.warehouse_events_maintenance")
+
+            new_task_run = None
+            # wait 2 minutes total, checking every 20 seconds
+            for i in range(0, 6):
+                time.sleep(20)
+
+                new_task_run = cur.execute(
+                    f"select value from catalog.config where key = '{key}'"
+                ).fetchone()["VALUE"]
+                if new_task_run != last_task_run:
+                    break
+
+            assert new_task_run is not None
+            assert new_task_run != last_task_run, f"{key} task has not re-run"
+
+            for obj in [
+                "WAREHOUSE_EVENTS_HISTORY",
+                "CLUSTER_SESSIONS",
+                "WAREHOUSE_SESSIONS",
+            ]:
+                row = cur.execute(
+                    f"select * from internal.task_log where task_name = '{key}' and task_start <= '2020-01-01 12:00:00'::TIMESTAMP_NTZ and object_name = '{obj}'"
+                ).fetchone()
+
+                assert row is not None
+                assert row["SUCCESS"] is True
+                assert row["INPUT"] is not None
+                assert row["OUTPUT"] is not None
+                input = json.loads(row["INPUT"])
+                assert input == {"input": True}
+                output = json.loads(row["OUTPUT"])
+                assert output == {"output": True}
+                assert row["TASK_START"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
+                assert row["TASK_FINISH"] == datetime.datetime(2020, 1, 1, 12, 0, 0)
+
+                assert row["TASK_NAME"] == "WAREHOUSE_EVENTS_MAINTENANCE"
+                assert row["OBJECT_NAME"] == obj
+        finally:
+            # Remove any junk rows we created
+            cur.execute(
+                "DELETE FROM INTERNAL.TASK_LOG where task_name = 'WAREHOUSE_EVENTS_MAINTENANCE' and task_start::DATE <= '2020-01-30'::DATE"
             )
