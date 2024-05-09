@@ -109,6 +109,17 @@ EXCEPTION
         RAISE;
 END;
 
+create or replace function internal.wrapper_ef_run(request object)
+    returns VARIANT
+    immutable
+as
+$$
+    iff(length(internal.ef_run(NULL, request):error) != 0,
+        internal.throw_exception(internal.ef_run(NULL, request):error),
+        internal.ef_run(NULL, request):payload)
+$$;
+
+
 -- Quota reporting to Sundeck EF
 BEGIN
     CREATE FUNCTION IF NOT EXISTS internal.ef_report_quota_used(request object)
@@ -241,57 +252,6 @@ $$
         internal.ef_signature_target(request):target_warehouse)::variant
 $$;
 
--- Add routine helper to Sundeck
-BEGIN
-    CREATE FUNCTION IF NOT EXISTS internal.ef_list_routines(request object)
-        RETURNS VARIANT
-        LANGUAGE JAVASCRIPT
-    AS 'throw "You must configure a Sundeck token before using list_routines.";';
-EXCEPTION
-    WHEN statement_error THEN
-        let isalreadyef boolean := (select CONTAINS(:SQLERRM, 'API_INTEGRATION') AND CONTAINS(:SQLERRM, 'must be specified'));
-        if (not isalreadyef) then
-            RAISE;
-        end if;
-    WHEN OTHER THEN
-        RAISE;
-END;
-
-create or replace function internal.wrapper_list_routines(request object)
-    returns VARIANT
-    immutable
-as
-$$
-    iff(length(internal.ef_list_routines(request):error) != 0,
-        internal.throw_exception(internal.ef_list_routines(request):error),
-        internal.ef_list_routines(request):routines)
-$$;
-
--- Add broker helper to Sundeck
-BEGIN
-    CREATE FUNCTION IF NOT EXISTS internal.ef_list_brokers(request object)
-        RETURNS VARIANT
-        LANGUAGE JAVASCRIPT
-    AS 'throw "You must configure a Sundeck token before using list_brokers.";';
-EXCEPTION
-    WHEN statement_error THEN
-        let isalreadyef boolean := (select CONTAINS(:SQLERRM, 'API_INTEGRATION') AND CONTAINS(:SQLERRM, 'must be specified'));
-        if (not isalreadyef) then
-            RAISE;
-        end if;
-    WHEN OTHER THEN
-        RAISE;
-END;
-
-create or replace function internal.wrapper_list_brokers(request object)
-    returns VARIANT
-    immutable
-as
-$$
-    iff(length(internal.ef_list_brokers(request):error) != 0,
-        internal.throw_exception(internal.ef_list_brokers(request):error),
-        internal.ef_list_brokers(request):brokers)
-$$;
 
 BEGIN
     CREATE FUNCTION IF NOT EXISTS internal.ef_verify_token(request object)
@@ -412,7 +372,7 @@ BEGIN
 
             create or replace external function internal.ef_run(unused object, request object)
             returns object
-            context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
+            context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA, CURRENT_REGION)
             api_integration = reference(\'' || api_integration_name || '\')
             headers = (\'sndk-token\' = \'' || token || '\')
             as \'' || url || '/extfunc/run\';
@@ -445,20 +405,6 @@ BEGIN
             api_integration = reference(\'' || api_integration_name || '\')
             headers = (\'sndk-token\' = \'' || token || '\')
             as \'' || url || '/extfunc/signature_target\';
-
-            create or replace external function internal.ef_list_routines(params object)
-            returns object
-            context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
-            api_integration = reference(\'' || api_integration_name || '\')
-            headers = (\'sndk-token\' = \'' || token || '\')
-            as \'' || url || '/extfunc/list_routines\';
-
-            create or replace external function internal.ef_list_brokers(params object)
-            returns object
-            context_headers = (CURRENT_ACCOUNT, CURRENT_USER, CURRENT_ROLE, CURRENT_DATABASE, CURRENT_SCHEMA)
-            api_integration = reference(\'' || api_integration_name || '\')
-            headers = (\'sndk-token\' = \'' || token || '\')
-            as \'' || url || '/extfunc/list_brokers\';
 
             create or replace external function internal.ef_verify_token(params object)
             returns object

@@ -1,31 +1,47 @@
 
--- create or replace view catalog.flows as
--- with b as (
--- select p.value from table(flatten(input => internal.ef_run(object_construct(), object_construct('SundeckRoleInContext', 'SUNDECK_ADMIN', 'SQLText', 'SHOW SUNDECK FLOWS')):payload)) p
--- )
---
--- select
---     hex_decode_string(b.VALUE:FLOW_NAME) as FLOW_NAME,
---     hex_decode_string(b.VALUE:FLOW_DEFAULT_WAREHOUSE) as DEFAULT_WAREHOUSE,
---     to_timestamp(hex_decode_string(b.VALUE:FLOW_LAST_MODIFIED_AT), 'YYYY-MM-DD HH24:MI:SS.FF6 +0000 UTC') as FLOW_LAST_MODIFIED_AT,
---     hex_decode_string(b.VALUE:FLOW_LAST_MODIFIED_BY) as FLOW_LAST_MODIFIED_BY,
---     hex_decode_string(b.VALUE:FLOW_DDL) as DDL,
---     hex_decode_string(b.VALUE:FLOW_IS_DEFAULT)::boolean as FLOW_IS_DEFAULT,
---     hex_decode_string(b.VALUE:FLOW_RESULTS_PATH) as FLOW_RESULTS_PATH
--- from b;
---
--- create or replace view catalog.parameters as
--- with b as (
--- select p.value from table(flatten(input => internal.ef_run(object_construct(), object_construct('SundeckRoleInContext', 'SUNDECK_ADMIN', 'SQLText', 'SHOW SUNDECK PARAMETERS')):payload)) p
--- )
---
--- select
---     hex_decode_string(b.VALUE:key) as KEY,
---     hex_decode_string(b.VALUE:value) as VALUE,
---     hex_decode_string(b.VALUE:default) as DEFAULT,
---     hex_decode_string(b.VALUE:level) as LEVEL,
---     hex_decode_string(b.VALUE:description) as DESCRIPTION
--- from b
--- ;
 
-SELECT 1;
+create or replace view CATALOG.BROKERS as
+ with b as (
+ select p.value FROM TABLE(FLATTEN(input => parse_json(internal.wrapper_ef_run(object_construct('SQLText', 'SHOW SUNDECK FLOWS'))))) p
+)
+
+select
+    hex_decode_string(b.VALUE:NAME) as name,
+    hex_decode_string(b.VALUE:IS_DEFAULT) as is_default,
+    hex_decode_string(b.VALUE:DEFAULT_WAREHOUSE) as default_warehouse,
+    hex_decode_string(b.VALUE:HOSTNAME) as hostname,
+    hex_decode_string(b.VALUE:LAST_MODIFIED_AT) as last_modified_at,
+    hex_decode_string(b.VALUE:DDL) as ddl,
+    hex_decode_string(b.VALUE:RESULTS_PATH) as results_path,
+    hex_decode_string(b.VALUE:COMMENT) as comment
+from b;
+
+
+create or replace view CATALOG.ROUTINES as
+ with b as (
+ select p.value FROM TABLE(FLATTEN(input => parse_json(internal.wrapper_ef_run(object_construct('SQLText', 'SHOW SUNDECK ROUTINES'))))) p
+)
+
+select
+    hex_decode_string(b.VALUE:ROUTINE_NAME) as name,
+    hex_decode_string(b.VALUE:ROUTINE_NAMESPACE) as namespace,
+    hex_decode_string(b.VALUE:ROUTINE_REF_COUNT) as ref_count,
+    hex_decode_string(b.VALUE:ROUTINE_CREATED_AT) as created_at,
+    hex_decode_string(b.VALUE:ROUTINE_LAST_MODIFIED_AT) as last_modified_at,
+    hex_decode_string(b.VALUE:ROUTINE_DDL) as ddl,
+    hex_decode_string(b.VALUE:ROUTINE_COMMENT) as comment
+from b;
+
+create or replace view CATALOG.PINS as
+ with b as (
+ select p.value FROM TABLE(FLATTEN(input => parse_json(internal.wrapper_ef_run(object_construct('SQLText', 'SHOW SUNDECK TABLES'))))) p
+)
+
+select
+    hex_decode_string(b.VALUE:PIN_DB_NAME) as db_name,
+    hex_decode_string(b.VALUE:PIN_SCHEMA_NAME) as schema_name,
+    hex_decode_string(b.VALUE:PIN_TABLE_NAME) as table_name,
+    hex_decode_string(b.VALUE:PIN_CREATED_AT) as created_at,
+    hex_decode_string(b.VALUE:PIN_IS_SYSTEM) as is_system,
+    hex_decode_string(b.VALUE:PIN_REFRESH_FREQUENCY_SECONDS) as refresh_frequency_seconds,
+from b;
