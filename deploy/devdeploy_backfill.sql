@@ -1,5 +1,5 @@
 begin
-    let dt timestamp := (select dateadd(day, -1, current_timestamp()));
+    let dt timestamp_ltz := (select dateadd(day, -1, current_timestamp()));
     let output object := OBJECT_CONSTRUCT('oldest_running', dt, 'newest_completed', dt, 'range_min', :dt, 'range_max', :dt);
     insert into "{DATABASE}".INTERNAL.TASK_LOG(task_start, success, input, output, task_finish, task_name, object_name, range_min, range_max) SELECT :dt, true, null, :output, :dt, 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_EVENTS_HISTORY', :dt, :dt;
     insert into "{DATABASE}".INTERNAL.TASK_LOG(task_start, success, input, output, task_finish, task_name, object_name, range_min, range_max) SELECT :dt, true, null, :output, :dt, 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_SESSIONS', :dt, :dt;

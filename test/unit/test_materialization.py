@@ -3,7 +3,7 @@ import json
 from snowflake.connector.cursor import DictCursor
 import unittest
 
-TIMESTAMP_PATTERN = "%Y-%m-%d %H:%M:%S.%f"
+TIMESTAMP_PATTERN = "%Y-%m-%d %H:%M:%S.%f %Z"
 
 
 def test_query_history_migration(conn):
@@ -96,7 +96,7 @@ def test_task_log(conn):
                 # in the pre-commit account, the little amount of data combined with the small materialization
                 # range means we can have no warehouse_session rows.
                 assert output[f] is None or datetime.datetime.strptime(
-                    output[f], TIMESTAMP_PATTERN
+                    output[f], "%Y-%m-%d %H:%M:%S.%f"
                 ), f"Expected field {f} to be a nullable datetime: {output[f]}"
 
 
@@ -108,22 +108,22 @@ def test_start_finish_task(conn):
             f"DELETE FROM INTERNAL.TASK_LOG WHERE TASK_NAME = '{task_name}' AND OBJECT_NAME = '{object_name}'"
         )
 
-        # internal.start_task(task_name text, object_name text, start_time text, task_run_id text, query_id text)
-        task_start = "2021-01-01 00:00:00.000000"
+        # internal.start_task(task_name text, object_name text, task_run_id text, query_id text)
         run_id = "test_run_id"
         query_id = "test_query_id"
-        row = cur.execute(
-            f"CALL INTERNAL.START_TASK('test_task', 'test_object', '{task_start}'::TIMESTAMP_NTZ, '{run_id}', '{query_id}')"
+        input = cur.execute(
+            f"CALL INTERNAL.START_TASK('test_task', 'test_object', '{run_id}', '{query_id}')"
         ).fetchone()
 
-        assert row["START_TASK"] is None, "Expected not to find an input to be None"
+        assert input["START_TASK"] is None, "Expected NULL from internal.start_task"
 
         rows = cur.execute(
             f"select * from internal.task_log where task_name = '{task_name}' and object_name = '{object_name}'"
         ).fetchall()
         assert len(rows) == 1
 
-        assert rows[0]["TASK_START"].strftime(TIMESTAMP_PATTERN) == task_start
+        assert rows[0]["TASK_START"] is not None, "Should have a start time of the task"
+        orig_task_start = rows[0]["TASK_START"]
         assert rows[0]["TASK_RUN_ID"] == run_id
         assert rows[0]["QUERY_ID"] == query_id
         for f in [
@@ -146,7 +146,7 @@ def test_start_finish_task(conn):
             "oldest_running": "2021-12-31 23:45:00",
         }
         cur.execute(
-            f"CALL INTERNAL.FINISH_TASK('test_task', 'test_object', '{task_start}'::TIMESTAMP_NTZ, '{run_id}', PARSE_JSON('{json.dumps(output)}'))"
+            f"CALL INTERNAL.FINISH_TASK('{task_name}', '{object_name}', '{run_id}', PARSE_JSON('{json.dumps(output)}'))"
         ).fetchone()
 
         rows = cur.execute(
@@ -155,7 +155,7 @@ def test_start_finish_task(conn):
         assert len(rows) == 1
 
         # Check that the old fields are still set
-        assert rows[0]["TASK_START"].strftime(TIMESTAMP_PATTERN) == task_start
+        assert rows[0]["TASK_START"] == orig_task_start
         assert rows[0]["TASK_RUN_ID"] == run_id
         assert rows[0]["QUERY_ID"] == query_id
 
@@ -265,9 +265,10 @@ def test_migrate_task_log(conn):
             cur.execute(
                 """
                 INSERT INTO INTERNAL.TASK_LOG(task_start, success, task_name, object_name, input, output, task_finish)
-                VALUES (current_timestamp()::TIMESTAMP_NTZ, TRUE, 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_EVENTS_HISTORY', NULL, NULl, NULL),
-                (current_timestamp()::TIMESTAMP_NTZ, FALSE, 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', NULL, NULL, NULL),
-                (current_timestamp()::TIMESTAMP_NTZ, NULL, 'SIMPLE_DATA_EVENTS_MAINTENANCE', 'SESSIONS', NULL, NULL, NULL)
+                VALUES
+                    (current_timestamp(), TRUE, 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_EVENTS_HISTORY', NULL, NULl, NULL),
+                    (current_timestamp(), FALSE, 'QUERY_HISTORY_MAINTENANCE', 'QUERY_HISTORY', NULL, NULL, NULL),
+                    (current_timestamp(), NULL, 'SIMPLE_DATA_EVENTS_MAINTENANCE', 'SESSIONS', NULL, NULL, NULL)
             """
             )
 

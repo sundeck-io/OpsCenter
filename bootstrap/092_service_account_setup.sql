@@ -54,7 +54,6 @@ BEGIN
         USER_TASK_MANAGED_INITIAL_WAREHOUSE_SIZE = "XSMALL"
         AS
     declare
-        start_time timestamp_ntz default (select current_timestamp()::TIMESTAMP_NTZ);
         setup_version varchar default internal.get_version();
         task_name text default 'UPGRADE_CHECK';
         root_task_id text default (select INTERNAL.ROOT_TASK_ID());
@@ -62,12 +61,12 @@ BEGIN
     begin
         let query_id text := (select query_id from table(information_schema.task_history(TASK_NAME => :task_name, ROOT_TASK_ID => :root_task_id)) WHERE GRAPH_RUN_GROUP_ID = :task_run_id  AND DATABASE_NAME = current_database() limit 1);
         let input object;
-        CALL INTERNAL.START_TASK(:task_name, :setup_version, :start_time, :task_run_id, :query_id) into :input;
+        CALL INTERNAL.START_TASK(:task_name, :setup_version, :task_run_id, :query_id) into :input;
 
         let output object;
         CALL ADMIN.UPGRADE_CHECK() into :output;
 
-        CALL INTERNAL.FINISH_TASK(:task_name, :setup_version, :start_time, :task_run_id, :output);
+        CALL INTERNAL.FINISH_TASK(:task_name, :setup_version, :task_run_id, :output);
     END;
 
     grant MONITOR, OPERATE on TASK TASKS.UPGRADE_CHECK to APPLICATION ROLE ADMIN;
