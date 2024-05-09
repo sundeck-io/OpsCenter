@@ -1,5 +1,6 @@
 
 
+select 1;
 -- create or replace view CATALOG.BROKERS as
 --  with b as (
 --  select p.value FROM TABLE(FLATTEN(input => parse_json(internal.wrapper_ef_run(object_construct('SQLText', 'SHOW SUNDECK FLOWS'))))) p
