@@ -192,8 +192,8 @@ begin
     end if;
 
     let sql string := 'select column1 as size, column2 as size_numeric
-            from values (\'X-Small\', 1), (\'Small\', 2), (\'Medium\', 3), (\'Large\', 4), (\'X-Large\', 5),
-            (\'2X-Large\', 6), (\'3X-Large\', 7), (\'4X-Large\', 8), (\'5X-Large\', 9), (\'6X-Large\', 10)
+            from values (\'XSMALL\', 1), (\'SMALL\', 2), (\'MEDIUM\', 3), (\'LARGE\', 4), (\'XLARGE\', 5),
+            (\'X2LARGE\', 6), (\'X3LARGE\', 7), (\'X4LARGE\', 8), (\'X5LARGE\', 9), (\'X6LARGE\', 10)
             WHERE size_numeric >= ? AND size_numeric <= ?';
     let rs resultset := (execute immediate sql using (min, max));
 
@@ -229,8 +229,8 @@ begin
     end if;
 
     let sql string := 'select column1 as size, column2 as size_numeric
-            from values (\'X-Small\', 1), (\'Small\', 2), (\'Medium\', 3), (\'Large\', 4), (\'X-Large\', 5),
-            (\'2X-Large\', 6), (\'3X-Large\', 7), (\'4X-Large\', 8), (\'5X-Large\', 9), (\'6X-Large\', 10)
+            from values (\'XSMALL\', 1), (\'SMALL\', 2), (\'MEDIUM\', 3), (\'LARGE\', 4), (\'XLARGE\', 5),
+            (\'X2LARGE\', 6), (\'X3LARGE\', 7), (\'X4LARGE\', 8), (\'X5LARGE\', 9), (\'X6LARGE\', 10)
             WHERE size_numeric >= ? AND size_numeric <= ?';
     let rs resultset := (execute immediate sql using (min, max));
 
