@@ -14,7 +14,7 @@ $$
 $$;
 
 -- prevent confusion with the overloaded procedure defined below
-drop procedure if exists internal.start_task(text, text, timestamp_ntz, text, text);
+drop procedure if exists internal.start_task(text, text, text, text);
 
 -- Inserts a row into TASK_LOG with the time the task started, the name of the object being materialized, the graph run ID and query_id for the task.
 create or replace procedure internal.start_task(task_name text, object_name text, task_run_id text, query_id text,
@@ -32,7 +32,7 @@ BEGIN
     let range_min timestamp_ltz := (select :input['range_min']);
     let range_max timestamp_ltz := (select :input['range_max']);
     INSERT INTO IDENTIFIER(:task_log_table)(task_start, task_run_id, query_id, input, task_name, object_name, range_min, range_max)
-				select current_timestamp(), :task_run_id, :query_id, :input, :task_name, :object_name, :range_min, :range_max;
+        select current_timestamp(), :task_run_id, :query_id, :input, :task_name, :object_name, :range_min, :range_max;
     return input;
 END;
 
@@ -95,7 +95,7 @@ CREATE OR REPLACE PROCEDURE INTERNAL.CLOSE_LOG_FOR_TASK(task_log_table text, que
 AS
 BEGIN
     -- Mark records for the given task_name and object_name that are still "open" (success is null) as having failed.
-    update identifier(:task_log_table)
+    update identifier(:task_log_table) task_log
     set success = false, output = details.output, task_finish = current_timestamp()
     from (
         with open_queries as (

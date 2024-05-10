@@ -446,8 +446,8 @@ def test_close_stale_task_log(conn):
         # Start a new execution of the task "TEST_MAINTENANCE"
         cur.execute(
             f"""
-            CALL INTERNAL.START_TASK('TEST_MAINTENANCE', 'TEST_OBJECT', '2024-05-06 02:00:00'::TIMESTAMP_NTZ,
-                UUID_STRING(), '{new_query_id}', 'INTERNAL.TASK_LOG_TEST', 'INTERNAL.QUERY_HISTORY_TEST')
+            CALL INTERNAL.START_TASK('TEST_MAINTENANCE', 'TEST_OBJECT', UUID_STRING(), '{new_query_id}',
+                'INTERNAL.TASK_LOG_TEST', 'INTERNAL.QUERY_HISTORY_TEST')
         """
         )
 
