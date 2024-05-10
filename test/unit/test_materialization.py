@@ -4,6 +4,7 @@ import time
 
 from snowflake.connector.cursor import DictCursor
 import unittest
+import uuid
 
 TIMESTAMP_PATTERN = "%Y-%m-%d %H:%M:%S.%f %Z"
 
@@ -128,6 +129,7 @@ def test_start_finish_task(conn):
         orig_task_start = rows[0]["TASK_START"]
         assert rows[0]["TASK_RUN_ID"] == run_id
         assert rows[0]["QUERY_ID"] == query_id
+        assert rows[0]["OBJECT_NAME"] == object_name
         for f in [
             "TASK_FINISH",
             "INPUT",
@@ -395,3 +397,79 @@ def test_migrate_old_warehouse_events_log(conn, current_timezone):
             cur.execute(
                 "DELETE FROM INTERNAL.TASK_LOG where task_name = 'WAREHOUSE_EVENTS_MAINTENANCE' and task_start::DATE <= '2020-01-30'::DATE"
             )
+
+
+def test_close_stale_task_log(conn):
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        cur.execute(
+            "CREATE OR REPLACE TABLE INTERNAL.TASK_LOG_TEST LIKE INTERNAL.TASK_LOG"
+        )
+        cur.execute(
+            "CREATE OR REPLACE TABLE INTERNAL.QUERY_HISTORY_TEST LIKE SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY"
+        )
+
+        # Create three rows. One that is success=true and complete, one that is success=null and incomplete, and one that is success=null and running.
+        complete_task_log_query_id = str(uuid.uuid4())
+        failed_task_log_query_id = str(uuid.uuid4())
+        new_query_id = str(uuid.uuid4())
+
+        # a successful, complete row
+        cur.execute(
+            f"""
+            INSERT INTO INTERNAL.TASK_LOG_TEST(task_start, success, input, output, task_finish, task_name, object_name,
+                query_id, task_run_id, range_min, range_max)
+            SELECT '2024-05-06 00:00:00'::TIMESTAMP_LTZ, true, OBJECT_CONSTRUCT(), OBJECT_CONSTRUCT(),
+                '2024-05-06 00:10:00'::TIMESTAMP_LTZ, 'TEST_MAINTENANCE', 'TEST_OBJECT', '{complete_task_log_query_id}',
+                UUID_STRING(), TIMESTAMPADD(day, -1, current_timestamp()), current_timestamp()
+        """
+        )
+
+        # a failed, incomplete row
+        cur.execute(
+            f"""
+            INSERT INTO INTERNAL.TASK_LOG_TEST(task_start, success, input, task_name, object_name,
+                query_id, task_run_id, range_min, range_max)
+            SELECT '2024-05-06 01:00:00'::TIMESTAMP_LTZ, NULL, OBJECT_CONSTRUCT(), 'TEST_MAINTENANCE',
+                'TEST_OBJECT', '{failed_task_log_query_id}', UUID_STRING(), TIMESTAMPADD(day, -1, current_timestamp()),
+                current_timestamp()
+        """
+        )
+
+        # Create some query history rows to match
+        cur.execute(
+            f"""
+            INSERT INTO INTERNAL.QUERY_HISTORY_TEST(query_id, execution_status, start_time)
+            values
+                ('{complete_task_log_query_id}', 'SUCCESS', CURRENT_TIMESTAMP()),
+                ('{failed_task_log_query_id}', 'INCIDENT', CURRENT_TIMESTAMP())
+        """
+        )
+
+        # Start a new execution of the task "TEST_MAINTENANCE"
+        cur.execute(
+            f"""
+            CALL INTERNAL.START_TASK('TEST_MAINTENANCE', 'TEST_OBJECT', UUID_STRING(), '{new_query_id}',
+                'INTERNAL.TASK_LOG_TEST', 'INTERNAL.QUERY_HISTORY_TEST')
+        """
+        )
+
+        # Verify the other task log is closed
+        rows = cur.execute(
+            "select * from internal.task_log_test where success = false"
+        ).fetchall()
+        assert len(rows) == 1, f"Expected 1 row, got {rows}"
+        assert rows[0]["QUERY_ID"] == failed_task_log_query_id
+
+        # Verify we put the query_history details into the OUTPUT object
+        assert rows[0]["OUTPUT"] is not None
+        output = json.loads(rows[0]["OUTPUT"])
+        assert output["EXECUTION_STATUS"] == "INCIDENT", f"Output was {output}"
+        # And the special marker that the row was closed
+        assert output["FORCE_CLOSED"] is True, f"Output was {output}"
+
+        # Verify that we still have the new row
+        rows = cur.execute(
+            "select * from internal.task_log_test where success is null"
+        ).fetchall()
+        assert len(rows) == 1, f"Expected 1 row, got {rows}"
+        assert rows[0]["QUERY_ID"] == new_query_id
