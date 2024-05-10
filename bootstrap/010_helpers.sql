@@ -176,23 +176,32 @@ create or replace procedure tools.create_warehouses_with_sizes(prefix string, mi
     returns string
     language sql
 as
+declare
+    INVALID_WAREHOUSE_SIZE_PARAMS EXCEPTION(-20512, 'Warehouse min_size should be less than max_size');
+    INVALID_WAREHOUSE_PREFIX EXCEPTION(-20513, 'Warehouse predix cannot be empty');
 begin
     let min int := 0;
     let max int := 0;
     call warehouse_size_as_int(:min_size) INTO min;
     call warehouse_size_as_int(:max_size) INTO max;
+    if (min > max) then
+        raise INVALID_WAREHOUSE_SIZE_PARAMS;
+    end if;
+    if (length(:prefix) = 0) then
+        raise INVALID_WAREHOUSE_PREFIX;
+    end if;
 
-    let sql string := 'select column1 as size, column2 as credit
+    let sql string := 'select column1 as size, column2 as size_numeric
             from values (\'X-Small\', 1), (\'Small\', 2), (\'Medium\', 3), (\'Large\', 4), (\'X-Large\', 5),
             (\'2X-Large\', 6), (\'3X-Large\', 7), (\'4X-Large\', 8), (\'5X-Large\', 9), (\'6X-Large\', 10)
-            WHERE credit >= ? AND credit <= ?';
+            WHERE size_numeric >= ? AND size_numeric <= ?';
     let rs resultset := (execute immediate sql using (min, max));
 
     let wh_names string := '';
     let c1 cursor for rs;
     for record in c1 DO
         let wh_name string := :prefix || '_' || record.size;
-        let cmd string := 'CREATE WAREHOUSE IF NOT EXISTS "' || wh_name || '" WITH WAREHOUSE_SIZE =\'' || record.size || '\' AUTO_SUSPEND = 60 INITIALLY_SUSPENDED = TRUE';
+        let cmd string := 'CREATE WAREHOUSE IF NOT EXISTS "' || wh_name || '" WITH WAREHOUSE_SIZE =\'' || record.size || '\' AUTO_SUSPEND = 1 INITIALLY_SUSPENDED = TRUE';
         execute immediate :cmd;
         wh_names := wh_names || ', "' || wh_name || '"';
     end for;
@@ -204,16 +213,25 @@ create or replace procedure tools.drop_warehouses_with_sizes(prefix string, min_
     returns string
     language sql
 as
+declare
+    INVALID_WAREHOUSE_SIZE_PARAMS EXCEPTION(-20512, 'Warehouse min_size should be less than max_size');
+    INVALID_WAREHOUSE_PREFIX EXCEPTION(-20513, 'Warehouse predix cannot be empty');
 begin
     let min int := 0;
     let max int := 0;
     call warehouse_size_as_int(:min_size) INTO min;
     call warehouse_size_as_int(:max_size) INTO max;
+    if (min > max) then
+        raise INVALID_WAREHOUSE_SIZE_PARAMS;
+    end if;
+    if (length(:prefix) = 0) then
+        raise INVALID_WAREHOUSE_PREFIX;
+    end if;
 
-    let sql string := 'select column1 as size, column2 as credit
+    let sql string := 'select column1 as size, column2 as size_numeric
             from values (\'X-Small\', 1), (\'Small\', 2), (\'Medium\', 3), (\'Large\', 4), (\'X-Large\', 5),
             (\'2X-Large\', 6), (\'3X-Large\', 7), (\'4X-Large\', 8), (\'5X-Large\', 9), (\'6X-Large\', 10)
-            WHERE credit >= ? AND credit <= ?';
+            WHERE size_numeric >= ? AND size_numeric <= ?';
     let rs resultset := (execute immediate sql using (min, max));
 
     let wh_names string := '';
