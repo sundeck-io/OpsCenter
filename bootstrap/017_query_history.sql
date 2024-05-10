@@ -182,6 +182,6 @@ where start_time::date = (select max(start_time::date) from internal_reporting_m
 let updates number := (select $1 from table(result_scan(last_query_id())));
 update internal_reporting_mv.query_history_complete_and_daily_incomplete set qtag_filter=tools.qtag_to_map(qtag)
 where start_time::date = (select max(start_time::date) from internal_reporting_mv.query_history_complete_and_daily_incomplete where qtag_filter is null and qtag is not null) and qtag_filter is null and qtag is not null;
-updates := (select $1 from table(result_scan(last_query_id()))) + :updates
+updates := (select $1 from table(result_scan(last_query_id()))) + :updates;
 return updates;
 end;
