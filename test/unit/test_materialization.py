@@ -418,8 +418,8 @@ def test_close_stale_task_log(conn):
             f"""
             INSERT INTO INTERNAL.TASK_LOG_TEST(task_start, success, input, output, task_finish, task_name, object_name,
                 query_id, task_run_id, range_min, range_max)
-            SELECT '2024-05-06 00:00:00'::TIMESTAMP_NTZ, true, OBJECT_CONSTRUCT(), OBJECT_CONSTRUCT(),
-                '2024-05-06 00:10:00'::TIMESTAMP_NTZ, 'TEST_MAINTENANCE', 'TEST_OBJECT', '{complete_task_log_query_id}',
+            SELECT '2024-05-06 00:00:00'::TIMESTAMP_LTZ, true, OBJECT_CONSTRUCT(), OBJECT_CONSTRUCT(),
+                '2024-05-06 00:10:00'::TIMESTAMP_LTZ, 'TEST_MAINTENANCE', 'TEST_OBJECT', '{complete_task_log_query_id}',
                 UUID_STRING(), TIMESTAMPADD(day, -1, current_timestamp()), current_timestamp()
         """
         )
@@ -429,7 +429,7 @@ def test_close_stale_task_log(conn):
             f"""
             INSERT INTO INTERNAL.TASK_LOG_TEST(task_start, success, input, task_name, object_name,
                 query_id, task_run_id, range_min, range_max)
-            SELECT '2024-05-06 01:00:00'::TIMESTAMP_NTZ, NULL, OBJECT_CONSTRUCT(), 'TEST_MAINTENANCE',
+            SELECT '2024-05-06 01:00:00'::TIMESTAMP_LTZ, NULL, OBJECT_CONSTRUCT(), 'TEST_MAINTENANCE',
                 'TEST_OBJECT', '{failed_task_log_query_id}', UUID_STRING(), TIMESTAMPADD(day, -1, current_timestamp()),
                 current_timestamp()
         """
@@ -438,8 +438,10 @@ def test_close_stale_task_log(conn):
         # Create some query history rows to match
         cur.execute(
             f"""
-            INSERT INTO INTERNAL.QUERY_HISTORY_TEST(query_id, execution_status)
-            values ('{complete_task_log_query_id}', 'SUCCESS'), ('{failed_task_log_query_id}', 'INCIDENT')
+            INSERT INTO INTERNAL.QUERY_HISTORY_TEST(query_id, execution_status, start_time)
+            values
+                ('{complete_task_log_query_id}', 'SUCCESS', CURRENT_TIMESTAMP()),
+                ('{failed_task_log_query_id}', 'INCIDENT', CURRENT_TIMESTAMP())
         """
         )
 
