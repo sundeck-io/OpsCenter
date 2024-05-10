@@ -27,7 +27,9 @@ BEGIN
             DATEDIFF('milliseconds', ST, ET) AS DURATION,
             IFF(start_time > end_time, true, false) AS INCOMPLETE,
             START_TIME AS filterts,
-            qh.*
+            qh.*,
+            tools.qtag_to_map(qtag) as qtag_filter
+
         FROM ACCOUNT_USAGE.QUERY_HISTORY AS qh
             LEFT OUTER JOIN INTERNAL_REPORTING.WAREHOUSE_CREDITS_PER_SIZE size ON qh.warehouse_size = size.warehouse_size,
             LATERAL FLATTEN(internal.period_range_plus('day', qh.start_time, qh.end_time)) emt(index)
@@ -39,7 +41,9 @@ END;
 call INTERNAL.create_view_QUERY_HISTORY_COMPLETE_AND_DAILY();
 
 create table internal_reporting_mv.query_history_complete_and_daily_incomplete if not exists  as select * from internal_reporting.query_history_complete_and_daily limit 0;
+alter table internal_reporting_mv.query_history_complete_and_daily_incomplete add column if not exists qtag_filter variant;
 create table internal_reporting_mv.query_history_complete_and_daily if not exists as select * from internal_reporting.query_history_complete_and_daily limit 0;
+alter table internal_reporting_mv.query_history_complete_and_daily add column if not exists qtag_filter variant;
 
 -- sp to create view reporting.enriched_query_history
 CREATE OR REPLACE PROCEDURE INTERNAL.create_view_enriched_query_history()
@@ -53,20 +57,20 @@ BEGIN
         COPY GRANTS
         AS
             select
-                tools.qtag_to_map(qtag) as qtag_filter,
+                qtag_filter,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
                 ST_PERIOD::DATE as ST_DAY,
-                * exclude (period_plus, record_type, unloaded_direct_compute_credits)
+                * exclude (period_plus, record_type, unloaded_direct_compute_credits, qtag_filter)
             -- We may have reversed RECORD_TYPE rows in the materialized table. Filter to the new "correct" RECORD_TYPE and the old "incorrect" RECORD_TYPE.
             from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY')
             union all
             select
-                tools.qtag_to_map(qtag) as qtag_filter,
+                qtag_filter,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
                 ST_PERIOD::DATE as ST_DAY,
-                * exclude (period_plus, record_type, unloaded_direct_compute_credits)
+                * exclude (period_plus, record_type, unloaded_direct_compute_credits, qtag_filter)
             from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE in ('COMPLETE_FIXED', 'DAILY')
             ;
     $$;
@@ -87,19 +91,19 @@ BEGIN
     COPY GRANTS
     as
         select
-                tools.qtag_to_map(qtag) as qtag_filter,
+                qtag_filter,
         case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
                 ST_PERIOD::DATE as ST_DAY,
             -- We may have reversed RECORD_TYPE rows in the materialized table. Filter to the new "correct" RECORD_TYPE and the old "incorrect" RECORD_TYPE.
-            * exclude (period_plus, record_type, unloaded_direct_compute_credits) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE')
+            * exclude (period_plus, record_type, unloaded_direct_compute_credits, qtag_filter) from internal_reporting_mv.query_history_complete_and_daily where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE')
         union all
         select
-                tools.qtag_to_map(qtag) as qtag_filter,
+                qtag_filter,
         case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits * INTERNAL.GET_CREDIT_COST(warehouse_id) as COST,
                 case warehouse_type when 'STANDARD' then 1.0 else 1.5 end * unloaded_direct_compute_credits as unloaded_direct_compute_credits,
                 ST_PERIOD::DATE as ST_DAY,
-            * exclude (period_plus, record_type, unloaded_direct_compute_credits) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE');
+            * exclude (period_plus, record_type, unloaded_direct_compute_credits, qtag_filter) from internal_reporting_mv.query_history_complete_and_daily_incomplete where RECORD_TYPE in ('DAILY_FIXED', 'COMPLETE');
     $$;
     RETURN 'Success';
 END;
@@ -166,3 +170,18 @@ BEGIN
         call internal.set_config(:key, 'true');
     end if;
 END;
+
+create or replace procedure internal.update_qtag_day()
+returns number
+language sql
+comment = 'materialize qtag_filter for a single day until fully backfilled'
+as
+begin
+update internal_reporting_mv.query_history_complete_and_daily set qtag_filter=tools.qtag_to_map(qtag)
+where start_time::date = (select max(start_time::date) from internal_reporting_mv.query_history_complete_and_daily where qtag_filter is null and qtag is not null) and qtag_filter is null and qtag is not null;
+let updates number := (select $1 from table(result_scan(last_query_id())));
+update internal_reporting_mv.query_history_complete_and_daily_incomplete set qtag_filter=tools.qtag_to_map(qtag)
+where start_time::date = (select max(start_time::date) from internal_reporting_mv.query_history_complete_and_daily_incomplete where qtag_filter is null and qtag is not null) and qtag_filter is null and qtag is not null;
+updates := (select $1 from table(result_scan(last_query_id()))) + :updates
+return updates;
+end;
