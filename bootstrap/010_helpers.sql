@@ -178,7 +178,7 @@ create or replace procedure tools.create_warehouses_with_sizes(prefix string, mi
 as
 declare
     INVALID_WAREHOUSE_SIZE_PARAMS EXCEPTION(-20512, 'Warehouse min_size should be less than max_size');
-    INVALID_WAREHOUSE_PREFIX EXCEPTION(-20513, 'Warehouse predix cannot be empty');
+    INVALID_WAREHOUSE_PREFIX EXCEPTION(-20513, 'Warehouse prefix cannot be empty');
 begin
     let min int := 0;
     let max int := 0;
@@ -215,7 +215,7 @@ create or replace procedure tools.drop_warehouses_with_sizes(prefix string, min_
 as
 declare
     INVALID_WAREHOUSE_SIZE_PARAMS EXCEPTION(-20512, 'Warehouse min_size should be less than max_size');
-    INVALID_WAREHOUSE_PREFIX EXCEPTION(-20513, 'Warehouse predix cannot be empty');
+    INVALID_WAREHOUSE_PREFIX EXCEPTION(-20513, 'Warehouse prefix cannot be empty');
 begin
     let min int := 0;
     let max int := 0;
