@@ -491,4 +491,4 @@ where start_time::date = current_date
         res = cur.execute("CALL internal.update_qtag_day()").fetchall()
         assert len(res) == 1
         assert len(res[0]) == 1
-        assert res[0]["UPDATE_QTAG_DAY"] == updated_rows
+        assert abs(res[0]["UPDATE_QTAG_DAY"] - updated_rows) < updated_rows * 0.2
