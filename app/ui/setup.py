@@ -24,6 +24,7 @@ def setup_permissions():
         "EXECUTE TASK",
         "MANAGE WAREHOUSES",
         "IMPORTED PRIVILEGES ON SNOWFLAKE DB",
+        "CREATE WAREHOUSE",
     ]
     missing_privileges = perms.get_missing_account_privileges(privileges)
     logger.debug(f"Missing privileges: {missing_privileges}")
