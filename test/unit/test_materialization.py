@@ -41,20 +41,21 @@ def test_query_history_migration(conn):
         # Verify that the columns are in the correct order after running MIGRATE_QUERIES
         query = (
             "select column_name, data_type from information_schema.columns where table_schema = "
-            + "'INTERNAL_REPORTING_MV' and table_name = 'QUERY_HISTORY_COMPLETE_AND_DAILY' order by ordinal_position desc limit 9;"
+            + "'INTERNAL_REPORTING_MV' and table_name = 'QUERY_HISTORY_COMPLETE_AND_DAILY' order by ordinal_position desc limit 10;"
         )
         rows = cur.execute(query).fetchall()
-        assert rows[-5][0] == "QUERY_PARAMETERIZED_HASH_VERSION"
-        assert rows[-5][1] == "NUMBER"
+        print(rows)
+        assert rows[-4][0] == "QUERY_PARAMETERIZED_HASH_VERSION"
+        assert rows[-4][1] == "NUMBER"
 
-        assert rows[-4][0] == "QUERY_PARAMETERIZED_HASH"
-        assert rows[-4][1] == "TEXT"
+        assert rows[-3][0] == "QUERY_PARAMETERIZED_HASH"
+        assert rows[-3][1] == "TEXT"
 
-        assert rows[-3][0] == "QUERY_HASH_VERSION"
-        assert rows[-3][1] == "NUMBER"
+        assert rows[-2][0] == "QUERY_HASH_VERSION"
+        assert rows[-2][1] == "NUMBER"
 
-        assert rows[-2][0] == "QUERY_HASH"
-        assert rows[-2][1] == "TEXT"
+        assert rows[-1][0] == "QUERY_HASH"
+        assert rows[-1][1] == "TEXT"
 
 
 def test_task_log(conn):
@@ -473,3 +474,22 @@ def test_close_stale_task_log(conn):
         ).fetchall()
         assert len(rows) == 1, f"Expected 1 row, got {rows}"
         assert rows[0]["QUERY_ID"] == new_query_id
+
+
+def test_migrate_qtag(conn, current_timezone):
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        sql = """
+UPDATE internal_reporting_mv.query_history_complete_and_daily{tbl_suffix}
+SET    qtag_filter = NULL
+where start_time::date = current_date
+"""
+        res = cur.execute(sql.format(tbl_suffix="")).fetchall()
+        assert len(res) == 1
+        updated_rows = res[0].get("number of rows updated")
+        assert updated_rows is not None
+
+        res = cur.execute("CALL internal.update_qtag_day()").fetchall()
+        assert len(res) == 1
+        assert len(res[0]) == 1
+        assert res == "foo"
+        assert res[0]["UPDATE_QTAG_DAY"] == updated_rows

@@ -177,11 +177,37 @@ language sql
 comment = 'materialize qtag_filter for a single day until fully backfilled'
 as
 begin
-update internal_reporting_mv.query_history_complete_and_daily set qtag_filter=tools.qtag_to_map(qtag)
-where start_time::date = (select max(start_time::date) from internal_reporting_mv.query_history_complete_and_daily where qtag_filter is null and qtag is not null) and qtag_filter is null and qtag is not null;
-let updates number := (select $1 from table(result_scan(last_query_id())));
-update internal_reporting_mv.query_history_complete_and_daily_incomplete set qtag_filter=tools.qtag_to_map(qtag)
-where start_time::date = (select max(start_time::date) from internal_reporting_mv.query_history_complete_and_daily_incomplete where qtag_filter is null and qtag is not null) and qtag_filter is null and qtag is not null;
+UPDATE internal_reporting_mv.query_history_complete_and_daily
+SET    qtag_filter=tools.qtag_to_map(qtag)
+WHERE  start_time::date =
+       (
+              SELECT max(start_time::date)
+              FROM   internal_reporting_mv.query_history_complete_and_daily
+              WHERE  qtag_filter IS NULL
+              AND    qtag IS NOT NULL)
+AND    qtag_filter IS NULL
+AND    qtag IS NOT NULL;
+
+let updates number :=
+(
+       SELECT $1
+       FROM   TABLE(result_scan(last_query_id())));
+
+
+UPDATE internal_reporting_mv.query_history_complete_and_daily_incomplete
+SET    qtag_filter = tools.qtag_to_map(qtag)
+WHERE  start_time :: DATE = (SELECT Max(start_time :: DATE)
+                             FROM
+              internal_reporting_mv.query_history_complete_and_daily_incomplete
+                             WHERE  qtag_filter IS NULL
+                                    AND qtag IS NOT NULL)
+       AND qtag_filter IS NULL
+       AND qtag IS NOT NULL;
+
 updates := (select $1 from table(result_scan(last_query_id()))) + :updates;
+
 return updates;
+exception
+    when other then
+        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while updating qtag filter column.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
 end;
