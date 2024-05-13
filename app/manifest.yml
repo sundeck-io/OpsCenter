@@ -18,6 +18,8 @@ privileges:
       description: "For enabling/disabling probes and materializing consumption tasks."
   - MANAGE WAREHOUSES:
       description: "For monitoring usage and queries. For cancelling queries based on probe policies."
+  - CREATE WAREHOUSE:
+      description: "To create a warehouse to optimally route queries"
 
 references:
   - opscenter_api_integration:
