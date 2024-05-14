@@ -4,6 +4,7 @@ from .probes import Probe
 from .errors import summarize_error
 from .session import snowpark_session
 from .wh_sched import WarehouseSchedules, WarehouseAlterStatements
+from .warehouse_pools import WarehousePools
 
 # A "registry" of CRUD types and the implementation class
 _TYPES = {
@@ -12,6 +13,7 @@ _TYPES = {
     "QUERY_MONITOR": Probe,
     "WAREHOUSE_SCHEDULES": WarehouseSchedules,
     "WAREHOUSE_ALTER_STATEMENTS": WarehouseAlterStatements,
+    "WAREHOUSE_POOLS": WarehousePools,
 }
 
 
