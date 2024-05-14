@@ -14,9 +14,9 @@ wlist as (
 select count(*) > 0 as wh_exists from table(result_scan(last_query_id(-2))) where "name" = 'SUNDECK_TASK_QUEUE_WH'
 ),
 thist as (
-    select tlist.name, state from tlist left outer join account_usage.task_history th on tlist.id = th.task_id
+    select tlist.name, state, completed_time from tlist left outer join account_usage.task_history th on tlist.id = th.task_id
 ), tstate as (
-    select name, state, row_number() over (partition by name order by state desc) as rn from thist
+    select name, state, row_number() over (partition by name order by completed_time desc) as rn from thist
 ), alltasks as (
 select 'task_queue.' || name as name, state from tstate where rn = 1)
 select case when state = 'SUCCEEDED' then 'drop task if exists ' || name || ';'
