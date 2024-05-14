@@ -14,7 +14,7 @@ wlist as (
 select count(*) > 0 as wh_exists from table(result_scan(last_query_id(-2))) where "name" = 'SUNDECK_TASK_QUEUE_WH'
 ),
 thist as (
-    select tlist.name, state, completed_time from tlist left outer join account_usage.task_history th on tlist.id = th.task_id
+    select tlist.name, state, completed_time from tlist left outer join account_usage.task_history th on tlist.id = th.task_id where th.database_name = current_database() and schema_name='TASK_QUEUE'
 ), tstate as (
     select name, state, row_number() over (partition by name order by completed_time desc) as rn from thist
 ), alltasks as (
@@ -40,7 +40,7 @@ as
 begin
 create task if not exists task_queue.run_tasks_task
 schedule = '1440 minute'
-allow_overlapping_execution=FALSe
+allow_overlapping_execution=FALSE
 USER_TASK_TIMEOUT_MS = 30000
 as
 call task_queue.run_tasks();
@@ -48,7 +48,9 @@ call task_queue.run_tasks();
 create task if not exists task_queue.create_warehouse
 as
 call task_queue.create_warehouse();
+
 end;
+
 create or replace procedure task_queue.create_warehouse()
 returns varchar
 language sql
