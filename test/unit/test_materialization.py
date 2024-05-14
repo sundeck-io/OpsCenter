@@ -8,6 +8,31 @@ import uuid
 
 TIMESTAMP_PATTERN = "%Y-%m-%d %H:%M:%S.%f %Z"
 
+# A list of all of the views that the native app exposes.
+_user_views = [
+    "CLUSTER_SESSIONS",
+    "CLUSTER_SESSIONS_DAILY",
+    "CLUSTER_SESSIONS_HOURLY",
+    "DBT_HISTORY",
+    "ENRICHED_QUERY_HISTORY",
+    "ENRICHED_QUERY_HISTORY_DAILY",
+    "ENRICHED_QUERY_HISTORY_HOURLY",
+    "HYBRID_TABLE_USAGE_HISTORY",
+    "LABELED_QUERY_HISTORY",
+    "LOGIN_HISTORY",
+    "MATERIALIZED_VIEW_REFRESH_HISTORY",
+    "SERVERLESS_TASK_HISTORY",
+    "SESSIONS",
+    "TASK_HISTORY",
+    "WAREHOUSE_DAILY_UTILIZATION",
+    "WAREHOUSE_HOURLY_UTILIZATION",
+    "WAREHOUSE_LOAD_HISTORY",
+    "WAREHOUSE_METERING_HISTORY",
+    "WAREHOUSE_SESSIONS",
+    "WAREHOUSE_SESSIONS_DAILY",
+    "WAREHOUSE_SESSIONS_HOURLY",
+]
+
 
 def test_query_history_migration(conn):
     with conn() as cnx, cnx.cursor() as cur:
@@ -473,3 +498,49 @@ def test_close_stale_task_log(conn):
         ).fetchall()
         assert len(rows) == 1, f"Expected 1 row, got {rows}"
         assert rows[0]["QUERY_ID"] == new_query_id
+
+
+def test_initial_materialization_status(conn):
+    """
+    When the user first installs the native app and has no task_log rows, they should still see
+    materialization_status rows.
+    """
+    with conn() as cnx, cnx.cursor(DictCursor) as cur:
+        try:
+            cur.execute(
+                """
+                BEGIN
+                    CREATE OR REPLACE TABLE INTERNAL.TASK_LOG_TEST LIKE INTERNAL.TASK_LOG;
+                    ALTER TABLE INTERNAL.TASK_LOG SWAP WITH INTERNAL.TASK_LOG_TEST;
+                END;
+            """
+            )
+
+            rows = cur.execute("SELECT * FROM ADMIN.MATERIALIZATION_STATUS").fetchall()
+
+            assert len(rows) >= len(
+                _user_views
+            ), f"Expected at least {len(_user_views)} views, but got {len(rows)}: {rows}"
+
+            for r in rows:
+                assert r["USER_SCHEMA"] == "REPORTING"
+                assert r["USER_VIEW"] in _user_views
+                assert r["RANGE_START"] is None
+                assert r["RANGE_END"] is None
+                assert r["LAST_FULL_START"] is None
+                assert r["LAST_FULL_END"] is None
+
+                assert r["NEXT_TYPE"] == "FULL"
+
+                # We are not currently checking the state of the tasks, but we do try to give an estimated value.
+                assert r["NEXT_STATUS"] == "SCHEDULED"
+                assert r["NEXT_START"] is not None
+        finally:
+            cur.execute(
+                """
+                BEGIN
+                    ALTER TABLE INTERNAL.TASK_LOG SWAP WITH INTERNAL.TASK_LOG_TEST;
+                    DROP TABLE IF EXISTS INTERNAL.TASK_LOG_TEST;
+                END;
+            """
+            )

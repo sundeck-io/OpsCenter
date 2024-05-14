@@ -97,16 +97,18 @@ task_tables as (
         ('REPORTING', 'CLUSTER_SESSIONS_HOURLY', 'WAREHOUSE_EVENTS_MAINTENANCE', 'CLUSTER_SESSIONS', 60),
         ('REPORTING', 'WAREHOUSE_SESSIONS', 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_SESSIONS', 60),
         ('REPORTING', 'WAREHOUSE_SESSIONS_DAILY', 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_SESSIONS', 60),
-        ('REPORTING', 'WAREHOUSE_SESSIONS_HOURLY', 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_SESSIONS', 60)
+        ('REPORTING', 'WAREHOUSE_SESSIONS_HOURLY', 'WAREHOUSE_EVENTS_MAINTENANCE', 'WAREHOUSE_SESSIONS', 60),
+
+        -- Maybe enumerate internal.sfwarehouses to avoid warehouses that have since been deleted rather than NULL object_name
+        ('REPORTING', 'WAREHOUSE_LOAD_HISTORY', 'WAREHOUSE_LOAD_MAINTENANCE', NULL, 420)
     ) as t(user_schema, user_view, task_name, object_name, task_period_mins)
 ),
 
 expanded as (
     select
-        -- WAREHOUSE_LOAD_MAINTENANCE won't join below so we have to statically populate the values from that here.
-        IFF(s.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', 'REPORTING', user_schema) as user_schema,
-        IFF(s.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', 'WAREHOUSE_LOAD_HISTORY', user_view) as user_view,
-        IFF(s.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', s.object_name, null) as partition,
+        user_schema,
+        user_view,
+        s.object_name as partition,
         range_start,
         range_end,
         last_full_start,
@@ -119,16 +121,16 @@ expanded as (
         last_incr_status,
         last_incr_error_message,
         last_incr_query_id,
-        -- 60*7=420mins which is the schedule for WAREHOUSE_LOAD_MAINTENANCE
-        COALESCE(running_start, timestampadd(minutes, coalesce(task_period_mins, 420), last_start)) as next_start,
-        COALESCE(running_type, IFF(last_full_status <> 'SUCCESS', 'FULL', 'INCREMENTAL')) as next_type,
+        COALESCE(running_start, timestampadd(minutes, task_period_mins, COALESCE(last_start, current_timestamp()))) as next_start,
+        COALESCE(running_type, IFF(last_full_status is NULL or last_full_status <> 'SUCCESS', 'FULL', 'INCREMENTAL')) as next_type,
         IFF(running_type is not null, 'EXECUTING', 'SCHEDULED') as next_status,
         running_query_id as next_query_id,
-    from summary_onlyincrpostfull s
-    LEFT JOIN task_tables t on s.task_name = t.task_name and s.object_name = t.object_name
+    from task_tables t
+    -- only include object_name in the join condition for tasks other than WAREHOUSE_LOAD_MAINTENANCE
+    LEFT JOIN summary_onlyincrpostfull s on s.task_name = t.task_name and IFF(t.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', TRUE, s.object_name = t.object_name)
 
     -- exclude non-matching rows other than warehouse load maintenance.
-    WHERE t.task_name is not null OR s.task_name = 'WAREHOUSE_LOAD_MAINTENANCE'
+    WHERE t.task_name is not null
 )
 
 select * from expanded;
