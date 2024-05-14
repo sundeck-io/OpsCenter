@@ -172,42 +172,30 @@ BEGIN
 END;
 
 create or replace procedure internal.update_qtag_day()
-returns number
+returns varchar
 language sql
 comment = 'materialize qtag_filter for a single day until fully backfilled'
 as
 begin
+
+    let res resultset := (
+        SELECT
+            distinct start_time::date as day
+        FROM
+            internal_reporting_mv.query_history_complete_and_daily
+        WHERE
+            qtag_filter IS NULL
+            AND qtag IS NOT NULL
+        ORDER BY day desc
+    );
+    let cur cursor for res;
+    for r in cur do
+        let day date := r.day;
 UPDATE internal_reporting_mv.query_history_complete_and_daily
 SET    qtag_filter=tools.qtag_to_map(qtag)
-WHERE  start_time::date =
-       (
-              SELECT max(start_time::date)
-              FROM   internal_reporting_mv.query_history_complete_and_daily
-              WHERE  qtag_filter IS NULL
-              AND    qtag IS NOT NULL)
-AND    qtag_filter IS NULL
-AND    qtag IS NOT NULL;
-
-let updates number :=
-(
-       SELECT $1
-       FROM   TABLE(result_scan(last_query_id())));
+WHERE  start_time::date = day and qtag_filter is null and qtag is not null;
+;
+    end for;
 
 
-UPDATE internal_reporting_mv.query_history_complete_and_daily_incomplete
-SET    qtag_filter = tools.qtag_to_map(qtag)
-WHERE  start_time :: DATE = (SELECT Max(start_time :: DATE)
-                             FROM
-              internal_reporting_mv.query_history_complete_and_daily_incomplete
-                             WHERE  qtag_filter IS NULL
-                                    AND qtag IS NOT NULL)
-       AND qtag_filter IS NULL
-       AND qtag IS NOT NULL;
-
-updates := (select $1 from table(result_scan(last_query_id()))) + :updates;
-
-return updates;
-exception
-    when other then
-        SYSTEM$LOG_ERROR(OBJECT_CONSTRUCT('error', 'Exception occurred while updating qtag filter column.', 'SQLCODE', :sqlcode, 'SQLERRM', :sqlerrm, 'SQLSTATE', :sqlstate));
 end;

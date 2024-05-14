@@ -474,21 +474,3 @@ def test_close_stale_task_log(conn):
         ).fetchall()
         assert len(rows) == 1, f"Expected 1 row, got {rows}"
         assert rows[0]["QUERY_ID"] == new_query_id
-
-
-def test_migrate_qtag(conn, current_timezone):
-    with conn() as cnx, cnx.cursor(DictCursor) as cur:
-        sql = """
-UPDATE internal_reporting_mv.query_history_complete_and_daily{tbl_suffix}
-SET    qtag_filter = NULL
-where start_time::date = current_date
-"""
-        res = cur.execute(sql.format(tbl_suffix="")).fetchall()
-        assert len(res) == 1
-        updated_rows = res[0].get("number of rows updated")
-        assert updated_rows is not None
-
-        res = cur.execute("CALL internal.update_qtag_day()").fetchall()
-        assert len(res) == 1
-        assert len(res[0]) == 1
-        assert abs(res[0]["UPDATE_QTAG_DAY"] - updated_rows) < updated_rows * 0.2

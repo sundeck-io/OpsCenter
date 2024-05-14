@@ -205,11 +205,6 @@ BEGIN
     let output object;
     CALL INTERNAL.refresh_queries(true, :input) into :output;
 
-    let qtag_updates number;
-    call internal.update_qtag_day() into :qtag_updates;
-
-    output := OBJECT_INSERT(:output, 'updated_query_tag_filters', :qtag_updates);
-
     CALL INTERNAL.FINISH_TASK(:task_name, :object_name, :task_run_id, :output);
 END;
 
@@ -552,6 +547,7 @@ alter task TASKS.SIMPLE_DATA_EVENTS_MAINTENANCE resume;
 alter task TASKS.QUERY_HISTORY_MAINTENANCE resume;
 alter task TASKS.UPGRADE_CHECK resume;
 alter task TASKS.WAREHOUSE_LOAD_MAINTENANCE resume;
+alter task TASK_QUEUE.RUN_TASKS_TASK resume;
 -- Do not enable any warehouse_scheduling tasks. They are programmatically resumed when a warehouse schedule is enabled.
 
 -- Kick off the maintenance tasks.
