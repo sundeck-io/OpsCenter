@@ -128,9 +128,6 @@ expanded as (
     from task_tables t
     -- only include object_name in the join condition for tasks other than WAREHOUSE_LOAD_MAINTENANCE
     LEFT JOIN summary_onlyincrpostfull s on s.task_name = t.task_name and IFF(t.task_name = 'WAREHOUSE_LOAD_MAINTENANCE', TRUE, s.object_name = t.object_name)
-
-    -- exclude non-matching rows other than warehouse load maintenance.
-    WHERE t.task_name is not null
 )
 
 select * from expanded;
