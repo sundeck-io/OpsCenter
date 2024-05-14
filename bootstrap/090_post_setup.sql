@@ -533,6 +533,9 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_SCHEDULING
     call INTERNAL.UPDATE_WAREHOUSE_SCHEDULES(NULL, NULL);
 
 call task_queue.create_tasks();
+create or replace task task_queue.backfill_qtags
+    as
+        call internal.update_qtag();
 
 -- This clarifies that the post setup script has been executed to match the current installed version.
 let version string := (select internal.get_version());
