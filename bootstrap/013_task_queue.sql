@@ -32,6 +32,12 @@ end for;
 
 end;
 
+create or replace procedure task_queue.create_tasks()
+returns varchar
+language sql
+comment='Create tasks for the task queue, this has to be done after we have permissions in the native app'
+as
+begin
 create task if not exists task_queue.run_tasks_task
 schedule = '1440 minute'
 allow_overlapping_execution=FALSe
@@ -39,7 +45,10 @@ USER_TASK_TIMEOUT_MS = 30000
 as
 call task_queue.run_tasks();
 
-
+create task if not exists task_queue.create_warehouse
+as
+call task_queue.create_warehouse();
+end;
 create or replace procedure task_queue.create_warehouse()
 returns varchar
 language sql
@@ -48,7 +57,3 @@ begin
     create warehouse if not exists sundeck_task_queue_wh warehouse_size = XSMALL warehouse_type = STANDARD auto_suspend = 30 auto_resume = true initially_suspended = true;
     return 'Warehouse created';
 end;
-
-create task if not exists task_queue.create_warehouse
-as
-call task_queue.create_warehouse();

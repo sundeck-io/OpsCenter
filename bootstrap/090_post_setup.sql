@@ -532,6 +532,8 @@ CREATE OR REPLACE TASK TASKS.WAREHOUSE_SCHEDULING
     as
     call INTERNAL.UPDATE_WAREHOUSE_SCHEDULES(NULL, NULL);
 
+call task_queue.create_tasks();
+
 -- This clarifies that the post setup script has been executed to match the current installed version.
 let version string := (select internal.get_version());
 call internal.set_config('post_setup', :version);
