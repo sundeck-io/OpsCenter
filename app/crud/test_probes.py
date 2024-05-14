@@ -191,5 +191,85 @@ def test_modified_at_validation():
         )
 
 
+@pytest.mark.parametrize(
+    "tc",
+    [
+        {
+            "others": " josh@domain.io, josh2@domain.io, josh@domain.io ",
+            "duplicates": ["josh@domain.io"],
+        },
+        # We should detect multiple duplicates
+        {
+            "others": " josh@domain.io, josh2@domain.io, josh3@domain.io, josh2@domain.io, josh3@domain.io",
+            "duplicates": ["josh2@domain.io", "josh3@domain.io"],
+        },
+        # Email addresses are not case-sensitive
+        {
+            "others": " josh@domain.io, JOSH@domain.io, Josh@domain.io ",
+            "duplicates": ["josh@domain.io"],
+        },
+    ],
+)
+def test_disallow_duplicate_email_addresses(tc):
+    others = tc["others"]
+    duplicates = tc["duplicates"]
+    with pytest.raises(ValidationError) as ve:
+        _ = Probe.parse_obj(
+            {
+                "name": "probe1",
+                "condition": "1=2",
+                "notify_writer": False,
+                "notify_other_method": NotificationMethod.EMAIL,
+                "notify_other": others,
+                "probe_created_at": datetime.datetime.now(),
+                "probe_modified_at": datetime.datetime.now(),
+            }
+        )
+    for d in duplicates:
+        assert d in str(
+            ve.value
+        ), "Expected to see the duplicated item in the exception's message"
+
+
+@pytest.mark.parametrize(
+    "tc",
+    [
+        {"others": "@Josh, @Josh2, @Josh ", "duplicates": ["@Josh"]},
+        {"others": "#general, #engineering, #general ", "duplicates": ["#general"]},
+        {
+            "others": "@Josh2, josh@domain.io, josh@domain.io",
+            "duplicates": ["josh@domain.io"],
+        },
+        # Should detect multiple duplicate elements
+        {
+            "others": "#general, @Vicky, @Josh, @Vicky, @Josh, #general",
+            "duplicates": ["@Vicky", "@Josh", "#general"],
+        },
+    ],
+)
+def test_disallow_duplicate_slack_addrs(tc):
+    """
+    For slack, we should reject duplicate usernames, duplicate channels, and duplicate email addresses (that resolve to users)
+    """
+    others = tc["others"]
+    duplicates = tc["duplicates"]
+    with pytest.raises(ValidationError) as ve:
+        _ = Probe.parse_obj(
+            {
+                "name": "probe1",
+                "condition": "1=2",
+                "notify_writer": False,
+                "notify_other_method": NotificationMethod.SLACK,
+                "notify_other": others,
+                "probe_created_at": datetime.datetime.now(),
+                "probe_modified_at": datetime.datetime.now(),
+            }
+        )
+    for d in duplicates:
+        assert d in str(
+            ve.value
+        ), "Expected to see the duplicated item in the exception's message"
+
+
 def _expected_condition_verification_sql(p: Probe) -> str:
     return f"select {p.condition}"
