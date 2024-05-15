@@ -1,4 +1,9 @@
-from app.crud.warehouse_pools import WarehousePools, Warehouse
+from app.crud.warehouse_pools import (
+    WarehousePools,
+    Warehouse,
+    is_unquoted_identifier,
+    get_warehouse_name,
+)
 
 
 def _get_warehouse_pool(
@@ -29,3 +34,16 @@ def test_basic_pool(session):
     print(row)
     # write should hit failure
     wh_pool.write(session)
+
+
+def test_valid_quoted_identifiers(session):
+    assert is_unquoted_identifier("WH1") is True
+    assert is_unquoted_identifier("wh1") is True
+    assert is_unquoted_identifier("wh 1") is False
+    assert is_unquoted_identifier("wh + 1") is False
+    assert is_unquoted_identifier('"wh1"') is False
+
+
+def test_get_warehouse_name(session):
+    # 8 hex character + 2 ("SD") + 2 ("_")
+    assert len(get_warehouse_name("POOL1")) == len("POOL1") + 12
