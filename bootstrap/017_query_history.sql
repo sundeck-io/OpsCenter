@@ -178,9 +178,10 @@ comment = 'materialize qtag_filter for a single day until fully backfilled'
 as
 begin
 
+    -- we are doing this one day at a time to avoid excessive full table locks
     let res resultset := (
         SELECT
-            distinct start_time::date as day
+            distinct st_period::date as day
         FROM
             internal_reporting_mv.query_history_complete_and_daily
         WHERE
