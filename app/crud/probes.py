@@ -2,7 +2,7 @@ import datetime
 from enum import Enum
 from pydantic import root_validator, validator
 from snowflake import snowpark
-from typing import ClassVar, Optional
+from typing import ClassVar, Optional, Tuple
 from .base import BaseOpsCenterModel, transaction
 from .session import get_current_session
 
@@ -126,6 +126,11 @@ class Probe(BaseOpsCenterModel):
                 method.upper() in NotificationMethod.__members__
             ), f"Unsupported notification method {method}"
 
+            has_no_dupes, hint = _assert_no_duplicate_destinations(
+                values["notify_other"], NotificationMethod(method)
+            )
+            assert has_no_dupes, f"Others should not contain duplicate entries: {hint}"
+
         return values
 
     @root_validator(allow_reuse=True)
@@ -143,3 +148,24 @@ class Probe(BaseOpsCenterModel):
             assert False, f"Invalid query monitor condition: {e.message}"
 
         return values
+
+
+def _assert_no_duplicate_destinations(
+    destinations: str, method: NotificationMethod
+) -> Tuple[bool, str]:
+    """
+    Tokenizes and trims the elements of `destinations`, checking for any duplicates
+    :destinations: a comma-separated string of destinations.
+    :method: The NotificationMethod for the destinations.
+    :return: True and the empty string there are no duplicates, else False and a user-facing "hint" message.
+    """
+    elems = [d.strip() for d in destinations.split(",")]
+    # Email addresses are case-insensitive, whereas slack destinations are case-sensitive
+    if method == NotificationMethod.EMAIL:
+        elems = [e.lower() for e in elems]
+    set_elems = set(elems)
+    if len(elems) != len(set_elems):
+        duplicates = set([d for d in elems if elems.count(d) > 1])
+        return False, f"Duplicates: {', '.join(duplicates)}"
+
+    return True, ""
